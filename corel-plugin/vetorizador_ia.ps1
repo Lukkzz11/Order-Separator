@@ -365,21 +365,30 @@ $btnLerCorel.Add_Click({
 
     $shape = $sel.Shapes[1]
     $global:origemFormaCorel = $shape
+    try {
+      $global:origemPosW = [double]$shape.SizeWidth
+      $global:origemPosH = [double]$shape.SizeHeight
+      $global:origemPosX = [double]$shape.LeftX
+      $global:origemPosY = [double]$shape.BottomY
+    } catch {
+      $global:origemPosW = 0.0
+    }
 
-    # Exporta para arquivo PNG temporario de alta resolucao
+    # Copia a selecao do CorelDRAW para a Area de Transferencia do Windows
+    $shape.Copy()
+
+    # Le a imagem em alta definicao direto da memoria
+    $clipImg = [System.Windows.Forms.Clipboard]::GetImage()
+    if (-not $clipImg) {
+      throw "Nao foi possivel extrair a imagem da selecao ativa do CorelDRAW."
+    }
+
     $tempDir = [System.IO.Path]::GetTempPath()
     $tempPng = [System.IO.Path]::Combine($tempDir, "corel_trace_temp_$(Get-Random).png")
+    $clipImg.Save($tempPng, [System.Drawing.Imaging.ImageFormat]::Png)
 
-    # ExportFilter no CorelDRAW (cdrPNG = 778 ou export standard)
-    $exp = $corel.ActiveDocument.ExportBitmap($tempPng, 778, 0, 1, 0, 0, 300, 300, 1, $false, $false, $false, $false, 0, $null)
-    $exp.Finish()
-
-    if (Test-Path $tempPng) {
-      CarregarImagemNoPreview $tempPng
-      $lblImgNome.Text = "Capturado da selecao do CorelDRAW"
-    } else {
-      [System.Windows.Forms.MessageBox]::Show("Nao foi possivel exportar a selecao do CorelDRAW.", "Aviso", "OK", "Warning")
-    }
+    CarregarImagemNoPreview $tempPng
+    $lblImgNome.Text = "Capturado da selecao do CorelDRAW ($($clipImg.Width)x$($clipImg.Height) px)"
   } catch {
     [System.Windows.Forms.MessageBox]::Show("Erro ao capturar do Corel: $($_.Exception.Message)", "Erro", "OK", "Error")
   }
@@ -455,7 +464,6 @@ $btnVetorizar.Add_Click({
     $doc.BeginCommandGroup("Vetorizar Imagem com IA")
     try {
       $layer = $doc.ActiveLayer
-      # Constante cdrSVG = 1358 ou importacao automatica pelo caminho .svg
       $imp = $layer.Import($outputSvg)
       $imp.Finish()
 
@@ -463,11 +471,18 @@ $btnVetorizar.Add_Click({
       $sel = $corel.ActiveSelection
       if ($sel.Shapes.Count -gt 0) {
         $vetorGrupo = $sel.Group()
-        $vetorGrupo.CenterX = $doc.ActivePage.CenterX
-        $vetorGrupo.CenterY = $doc.ActivePage.CenterY
+        if ($global:origemPosW -and $global:origemPosW -gt 0) {
+          # Posiciona ao lado da imagem original mantendo o mesmo tamanho exato
+          $vetorGrupo.SetSize($global:origemPosW, $global:origemPosH)
+          $vetorGrupo.LeftX = [double]($global:origemPosX + $global:origemPosW + 2.0)
+          $vetorGrupo.BottomY = [double]$global:origemPosY
+        } else {
+          $vetorGrupo.CenterX = $doc.ActivePage.CenterX
+          $vetorGrupo.CenterY = $doc.ActivePage.CenterY
+        }
       }
 
-      [System.Windows.Forms.MessageBox]::Show("Vetorizacao concluida com sucesso!`n`nO desenho em curvas foi importado e centralizado no CorelDRAW sem nos excessivos e com preenchimentos perfeitos.`n`nVoce ja pode desagrupar, separar cores ou mandar para corte e impressao!", "Sucesso!", "OK", "Information")
+      [System.Windows.Forms.MessageBox]::Show("Vetorizacao concluida com sucesso!`n`nO desenho em curvas foi importado ao lado da imagem original, com o mesmo tamanho e preenchimentos perfeitos sem frestas brancas.`n`nVoce ja pode desagrupar, editar nós ou enviar para producao!", "Sucesso!", "OK", "Information")
     } finally {
       $doc.EndCommandGroup()
       $corel.Refresh()
