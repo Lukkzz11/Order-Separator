@@ -193,9 +193,9 @@ function AtualizarBotoesPresets {
     $btn.FlatStyle = "Flat"
     $btn.FlatAppearance.BorderSize = 0
     $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $val = $p.Val
+    $btn.Tag = [decimal]$p.Val
     $btn.Add_Click({
-      $numLargura.Value = [decimal]$val
+      $numLargura.Value = [decimal]$this.Tag
       AtualizarCalculo
     })
     $pnlPresets.Controls.Add($btn)
@@ -303,6 +303,17 @@ $numQtdGlobal.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
 $numQtdGlobal.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
 $numQtdGlobal.Font = $fontInput
 $pnlQtdGlobal.Controls.Add($numQtdGlobal)
+
+$numQtdGlobal.Add_ValueChanged({
+  $novaQtd = [int]$numQtdGlobal.Value
+  foreach ($a in $global:artesDetectadas) {
+    $a.Qtd = $novaQtd
+    if ($a.Control) {
+      $a.Control.Value = [decimal]$novaQtd
+    }
+  }
+  AtualizarCalculo
+})
 
 $btnAplicarTodas = New-Object System.Windows.Forms.Button
 $btnAplicarTodas.Text = "Aplicar esta Quantidade a Todas as Artes"
@@ -451,6 +462,7 @@ function RenderizarListaArtes {
     $item.Control = $numQtdItem
     
     $numQtdItem.Add_ValueChanged({
+      $item.Qtd = [int]$this.Value
       AtualizarCalculo
     })
     $pnlItem.Controls.Add($numQtdItem)
@@ -459,10 +471,116 @@ function RenderizarListaArtes {
   }
 }
 
+# --- FUNCAO UNIFICADA DE ENCAIXE INTELIGENTE (GANG SHEET PACKING) ---
+function ExecutarPacking {
+  param(
+    $artes,
+    [double]$larguraFolha,
+    [double]$margem,
+    [double]$espaco,
+    [bool]$otimizarGiro
+  )
+
+  $larguraUtil = [Math]::Max(1.0, ($larguraFolha - (2.0 * $margem)))
+  $blocos = @()
+
+  foreach ($a in $artes) {
+    $w = [double]$a.W
+    $h = [double]$a.H
+    $qtd = [int]$a.Qtd
+    if ($qtd -le 0) { continue }
+    $rot = $false
+
+    if ($otimizarGiro) {
+      $cabeNorm = ($w -le $larguraUtil)
+      $cabeRot = ($h -le $larguraUtil)
+
+      if ($cabeRot -and -not $cabeNorm) {
+        $rot = $true
+      } elseif ($cabeNorm -and $cabeRot) {
+        $nNorm = [Math]::Max(1.0, [Math]::Floor(($larguraUtil + $espaco) / ($w + $espaco)))
+        $nRot = [Math]::Max(1.0, [Math]::Floor(($larguraUtil + $espaco) / ($h + $espaco)))
+        $rNorm = [Math]::Ceiling($qtd / $nNorm)
+        $rRot = [Math]::Ceiling($qtd / $nRot)
+        $totHNorm = ($rNorm * $h) + (($rNorm - 1.0) * $espaco)
+        $totHRot = ($rRot * $w) + (($rRot - 1.0) * $espaco)
+        if ($totHRot -lt $totHNorm) {
+          $rot = $true
+        }
+      }
+    }
+
+    $effW = if ($rot) { $h } else { $w }
+    $effH = if ($rot) { $w } else { $h }
+
+    for ($i = 0; $i -lt $qtd; $i++) {
+      $blocos += [PSCustomObject]@{
+        OrigShape = $a.Shape
+        Id = $a.Id
+        W = $effW
+        H = $effH
+        Rot = $rot
+      }
+    }
+  }
+
+  if ($blocos.Count -eq 0) { return $null }
+
+  # Ordena decrescente por altura para criar faixas de corte uniformes (Guillotine Shelf)
+  $ordenados = $blocos | Sort-Object { $_.H } -Descending
+
+  $prateleiras = @()
+  foreach ($b in $ordenados) {
+    $melhorPrat = $null
+    $menorDiffH = 999999.0
+
+    foreach ($p in $prateleiras) {
+      $disp = $larguraUtil - $p.LarguraOcupada
+      if ($disp -ge ($espaco + $b.W)) {
+        $diffH = [Math]::Abs($p.Altura - $b.H)
+        if ($diffH -lt $menorDiffH) {
+          $menorDiffH = $diffH
+          $melhorPrat = $p
+        }
+      }
+    }
+
+    if ($melhorPrat) {
+      $melhorPrat.Itens.Add($b)
+      $melhorPrat.LarguraOcupada += ($espaco + $b.W)
+      if ($b.H -gt $melhorPrat.Altura) {
+        $melhorPrat.Altura = $b.H
+      }
+    } else {
+      $novaPrat = [PSCustomObject]@{
+        Altura = $b.H
+        LarguraOcupada = $b.W
+        Itens = New-Object 'System.Collections.Generic.List[PSCustomObject]'
+      }
+      $novaPrat.Itens.Add($b)
+      $prateleiras += $novaPrat
+    }
+  }
+
+  $altArtesTotal = 0.0
+  for ($i = 0; $i -lt $prateleiras.Count; $i++) {
+    $altArtesTotal += $prateleiras[$i].Altura
+    if ($i -lt ($prateleiras.Count - 1)) {
+      $altArtesTotal += $espaco
+    }
+  }
+
+  return @{
+    Prateleiras = $prateleiras
+    TotalPecas = $blocos.Count
+    TotalLinhas = $prateleiras.Count
+    AlturaArtesTotal = $altArtesTotal
+  }
+}
+
 function AtualizarCalculo {
   if ($global:artesDetectadas.Count -eq 0) { return }
 
-  # Sincroniza quantidades reais digitadas na tela
   foreach ($a in $global:artesDetectadas) {
     if ($a.Control) {
       $a.Qtd = [int]$a.Control.Value
@@ -472,86 +590,18 @@ function AtualizarCalculo {
   $larguraFolha = [double]$numLargura.Value
   $margem = [double]$numMargem.Value
   $espaco = [double]$numEspaco.Value
-  $larguraUtil = $larguraFolha - (2 * $margem)
   $otimizarGiro = $chkGiro.Checked
 
-  $blocos = @()
-  $totalPecas = 0
-  foreach ($arte in $global:artesDetectadas) {
-    for ($k = 0; $k -lt $arte.Qtd; $k++) {
-      $blocos += [PSCustomObject]@{
-        IdOrig = $arte.Id
-        Shape = $arte.Shape
-        W = $arte.W
-        H = $arte.H
-      }
-      $totalPecas++
-    }
-  }
+  $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margem $margem -espaco $espaco -otimizarGiro $otimizarGiro
+  if (-not $res) { return }
 
-  if ($blocos.Count -eq 0) { return }
-
-  # Algoritmo de Prateleiras (Guillotine Shelf Packing)
-  $ordenados = $blocos | Sort-Object { [Math]::Max($_.W, $_.H) } -Descending
-
-  $prateleiras = @()
-  $curShelfW = 0.0
-  $curShelfH = 0.0
-
-  foreach ($b in $ordenados) {
-    $w = $b.W
-    $h = $b.H
-
-    if ($otimizarGiro) {
-      $cabeNormal = ($curShelfW + $w) -le $larguraUtil
-      $cabeGirado = ($curShelfW + $h) -le $larguraUtil
-
-      if ($cabeNormal -and -not $cabeGirado) {
-        # Mantem normal
-      } elseif (-not $cabeNormal -and $cabeGirado) {
-        $w = $b.H
-        $h = $b.W
-      } elseif ($cabeNormal -and $cabeGirado) {
-        if ($b.W -lt $b.H -and ($curShelfW + $b.H) -le $larguraUtil) {
-          $w = $b.H
-          $h = $b.W
-        }
-      } else {
-        if ($b.H -le $larguraUtil -and ($b.W -gt $b.H -or $b.W -gt $larguraUtil)) {
-          $w = $b.H
-          $h = $b.W
-        }
-      }
-    }
-
-    if ($curShelfW -eq 0.0) {
-      $curShelfW = $w
-      $curShelfH = $h
-    } elseif (($curShelfW + $espaco + $w) -le $larguraUtil) {
-      $curShelfW += ($espaco + $w)
-      if ($h -gt $curShelfH) { $curShelfH = $h }
-    } else {
-      $prateleiras += $curShelfH
-      $curShelfW = $w
-      $curShelfH = $h
-    }
-  }
-
-  if ($curShelfH -gt 0) {
-    $prateleiras += $curShelfH
-  }
-
-  $alturaArtes = ($prateleiras | Measure-Object -Sum).Sum + ([Math]::Max(0, ($prateleiras.Count - 1)) * $espaco)
-  $totalLinhas = $prateleiras.Count
-
-  # Altura extra do carimbo na unidade escolhida (cm ou mm)
   $carimboH = if ($chkCarimbo.Checked) {
     if ($rbCm.Checked) { 13.0 } else { 130.0 }
   } else { 0.0 }
 
-  $alturaTotal = $alturaArtes + (2 * $margem) + $carimboH
+  $alturaTotal = $res.AlturaArtesTotal + (2.0 * $margem) + $carimboH
 
-  $lblStatusSelecao.Text = "Total de Desenhos no Projeto: $totalPecas pecas em $totalLinhas faixas de corte"
+  $lblStatusSelecao.Text = "Total de Desenhos no Projeto: $($res.TotalPecas) pecas em $($res.TotalLinhas) faixas de corte"
   $lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
 
   if ($otimizarGiro) {
@@ -573,9 +623,12 @@ function AtualizarCalculo {
   }
 }
 
-# --- EVENTOS DE TROCA DE UNIDADE (cm / mm) ---
+# --- CONTROLE DE ESTADO DA UNIDADE (cm / mm) ---
+$global:unidadeAtual = "cm"
+
 $rbCm.Add_CheckedChanged({
-  if ($rbCm.Checked) {
+  if ($rbCm.Checked -and $global:unidadeAtual -ne "cm") {
+    $global:unidadeAtual = "cm"
     $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
     $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
 
@@ -611,7 +664,8 @@ $rbCm.Add_CheckedChanged({
 })
 
 $rbMm.Add_CheckedChanged({
-  if ($rbMm.Checked) {
+  if ($rbMm.Checked -and $global:unidadeAtual -ne "mm") {
+    $global:unidadeAtual = "mm"
     $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
     $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
 
@@ -675,11 +729,11 @@ $btnDetectar.Add_Click({
     }
 
     # Define unidade do CorelDRAW exatamente igual a unidade da nossa janela
-    # cdrUnitCentimeter = 3, cdrUnitMillimeter = 4
+    # Constantes do CorelDRAW: cdrMillimeter = 3, cdrCentimeter = 4
     if ($rbCm.Checked) {
-      $doc.Unit = 3 # Centimetros
+      $doc.Unit = 4 # Centimetros (cdrCentimeter = 4)
     } else {
-      $doc.Unit = 4 # Milimetros
+      $doc.Unit = 3 # Milimetros (cdrMillimeter = 3)
     }
 
     $sel = $corel.ActiveSelection
@@ -689,7 +743,16 @@ $btnDetectar.Add_Click({
     }
 
     $global:artesDetectadas = @()
+    
+    # Determina a quantidade inicial: se tiver pedido selecionado, usa total de pecas do pedido
     $qtdPadrao = [int]$numQtdGlobal.Value
+    if ($cboPedidos.SelectedIndex -gt 0 -and $pedidosCarregados) {
+      $pSel = $pedidosCarregados[$cboPedidos.SelectedIndex - 1]
+      if ($pSel -and $pSel.totalPecas -and $pSel.totalPecas -gt 0) {
+        $qtdPadrao = [int]$pSel.totalPecas
+        $numQtdGlobal.Value = [decimal]$qtdPadrao
+      }
+    }
 
     # Se a opcao de agrupar estiver ativa ou for 1 unico objeto
     if ($chkAgrupar.Checked -and $sel.Shapes.Count -gt 1) {
@@ -744,11 +807,11 @@ $btnMontar.Add_Click({
       return
     }
 
-    # Sincroniza a unidade no CorelDRAW
+    # Constantes do CorelDRAW: cdrMillimeter = 3, cdrCentimeter = 4
     if ($rbCm.Checked) {
-      $doc.Unit = 3 # Centimetros
+      $doc.Unit = 4 # Centimetros (cdrCentimeter = 4)
     } else {
-      $doc.Unit = 4 # Milimetros
+      $doc.Unit = 3 # Milimetros (cdrMillimeter = 3)
     }
 
     if ($global:artesDetectadas.Count -eq 0) {
@@ -766,228 +829,152 @@ $btnMontar.Add_Click({
     $larguraFolha = [double]$numLargura.Value
     $margem = [double]$numMargem.Value
     $espaco = [double]$numEspaco.Value
-    $larguraUtil = $larguraFolha - (2 * $margem)
     $otimizarGiro = $chkGiro.Checked
     $criarLinhasCorte = $chkLinhasCorte.Checked
 
-    # Prepara a lista expandida de blocos para posicionar
-    $blocosParaPosicionar = @()
-    foreach ($a in $global:artesDetectadas) {
-      for ($c = 0; $c -lt $a.Qtd; $c++) {
-        $blocosParaPosicionar += [PSCustomObject]@{
-          OrigShape = $a.Shape
-          IsFirst = ($c -eq 0)
-          W = [double]$a.W
-          H = [double]$a.H
-          Rotated = $false
-        }
-      }
-    }
-
-    if ($blocosParaPosicionar.Count -eq 0) {
+    $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margem $margem -espaco $espaco -otimizarGiro $otimizarGiro
+    if (-not $res -or $res.TotalPecas -eq 0) {
       [System.Windows.Forms.MessageBox]::Show("Informe ao menos 1 peca na quantidade!", "Aviso", "OK", "Warning")
       return
     }
 
-    # Ordena decrescente por altura (Best-Fit Decreasing Height) para corte guilhotina alinhado
-    $blocosOrdenados = $blocosParaPosicionar | Sort-Object { [Math]::Max($_.W, $_.H) } -Descending
+    $prateleiras = $res.Prateleiras
 
-    # Agrupa em prateleiras (linhas guilhotinadas)
-    $prateleiras = @()
-    $curPratItens = @()
-    $curPratW = 0.0
-    $curPratH = 0.0
-
-    foreach ($b in $blocosOrdenados) {
-      $w = $b.W
-      $h = $b.H
-      $rot = $false
-
-      if ($otimizarGiro) {
-        $cabeNormal = ($curPratW + $w) -le $larguraUtil
-        $cabeGirado = ($curPratW + $h) -le $larguraUtil
-
-        if ($cabeNormal -and -not $cabeGirado) {
-          # Normal
-        } elseif (-not $cabeNormal -and $cabeGirado) {
-          $w = $b.H
-          $h = $b.W
-          $rot = $true
-        } elseif ($cabeNormal -and $cabeGirado) {
-          if ($b.W -lt $b.H -and ($curPratW + $b.H) -le $larguraUtil) {
-            $w = $b.H
-            $h = $b.W
-            $rot = $true
-          }
-        } else {
-          if ($b.H -le $larguraUtil -and ($b.W -gt $b.H -or $b.W -gt $larguraUtil)) {
-            $w = $b.H
-            $h = $b.W
-            $rot = $true
-          }
-        }
-      }
-
-      $itemPos = [PSCustomObject]@{
-        Bloco = $b
-        W = $w
-        H = $h
-        Rot = $rot
-      }
-
-      if ($curPratW -eq 0.0) {
-        $curPratItens += $itemPos
-        $curPratW = $w
-        $curPratH = $h
-      } elseif (($curPratW + $espaco + $w) -le $larguraUtil) {
-        $curPratItens += $itemPos
-        $curPratW += ($espaco + $w)
-        if ($h -gt $curPratH) { $curPratH = $h }
-      } else {
-        $prateleiras += [PSCustomObject]@{
-          Itens = $curPratItens
-          Altura = $curPratH
-        }
-        $curPratItens = @($itemPos)
-        $curPratW = $w
-        $curPratH = $h
-      }
-    }
-
-    if ($curPratItens.Count -gt 0) {
-      $prateleiras += [PSCustomObject]@{
-        Itens = $curPratItens
-        Altura = $curPratH
-      }
-    }
-
-    # Altura total das artes
-    $alturaArtesTotal = 0.0
-    for ($pIdx = 0; $pIdx -lt $prateleiras.Count; $pIdx++) {
-      $alturaArtesTotal += $prateleiras[$pIdx].Altura
-      if ($pIdx -lt ($prateleiras.Count - 1)) {
-        $alturaArtesTotal += $espaco
-      }
-    }
-
-    # Altura do carimbo na unidade ativa
+    # Altura do carimbo na unidade ativa (13 cm ou 130 mm)
     $carimboH = if ($chkCarimbo.Checked) {
       if ($rbCm.Checked) { 13.0 } else { 130.0 }
     } else { 0.0 }
 
-    $alturaTotalFolha = [double]($alturaArtesTotal + (2 * $margem) + $carimboH)
+    $alturaTotalFolha = [double]($res.AlturaArtesTotal + (2.0 * $margem) + $carimboH)
 
-    # Redimensiona a pagina do CorelDRAW com exatidao na unidade do documento
-    $doc.ActivePage.SetSize([double]$larguraFolha, [double]$alturaTotalFolha)
+    # Inicia grupo de comando e otimizacao para execucao ultra-rapida e 1 unico Ctrl+Z
+    $doc.BeginCommandGroup("Montar Gang Sheet")
+    $corel.Optimization = $true
 
-    $layer = $doc.ActivePage.ActiveLayer
+    try {
+      # Redimensiona a pagina do CorelDRAW com exatidao na unidade do documento (cm ou mm)
+      $doc.ActivePage.SetSize([double]$larguraFolha, [double]$alturaTotalFolha)
 
-    # Carimbo Tecnico no Topo
-    if ($chkCarimbo.Checked) {
-      $pSel = if ($cboPedidos.SelectedIndex -gt 0) { $pedidosCarregados[$cboPedidos.SelectedIndex - 1] } else { $null }
-      $leftC = [double]$margem
-      
-      $fundoW = if ($rbCm.Checked) { 26.0 } else { 260.0 }
-      $fundoH = if ($rbCm.Checked) { 11.0 } else { 110.0 }
-      $topoH  = if ($rbCm.Checked) { 2.4 } else { 24.0 }
-      $txtH1  = if ($rbCm.Checked) { 0.85 } else { 8.5 }
-      $txtH2  = if ($rbCm.Checked) { 0.55 } else { 5.5 }
-      $gap1   = if ($rbCm.Checked) { 0.8 } else { 8.0 }
-      $gap2   = if ($rbCm.Checked) { 1.2 } else { 12.0 }
-      $gap3   = if ($rbCm.Checked) { 3.5 } else { 35.0 }
+      $layer = $doc.ActivePage.ActiveLayer
 
-      $bottomC = [double]($alturaTotalFolha - $margem - ($fundoH + 1.0))
-
-      $bgC = $layer.CreateRectangle2($leftC, $bottomC, $fundoW, $fundoH)
-      $bgC.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
-      $bgC.Outline.Color.CMYKAssign(0, 0, 0, 100)
-      $bgC.Outline.Width = 0.5
-      $bgC.Selected = $true
-
-      $hBg = $layer.CreateRectangle2($leftC, ($bottomC + $fundoH - $topoH), $fundoW, $topoH)
-      $hBg.Fill.UniformColor.CMYKAssign(0, 0, 0, 100)
-      $hBg.Outline.Type = 0
-      $hBg.Selected = $true
-
-      $pedNum = if ($pSel) { $pSel.numeroPedido } else { "LOTE MULTI-ARTES" }
-      $cliNome = if ($pSel) { $pSel.clienteNome } else { "GANG SHEET" }
-      $tH = $layer.CreateArtisticText(($leftC + $gap1), ($bottomC + $fundoH - ($topoH * 0.75)), "PEDIDO #$pedNum | CLIENTE: $cliNome")
-      $tH.Text.Story.Font = "Arial Black"
-      $tH.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
-      $tH.SetSize(0, $txtH1)
-      $tH.CenterY = [double]($bottomC + $fundoH - ($topoH / 2.0))
-      $tH.LeftX = [double]($leftC + $gap1)
-      $tH.Selected = $true
-
-      $descEst = if ($pSel) { $pSel.descricaoEstampa } else { "$($blocosParaPosicionar.Count) Pecas" }
-      $uNome = if ($rbCm.Checked) { "cm" } else { "mm" }
-      $tInf = $layer.CreateArtisticText(($leftC + $gap1), ($bottomC + $fundoH - $gap3), "ESTAMPA: $descEst | BOBINA: $larguraFolha $uNome")
-      $tInf.Text.Story.Font = "Arial Black"
-      $tInf.Fill.UniformColor.CMYKAssign(0, 0, 0, 100)
-      $tInf.SetSize(0, $txtH2)
-      $tInf.LeftX = [double]($leftC + $gap1)
-      $tInf.Selected = $true
-
-      $corel.ActiveSelection.Group() | Out-Null
-    }
-
-    # Posicionamento fisico e duplicacao dos blocos
-    $curY = [double]($alturaTotalFolha - $margem - $carimboH)
-    $formasCriadas = @()
-    $linhasCorteY = @()
-
-    foreach ($prat in $prateleiras) {
-      $curX = [double]$margem
-      $pratH = $prat.Altura
-
-      foreach ($it in $prat.Itens) {
-        $orig = $it.Bloco.OrigShape
+      # Carimbo Tecnico no Topo
+      if ($chkCarimbo.Checked) {
+        $pSel = if ($cboPedidos.SelectedIndex -gt 0) { $pedidosCarregados[$cboPedidos.SelectedIndex - 1] } else { $null }
+        $leftC = [double]$margem
         
-        # A primeira peca de cada arte usa a propria arte original; as seguintes sao duplicadas
-        $novaForma = if ($it.Bloco.IsFirst) { $orig } else { $orig.Duplicate([double]0, [double]0) }
-        
-        # Gira 90 graus se otimizado
-        if ($it.Rot) {
-          $novaForma.Rotate([double]90.0)
+        $fundoW = if ($rbCm.Checked) { 26.0 } else { 260.0 }
+        $fundoH = if ($rbCm.Checked) { 11.0 } else { 110.0 }
+        $topoH  = if ($rbCm.Checked) { 2.4 } else { 24.0 }
+        $txtH1  = if ($rbCm.Checked) { 0.85 } else { 8.5 }
+        $txtH2  = if ($rbCm.Checked) { 0.55 } else { 5.5 }
+        $gap1   = if ($rbCm.Checked) { 0.8 } else { 8.0 }
+        $gap2   = if ($rbCm.Checked) { 1.2 } else { 12.0 }
+        $gap3   = if ($rbCm.Checked) { 3.5 } else { 35.0 }
+
+        $bottomC = [double]($alturaTotalFolha - $margem - ($fundoH + 1.0))
+
+        $bgC = $layer.CreateRectangle2($leftC, $bottomC, $fundoW, $fundoH)
+        $bgC.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
+        $bgC.Outline.Color.CMYKAssign(0, 0, 0, 100)
+        $bgC.Outline.Width = 0.5
+        $bgC.Selected = $true
+
+        $hBg = $layer.CreateRectangle2($leftC, ($bottomC + $fundoH - $topoH), $fundoW, $topoH)
+        $hBg.Fill.UniformColor.CMYKAssign(0, 0, 0, 100)
+        $hBg.Outline.Type = 0
+        $hBg.Selected = $true
+
+        $pedNum = if ($pSel) { $pSel.numeroPedido } else { "LOTE MULTI-ARTES" }
+        $cliNome = if ($pSel) { $pSel.clienteNome } else { "GANG SHEET" }
+        $tH = $layer.CreateArtisticText(($leftC + $gap1), ($bottomC + $fundoH - ($topoH * 0.75)), "PEDIDO #$pedNum | CLIENTE: $cliNome")
+        $tH.Text.Story.Font = "Arial Black"
+        $tH.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
+        $tH.SetSize(0, $txtH1)
+        $tH.CenterY = [double]($bottomC + $fundoH - ($topoH / 2.0))
+        $tH.LeftX = [double]($leftC + $gap1)
+        $tH.Selected = $true
+
+        $descEst = if ($pSel) { $pSel.descricaoEstampa } else { "$($res.TotalPecas) Pecas" }
+        $uNome = if ($rbCm.Checked) { "cm" } else { "mm" }
+        $tInf = $layer.CreateArtisticText(($leftC + $gap1), ($bottomC + $fundoH - $gap3), "ESTAMPA: $descEst | BOBINA: $larguraFolha $uNome")
+        $tInf.Text.Story.Font = "Arial Black"
+        $tInf.Fill.UniformColor.CMYKAssign(0, 0, 0, 100)
+        $tInf.SetSize(0, $txtH2)
+        $tInf.LeftX = [double]($leftC + $gap1)
+        $tInf.Selected = $true
+
+        $corel.ActiveSelection.Group() | Out-Null
+      }
+
+      # Posicionamento fisico e duplicacao limpa dos blocos
+      $curY = [double]($alturaTotalFolha - $margem - $carimboH)
+      $formasCriadas = @()
+      $linhasCorteY = @()
+
+      foreach ($prat in $prateleiras) {
+        $curX = [double]$margem
+        $pratH = [double]$prat.Altura
+
+        foreach ($it in $prat.Itens) {
+          $orig = $it.OrigShape
+          
+          # Duplica a partir do objeto original limpo (sem nunca alterar o original)
+          $novaForma = $orig.Duplicate([double]0, [double]0)
+          
+          # Gira 90 graus na copia se a otimizacao definiu giro
+          if ($it.Rot) {
+            $novaForma.Rotate([double]90.0)
+          }
+
+          # Alinha na grade com corredor de tesoura perfeito
+          $targetY = [double]($curY - $it.H)
+          $novaForma.LeftX = [double]$curX
+          $novaForma.BottomY = [double]$targetY
+
+          $formasCriadas += $novaForma
+          $curX += ($it.W + $espaco)
         }
 
-        # Alinha na grade com corredor de tesoura perfeito
-        $targetY = [double]($curY - $it.H)
-        $novaForma.LeftX = [double]$curX
-        $novaForma.BottomY = [double]$targetY
-
-        $formasCriadas += $novaForma
-        $curX += ($it.W + $espaco)
+        # Ponto médio do vão entre prateleiras para a linha de corte de tesoura
+        $linhasCorteY += ($curY - $pratH - ($espaco / 2.0))
+        $curY -= ($pratH + $espaco)
       }
 
-      # Ponto médio do vão entre prateleiras para a linha de corte de tesoura
-      $linhasCorteY += ($curY - $pratH - ($espaco / 2.0))
-      $curY -= ($pratH + $espaco)
-    }
-
-    # Cria Linhas-Guia Discretas para Corte com Tesoura
-    if ($criarLinhasCorte -and $linhasCorteY.Count -gt 1) {
-      $tamLinha = if ($rbCm.Checked) { 0.02 } else { 0.2 }
-      for ($lIdx = 0; $lIdx -lt ($linhasCorteY.Count - 1); $lIdx++) {
-        $corteY = [double]$linhasCorteY[$lIdx]
-        $lineH = $layer.CreateLineSegment([double]$margem, $corteY, [double]($larguraFolha - $margem), $corteY)
-        $lineH.Outline.Width = $tamLinha
-        $lineH.Outline.Color.CMYKAssign(0, 0, 0, 30) # Cinza suave
-        $formasCriadas += $lineH
+      # Cria Linhas-Guia Discretas para Corte com Tesoura
+      if ($criarLinhasCorte -and $linhasCorteY.Count -gt 1) {
+        $tamLinha = if ($rbCm.Checked) { 0.02 } else { 0.2 }
+        for ($lIdx = 0; $lIdx -lt ($linhasCorteY.Count - 1); $lIdx++) {
+          $corteY = [double]$linhasCorteY[$lIdx]
+          $lineH = $layer.CreateLineSegment([double]$margem, $corteY, [double]($larguraFolha - $margem), $corteY)
+          $lineH.Outline.Width = $tamLinha
+          $lineH.Outline.Color.CMYKAssign(0, 0, 0, 30) # Cinza suave
+          $formasCriadas += $lineH
+        }
       }
-    }
 
-    # Agrupa todo o lote montado para facilitar mover se quiser
-    $doc.ClearSelection()
-    foreach ($f in $formasCriadas) {
-      $f.Selected = $true
-    }
-    $corel.ActiveSelection.Group() | Out-Null
+      # Remove as formas originais para que fiquem apenas as copias montadas na folha
+      foreach ($a in $global:artesDetectadas) {
+        if ($a.Shape) {
+          try { $a.Shape.Delete() } catch {}
+        }
+      }
 
-    $uExt = if ($rbCm.Checked) { "cm" } else { "mm" }
-    $mFim = if ($rbCm.Checked) { [Math]::Round(($alturaTotalFolha / 100.0), 2) } else { [Math]::Round(($alturaTotalFolha / 1000.0), 2) }
-    
-    [System.Windows.Forms.MessageBox]::Show("Folha montada e otimizada com sucesso no CorelDRAW!`n`n- Total de Estampas: $($blocosParaPosicionar.Count) pecas`n- Faixas de Corte: $($prateleiras.Count) linhas retas`n- Largura da Folha: $larguraFolha $uExt`n- Metragem Total da Bobina: $alturaTotalFolha $uExt ($mFim metros)`n- Corredores de tesoura aplicados com precisao!", "Sucesso!", "OK", "Information")
+      # Agrupa todo o lote montado para facilitar mover se quiser
+      $doc.ClearSelection()
+      foreach ($f in $formasCriadas) {
+        $f.Selected = $true
+      }
+      $corel.ActiveSelection.Group() | Out-Null
+
+      $uExt = if ($rbCm.Checked) { "cm" } else { "mm" }
+      $mFim = if ($rbCm.Checked) { [Math]::Round(($alturaTotalFolha / 100.0), 2) } else { [Math]::Round(($alturaTotalFolha / 1000.0), 2) }
+      
+      [System.Windows.Forms.MessageBox]::Show("Folha montada e otimizada com sucesso no CorelDRAW!`n`n- Total de Estampas: $($res.TotalPecas) pecas`n- Faixas de Corte: $($prateleiras.Count) linhas retas`n- Largura da Folha: $larguraFolha $uExt`n- Metragem Total da Bobina: $alturaTotalFolha $uExt ($mFim metros)`n- Corredores de tesoura aplicados com precisao!`n`nDica: Caso queira desfazer a montagem, basta teclar Ctrl+Z no CorelDRAW.", "Sucesso!", "OK", "Information")
+    } finally {
+      $corel.Optimization = $false
+      $doc.EndCommandGroup()
+      $corel.Refresh()
+    }
   } catch {
     [System.Windows.Forms.MessageBox]::Show("Erro ao montar folha otimizada: $($_.Exception.Message)", "Erro", "OK", "Error")
   }
