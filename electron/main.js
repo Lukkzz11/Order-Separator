@@ -325,14 +325,15 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
       tamanhosComPeca = ['PP', 'P', 'M', 'G', 'GG'];
     }
 
-    const sizesItens = tamanhosComPeca.map(t => `@{ Nome = "${t}"; Qtd = ${Number(gradePedido[t]) || 0} }`);
-    sizesItens.push(`@{ Nome = "TOTAL"; Qtd = ${Number(pedido.totalPecas) || 0} }`);
+    const sizesItens = tamanhosComPeca.map(t => `@{ Nome = "${t}"; Qtd = ${Number(gradePedido[t]) || 0}; IsTotal = $false }`);
+    sizesItens.push(`@{ Nome = "TOTAL"; Qtd = ${Number(pedido.totalPecas) || 0}; IsTotal = $true }`);
     const psSizesArray = `@(\n          ${sizesItens.join(',\n          ')}\n        )`;
 
     const qtdCaixas = sizesItens.length;
     const boxW = 38;
+    const totalBoxW = 56;
     const gap = 4;
-    const cardW = Math.max(260, (qtdCaixas * (boxW + gap)) + 16);
+    const cardW = Math.max(260, ((qtdCaixas - 1) * (boxW + gap)) + totalBoxW + 24);
 
     const psScript = `
       try {
@@ -343,7 +344,7 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
         } else {
           $doc = $corel.ActiveDocument
         }
-        $doc.Unit = 4 # cdrMillimeter
+        $doc.Unit = 3 # cdrMillimeter = 3
         $layer = $doc.ActiveLayer
 
         $cx = $doc.ActivePage.CenterX
@@ -397,20 +398,21 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
 
         # 5. Caixas da Grade de Tamanhos
         $gridY = $bottom + (${hasObs ? 20 : 10})
-        $boxW = 38
         $boxH = 50
         $gap = 4
         $startX = $left + 8
+        $curX = $startX
 
         $sizes = ${psSizesArray}
 
         for ($i = 0; $i -lt $sizes.Count; $i++) {
           $item = $sizes[$i]
-          $bx = $startX + ($i * ($boxW + $gap))
+          $curBoxW = if ($item.IsTotal) { 56 } else { 38 }
+          $bx = $curX
           
-          $box = $layer.CreateRectangle2($bx, $gridY, $boxW, $boxH)
-          if ($item.Nome -eq "TOTAL") {
-            $box.Fill.UniformColor.CMYKAssign(0, 0, 0, 18)
+          $box = $layer.CreateRectangle2($bx, $gridY, $curBoxW, $boxH)
+          if ($item.IsTotal) {
+            $box.Fill.UniformColor.CMYKAssign(0, 0, 0, 15)
             $box.Outline.Width = 1.0
           } else {
             $box.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
@@ -419,23 +421,31 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
           $box.Outline.Color.CMYKAssign(0, 0, 0, 100)
           $box.Selected = $true
 
-          # Letra do Tamanho (7.5mm de altura real)
+          # Letra do Tamanho (7.5mm) - Auto-ajuste para NUNCA sair da caixa
           $tSize = $layer.CreateArtisticText($bx, $gridY, $item.Nome)
           $tSize.Text.Story.Font = "Arial Black"
           $tSize.Fill.UniformColor.CMYKAssign(0, 0, 0, 85)
           $tSize.SetSize(0, 7.5)
-          $tSize.CenterX = $bx + ($boxW / 2)
+          if ($tSize.SizeWidth -gt ($curBoxW - 6)) {
+            $tSize.SetSize(($curBoxW - 6), 0)
+          }
+          $tSize.CenterX = $bx + ($curBoxW / 2)
           $tSize.CenterY = $gridY + 38
           $tSize.Selected = $true
 
-          # Numero da Quantidade GIGANTE (18mm de altura real)
+          # Numero da Quantidade (18mm) - Auto-ajuste para NUNCA sair da caixa
           $tQtd = $layer.CreateArtisticText($bx, $gridY, [string]$item.Qtd)
           $tQtd.Text.Story.Font = "Arial Black"
           $tQtd.Fill.UniformColor.CMYKAssign(0, 0, 0, 100)
           $tQtd.SetSize(0, 18.0)
-          $tQtd.CenterX = $bx + ($boxW / 2)
+          if ($tQtd.SizeWidth -gt ($curBoxW - 8)) {
+            $tQtd.SetSize(($curBoxW - 8), 0)
+          }
+          $tQtd.CenterX = $bx + ($curBoxW / 2)
           $tQtd.CenterY = $gridY + 16
           $tQtd.Selected = $true
+
+          $curX += ($curBoxW + $gap)
         }
 
         # 6. Observacoes se houver (4.5mm de altura real)
@@ -536,6 +546,45 @@ ipcMain.handle('corel:abrirMontador', async () => {
   }
 
   return { sucesso: false, erro: 'Script do montador de folha não foi encontrado nos caminhos do sistema.' };
+});
+
+// 11.1 Abrir Vetorizador Profissional CorelDRAW (Dual-Splines / IA)
+ipcMain.handle('corel:abrirVetorizador', async () => {
+  const { execFile } = require('child_process');
+
+  const caminhosPossiveis = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'vetorizador_ia.ps1') : null,
+    path.join(__dirname, '..', 'corel-plugin', 'vetorizador_ia.ps1'),
+    path.join(app.getAppPath(), 'corel-plugin', 'vetorizador_ia.ps1'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'corel-plugin', 'vetorizador_ia.ps1'),
+    path.join(path.dirname(app.getPath('exe')), '..', '..', 'corel-plugin', 'vetorizador_ia.ps1'),
+    'E:\\estamparia-manager\\corel-plugin\\vetorizador_ia.ps1',
+    path.join(app.getPath('userData'), 'vetorizador_ia.ps1')
+  ].filter(Boolean);
+
+  let scriptEncontrado = null;
+  for (const c of caminhosPossiveis) {
+    if (fs.existsSync(c)) {
+      scriptEncontrado = c;
+      break;
+    }
+  }
+
+  if (scriptEncontrado) {
+    execFile('powershell.exe', [
+      '-ExecutionPolicy', 'Bypass',
+      '-NoProfile',
+      '-WindowStyle', 'Hidden',
+      '-File', scriptEncontrado
+    ], (err) => {
+      if (err) {
+        console.error('Erro na execução do vetorizador:', err);
+      }
+    });
+    return { sucesso: true, caminho: scriptEncontrado };
+  }
+
+  return { sucesso: false, erro: 'Script do vetorizador não foi encontrado nos caminhos do sistema.' };
 });
 
 // 12. Criar Subpasta do Pedido no Explorer e Organizar Arquivos

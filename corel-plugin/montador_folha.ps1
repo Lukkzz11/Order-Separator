@@ -547,12 +547,11 @@ function ExecutarPacking {
         $melhorEscala = 1.0
       }
 
-      # Teste 2: Se AutoFit ativo, testa margem compacta (0.35cm ou 3.5mm) e espaco compacto (0.25cm ou 2.5mm)
+      # Teste 2: Se AutoFit ativo, adapta a margem da folha (mantendo rigorosamente o espaco de tesoura escolhido)
       if ($autoFit) {
         $mMin = if ($rbCm.Checked) { 0.35 } else { 3.5 }
-        $eMin = if ($rbCm.Checked) { 0.25 } else { 2.5 }
         $lUtilTest = $larguraFolha - (2.0 * $mMin)
-        $cols2 = [int][Math]::Floor([Math]::Round((($lUtilTest + $eMin + 0.01) / ($curW + $eMin)), 4))
+        $cols2 = [int][Math]::Floor([Math]::Round((($lUtilTest + $espaco + 0.01) / ($curW + $espaco)), 4))
         if ($cols2 -gt $melhorCols) {
           $melhorCols = $cols2
           $melhorRot = $tryRot
@@ -560,12 +559,12 @@ function ExecutarPacking {
           $melhorH = $curH
           $melhorEscala = 1.0
           $melhorMarg = $mMin
-          $melhorEsp = $eMin
+          $melhorEsp = $espaco
         }
 
         # Teste 3: Se AutoEscala ativa e cabe apenas 1 coluna, testa reduzir ate 2.5% para encaixar 2 colunas
         if ($autoEscala -and $melhorCols -eq 1) {
-          $wMaxPara2 = ($lUtilTest - $eMin) / 2.0
+          $wMaxPara2 = ($lUtilTest - $espaco) / 2.0
           if ($curW -gt $wMaxPara2) {
             $fEscala = $wMaxPara2 / $curW
             $redPct = (1.0 - $fEscala) * 100.0
@@ -576,7 +575,7 @@ function ExecutarPacking {
               $melhorW = $curW * $fEscala
               $melhorH = $curH * $fEscala
               $melhorMarg = $mMin
-              $melhorEsp = $eMin
+              $melhorEsp = $espaco
               $infoAjustes += "Desenho #$($a.Id): Auto-ajustado $(- [Math]::Round($redPct, 1))% para encaixar 2 colunas na folha"
             }
           }
@@ -585,7 +584,6 @@ function ExecutarPacking {
     }
 
     if ($melhorMarg -lt $margem) { $margem = $melhorMarg }
-    if ($melhorEsp -lt $espaco) { $espaco = $melhorEsp }
     $larguraUtil = [Math]::Max(1.0, ($larguraFolha - (2.0 * $margem)))
 
     $artesOtimizadas += [PSCustomObject]@{
@@ -619,11 +617,11 @@ function ExecutarPacking {
         Itens = New-Object 'System.Collections.Generic.List[PSCustomObject]'
       }
 
-      # 1. Preenche a prateleira com pecas da arte principal
+      # 1. Preenche a prateleira com pecas da arte principal respeitando o espaco para tesoura
       while ($artePrincipal.QtdRestante -gt 0) {
-        $disp = $larguraUtil - $novaPrat.LarguraOcupada
-        $precisa = if ($novaPrat.LarguraOcupada -eq 0.0) { $artePrincipal.W } else { $espaco + $artePrincipal.W }
-        if (($disp + 0.01) -ge $precisa) {
+        $itemX = if ($novaPrat.LarguraOcupada -eq 0.0) { 0.0 } else { $novaPrat.LarguraOcupada + $espaco }
+        $disp = $larguraUtil - $itemX
+        if (($disp + 0.01) -ge $artePrincipal.W) {
           $novaPrat.Itens.Add([PSCustomObject]@{
             ArteId = $artePrincipal.Id
             OrigShape = $artePrincipal.Shape
@@ -631,11 +629,11 @@ function ExecutarPacking {
             H = $artePrincipal.H
             Rot = $artePrincipal.Rot
             Escala = $artePrincipal.Escala
-            SubX = $novaPrat.LarguraOcupada
+            SubX = $itemX
             SubY = 0.0
             IsSubItem = $false
           })
-          $novaPrat.LarguraOcupada += $precisa
+          $novaPrat.LarguraOcupada = $itemX + $artePrincipal.W
           $artePrincipal.QtdRestante--
           $totalPecasColocadas++
         } else {

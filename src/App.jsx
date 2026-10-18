@@ -220,6 +220,23 @@ export default function App() {
     }
   };
 
+  // Abrir Vetorizador Profissional CorelDRAW
+  const abrirVetorizadorCorel = async () => {
+    if (!window.electronAPI || !window.electronAPI.abrirVetorizadorCorel) {
+      avisar('erro', 'Vetorizador CorelDRAW indisponível.');
+      return;
+    }
+    avisar('sucesso', 'Abrindo janela do Vetorizador Profissional no CorelDRAW...');
+    try {
+      const res = await window.electronAPI.abrirVetorizadorCorel();
+      if (!res.sucesso) {
+        avisar('erro', `Falha ao abrir vetorizador: ${res.erro}`);
+      }
+    } catch (e) {
+      avisar('erro', 'Erro ao abrir vetorizador: ' + e.message);
+    }
+  };
+
   // Funções de Checklist de Separação
   const abrirSeparacao = (pedido) => {
     setModalSeparacao(pedido);
@@ -755,8 +772,9 @@ export default function App() {
             </button>
 
             {/* Atalho Especial: Ferramentas CorelDRAW */}
-            <div className="pt-3 border-t border-slate-800/80">
+            <div className="pt-3 border-t border-slate-800/80 space-y-2">
               <span className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Ferramentas Corel</span>
+              
               <button
                 type="button"
                 onClick={abrirMontadorCorel}
@@ -769,6 +787,21 @@ export default function App() {
                 </div>
                 <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
                   Janela
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={abrirVetorizadorCorel}
+                title="Abrir Vetorizador Profissional de Imagens (Alta Precisão / Dual-Splines / IA) no CorelDRAW"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-indigo-300 border border-indigo-600/30 hover:border-indigo-500/50 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Sparkles className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                  <span>Vetorizador IA</span>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">
+                  Curvas
                 </span>
               </button>
             </div>
