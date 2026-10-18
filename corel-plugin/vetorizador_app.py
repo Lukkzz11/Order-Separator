@@ -8,7 +8,7 @@ Qualidade Superior ao Corel PowerTRACE e Adobe Illustrator Image Trace:
 - Camadas recortadas para plotter de recorte
 - Modo monocromático para fotolito de Silk Screen
 - Remoção inteligente de fundo branco/bounding box
-- Integração direta e instantânea com o CorelDRAW via COM
+- Extração direta via API CorelDRAW (sem usar área de transferência, 100% seguro contra antivírus)
 """
 
 import sys
@@ -19,17 +19,10 @@ import tempfile
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-from PIL import Image, ImageTk, ImageGrab
+from PIL import Image, ImageTk
 import numpy as np
 import cv2
 import vtracer
-
-# Tenta habilitar DPI awareness no Windows
-try:
-    import ctypes
-    ctypes.windll.shcore.SetProcessDpiAwareness(1)
-except Exception:
-    pass
 
 # =========================================================================
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
@@ -189,7 +182,6 @@ def postprocess_svg(svg_path, remove_bg=False, unify_colors=True):
             if fill_m and d_m:
                 fill = fill_m.group(1).upper()
                 d_val = d_m.group(1)
-                # Verifica se é fundo branco ou cobre a prancheta
                 if fill in ('#FFFFFF', '#FDFDFD', '#FEFEFE', '#FAFAFA', '#F5F5F5'):
                     if "M0 0" in d_val and (str(int(svg_w)) in d_val or str(int(svg_h)) in d_val):
                         svg_content = svg_content.replace(first_path, '', 1)
@@ -251,13 +243,13 @@ def execute_vectorization(
                 pass
 
 # =========================================================================
-# INTERFACE GRÁFICA PROFISSIONAL (TKINTER MODERNO)
+# INTERFACE GRÁFICA PROFISSIONAL (TKINTER NATIVO)
 # =========================================================================
 
 class VetorizadorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Order Separator - Vetorizador Profissional de Estamparia")
+        self.root.title("Order Separator - Vetorizador Profissional")
         self.root.geometry("560x780")
         self.root.resizable(False, False)
         self.root.attributes('-topmost', True)
@@ -516,7 +508,6 @@ class VetorizadorApp:
             w, h = pil_img.size
             size_kb = round(os.path.getsize(path) / 1024, 1)
 
-            # Redimensiona para o thumbnail
             pil_thumb = pil_img.copy()
             pil_thumb.thumbnail((88, 88), Image.Resampling.LANCZOS)
             self.preview_image_tk = ImageTk.PhotoImage(pil_thumb)
@@ -539,14 +530,19 @@ class VetorizadorApp:
             self.carregar_imagem_no_preview(f)
 
     def capturar_corel(self):
+        """
+        Extrai o bitmap diretamente via COM ExportEx do CorelDRAW.
+        SEM USAR ÁREA DE TRANSFERÊNCIA (zero falsos positivos em antivírus).
+        """
         try:
             import win32com.client
-            corel = win32com.client.Dispatch("CorelDRAW.Application.24")
+            corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
             if not corel.ActiveDocument:
                 messagebox.showwarning("Aviso", "Abra um documento no CorelDRAW primeiro!")
                 return
 
-            sel = corel.ActiveSelection
+            doc = corel.ActiveDocument
+            sel = doc.ActiveSelection
             if sel.Shapes.Count == 0:
                 messagebox.showwarning("Aviso", "Selecione uma imagem bitmap ou desenho no CorelDRAW!")
                 return
@@ -560,21 +556,29 @@ class VetorizadorApp:
             except Exception:
                 self.orig_w = 0.0
 
-            # Copia a seleção do CorelDRAW para a área de transferência
-            shape.Copy()
-
-            clip_img = ImageGrab.grabclipboard()
-            if not clip_img:
-                raise ValueError("Não foi possível extrair a imagem da seleção ativa do CorelDRAW.")
-
+            # Exporta diretamente para PNG temporário com alta definição (sem clipboard)
             temp_dir = tempfile.gettempdir()
-            temp_png = os.path.join(temp_dir, f"corel_trace_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
-            clip_img.save(temp_png, format="PNG")
+            temp_png = os.path.join(temp_dir, f"corel_art_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
+
+            opt = corel.CreateStructExportOptions()
+            opt.SizeX = 1400
+            opt.SizeY = 1400
+            opt.MaintainAspect = True
+            opt.Transparent = True
+            pal = corel.CreateStructPaletteOptions()
+
+            # cdrFilterPNG = 774, cdrSelection = 1
+            exp = doc.ExportEx(temp_png, 774, 1, opt, pal)
+            if exp:
+                exp.Finish()
+
+            if not os.path.exists(temp_png):
+                raise ValueError("O CorelDRAW não gerou o arquivo temporário da seleção.")
 
             self.carregar_imagem_no_preview(temp_png)
-            self.lbl_img_nome.configure(text=f"Capturado do CorelDRAW ({clip_img.width}x{clip_img.height} px)")
+            self.lbl_img_nome.configure(text=f"Capturado do CorelDRAW (Alta Resolução)")
         except Exception as e:
-            messagebox.showerror("Erro ao capturar do CorelDRAW", f"Não foi possível capturar o bitmap selecionado: {e}")
+            messagebox.showerror("Erro ao capturar do CorelDRAW", f"Não foi possível capturar a seleção:\n{e}")
 
     def iniciar_vetorizacao(self):
         if not self.current_img_path or not os.path.exists(self.current_img_path):
@@ -584,12 +588,10 @@ class VetorizadorApp:
         self.btn_vetorizar.configure(state="disabled", text="Processando Dual-Splines e Paleta Pura...", bg="#3730A3")
         self.lbl_status.configure(text="Aplicando K-Means, eliminando ruídos e traçando curvas...", fg="#F59E0B")
         
-        # Executa em thread separada para não travar a interface
         threading.Thread(target=self._processar_thread, daemon=True).start()
 
     def _processar_thread(self):
         try:
-            # Obtém parâmetros da GUI
             sel_colors_txt = self.cb_colors.get()
             colors_arg = "auto"
             m = re.match(r'^(\d+)', sel_colors_txt)
@@ -624,11 +626,10 @@ class VetorizadorApp:
                 unify_colors=harmonize
             )
 
-            # Importa para o CorelDRAW
             self.root.after(0, lambda: self.lbl_status.configure(text="Importando vetor para a página do CorelDRAW...", fg="#818CF8"))
             
             import win32com.client
-            corel = win32com.client.Dispatch("CorelDRAW.Application.24")
+            corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
             if not corel.ActiveDocument:
                 doc = corel.CreateDocument()
             else:
