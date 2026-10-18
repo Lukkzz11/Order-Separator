@@ -27,7 +27,7 @@ $fontBtn = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontSt
 
 # Header
 $lblHeader = New-Object System.Windows.Forms.Label
-$lblHeader.Text = "⚡ Montador de Folha / Bobina"
+$lblHeader.Text = "Montador de Folha / Bobina (Gang Sheet)"
 $lblHeader.Font = $fontTitle
 $lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
 $lblHeader.Location = New-Object System.Drawing.Point(20, 15)
@@ -257,7 +257,7 @@ function AtualizarCalculo {
 
 # Botão Detectar Seleção
 $btnDetectar = New-Object System.Windows.Forms.Button
-$btnDetectar.Text = "🔍 1. Ler Arte Selecionada no CorelDRAW"
+$btnDetectar.Text = "1. Ler Arte Selecionada no CorelDRAW"
 $btnDetectar.Font = $fontBtn
 $btnDetectar.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $btnDetectar.ForeColor = [System.Drawing.Color]::White
@@ -286,7 +286,7 @@ $btnDetectar.Add_Click({
     $global:arteDetectadaW = [double]$sel.SizeWidth
     $global:arteDetectadaH = [double]$sel.SizeHeight
 
-    $lblInfoArte.Text = "Arte Detectada: " + [Math]::Round($global:arteDetectadaW, 1) + "mm × " + [Math]::Round($global:arteDetectadaH, 1) + "mm"
+    $lblInfoArte.Text = "Arte Detectada: " + [Math]::Round($global:arteDetectadaW, 1) + "mm x " + [Math]::Round($global:arteDetectadaH, 1) + "mm"
     $lblInfoArte.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
     AtualizarCalculo
   } catch {
@@ -296,7 +296,7 @@ $btnDetectar.Add_Click({
 
 # Botão Executar Montagem
 $btnMontar = New-Object System.Windows.Forms.Button
-$btnMontar.Text = "⚡ 2. MONTAR FOLHA AGORA (GANG SHEET)"
+$btnMontar.Text = "2. MONTAR FOLHA AGORA (GANG SHEET)"
 $btnMontar.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
 $btnMontar.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo 600
 $btnMontar.ForeColor = [System.Drawing.Color]::White
@@ -420,7 +420,7 @@ $btnMontar.Add_Click({
     }
     $corel.ActiveSelection.Group() | Out-Null
 
-    [System.Windows.Forms.MessageBox]::Show("Folha montada com sucesso no CorelDRAW!`n`n• Total de Estampas: $quantidade`n• Colunas: $colunas por linha`n• Linhas: $linhas`n• Metragem Total: " + [Math]::Round($alturaTotal / 10, 1) + " cm", "Sucesso!", "OK", "Information")
+    [System.Windows.Forms.MessageBox]::Show("Folha montada com sucesso no CorelDRAW!`n`n- Total de Estampas: $quantidade`n- Colunas: $colunas por linha`n- Linhas: $linhas`n- Metragem Total: " + [Math]::Round($alturaTotal / 10, 1) + " cm", "Sucesso!", "OK", "Information")
   } catch {
     [System.Windows.Forms.MessageBox]::Show("Erro ao montar folha: $($_.Exception.Message)", "Erro", "OK", "Error")
   }
