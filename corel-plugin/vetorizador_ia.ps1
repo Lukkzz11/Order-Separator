@@ -34,7 +34,7 @@ $fontSmall  = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.Font
 
 # --- CABECALHO ---
 $lblHeader = New-Object System.Windows.Forms.Label
-$lblHeader.Text = "Vetorizador de Imagens (Alta Precisão)"
+$lblHeader.Text = "Vetorizador de Imagens (Alta Precisao)"
 $lblHeader.Font = $fontTitle
 $lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
 $lblHeader.Location = New-Object System.Drawing.Point(20, 12)
@@ -42,7 +42,7 @@ $lblHeader.Size = New-Object System.Drawing.Size(485, 24)
 $form.Controls.Add($lblHeader)
 
 $lblSub = New-Object System.Windows.Forms.Label
-$lblSub.Text = "Motor Dual-Spline: Sem frestas brancas, curvas ultra-suaves e nós otimizados"
+$lblSub.Text = "Motor Dual-Spline: Sem frestas brancas, curvas ultra-suaves e nos otimizados"
 $lblSub.Font = $fontStats
 $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
 $lblSub.Location = New-Object System.Drawing.Point(20, 36)
@@ -58,7 +58,7 @@ $pnlOrigem.BorderStyle = "FixedSingle"
 $form.Controls.Add($pnlOrigem)
 
 $btnLerCorel = New-Object System.Windows.Forms.Button
-$btnLerCorel.Text = "📸 Capturar Bitmap Selecionado no CorelDRAW"
+$btnLerCorel.Text = "[CorelDRAW] Capturar Bitmap Selecionado"
 $btnLerCorel.Font = $fontBtn
 $btnLerCorel.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $btnLerCorel.ForeColor = [System.Drawing.Color]::White
@@ -70,7 +70,7 @@ $btnLerCorel.Cursor = [System.Windows.Forms.Cursors]::Hand
 $pnlOrigem.Controls.Add($btnLerCorel)
 
 $btnArquivo = New-Object System.Windows.Forms.Button
-$btnArquivo.Text = "📁 Escolher Arquivo de Imagem no Computador..."
+$btnArquivo.Text = "[Arquivo] Escolher Imagem no Computador..."
 $btnArquivo.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
 $btnArquivo.BackColor = [System.Drawing.Color]::FromArgb(24, 33, 56)
 $btnArquivo.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
@@ -115,7 +115,7 @@ $pnlInfoImg.Controls.Add($lblImgDimensoes)
 
 # --- PRESETS DE ESTAMPARIA ---
 $lblPreset = New-Object System.Windows.Forms.Label
-$lblPreset.Text = "Modo de Vetorização (Presets Especializados):"
+$lblPreset.Text = "Modo de Vetorizacao (Presets Especializados):"
 $lblPreset.Font = $fontLabel
 $lblPreset.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
 $lblPreset.Location = New-Object System.Drawing.Point(20, 290)
@@ -128,10 +128,10 @@ $pnlPresetBtns.Size = New-Object System.Drawing.Size(485, 34)
 $form.Controls.Add($pnlPresetBtns)
 
 $presets = @(
-  @{ Id = "dtf"; Nome = "DTF / Sublimação"; Desc = "Multicores, camadas sobrepostas sem linhas brancas no filme" },
+  @{ Id = "dtf"; Nome = "DTF / Sublimacao"; Desc = "Multicores, camadas sobrepostas sem linhas brancas no filme" },
   @{ Id = "silk"; Nome = "Silk Screen (1 Cor)"; Desc = "Preto e branco puro, curvas ultra limpas para fotolito/telas" },
-  @{ Id = "logo"; Nome = "Logo & Arte Chapada"; Desc = "Cores sólidas reduzidas, cantos vivos retos e nós mínimos" },
-  @{ Id = "alta_definicao"; Nome = "Alta Definição"; Desc = "Máxima fidelidade para desenhos e ilustrações complexas" }
+  @{ Id = "logo"; Nome = "Logo & Arte Chapada"; Desc = "Cores solidas reduzidas, cantos vivos retos e nos minimos" },
+  @{ Id = "alta_definicao"; Nome = "Alta Definicao"; Desc = "Maxima fidelidade para desenhos e ilustracoes complexas" }
 )
 
 $global:presetAtivo = "dtf"
@@ -181,9 +181,9 @@ $pnlControles.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
 $pnlControles.BorderStyle = "FixedSingle"
 $form.Controls.Add($pnlControles)
 
-# 1. Filtro Anti-Ruído
+# 1. Filtro Anti-Ruido
 $lblSpeckle = New-Object System.Windows.Forms.Label
-$lblSpeckle.Text = "Filtro Anti-Ruído (elimina micropontos e poeira):"
+$lblSpeckle.Text = "Filtro Anti-Ruido (elimina micropontos e poeira):"
 $lblSpeckle.Font = $fontLabel
 $lblSpeckle.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
 $lblSpeckle.Location = New-Object System.Drawing.Point(12, 10)
@@ -201,9 +201,9 @@ $numSpeckle.ForeColor = [System.Drawing.Color]::White
 $numSpeckle.Font = $fontInput
 $pnlControles.Controls.Add($numSpeckle)
 
-# 2. Precisão / Quantidade de Cores
+# 2. Precisao / Quantidade de Cores
 $lblPrecision = New-Object System.Windows.Forms.Label
-$lblPrecision.Text = "Precisão e Quantidade de Cores (1 a 8):"
+$lblPrecision.Text = "Precisao e Quantidade de Cores (1 a 8):"
 $lblPrecision.Font = $fontLabel
 $lblPrecision.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
 $lblPrecision.Location = New-Object System.Drawing.Point(12, 42)
@@ -223,7 +223,7 @@ $pnlControles.Controls.Add($numPrecision)
 
 # 3. Limiar de Canto Vivo (Corner Threshold)
 $lblCorner = New-Object System.Windows.Forms.Label
-$lblCorner.Text = "Rigidez de Cantos Vivos (20° a 90°):"
+$lblCorner.Text = "Rigidez de Cantos Vivos (20 a 90 graus):"
 $lblCorner.Font = $fontLabel
 $lblCorner.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
 $lblCorner.Location = New-Object System.Drawing.Point(12, 74)
@@ -243,7 +243,7 @@ $pnlControles.Controls.Add($numCorner)
 
 # 4. Checkbox de Upscaling Anti-Escadinha
 $chkUpscale = New-Object System.Windows.Forms.CheckBox
-$chkUpscale.Text = "Super-Resolução Inteligente (elimina escadinhas de pixels em imagens pequenas)"
+$chkUpscale.Text = "Super-Resolucao Inteligente (elimina escadinhas de pixels em imagens pequenas)"
 $chkUpscale.Font = $fontSmall
 $chkUpscale.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
 $chkUpscale.Location = New-Object System.Drawing.Point(12, 108)
@@ -252,9 +252,9 @@ $chkUpscale.Checked = $true
 $chkUpscale.Cursor = [System.Windows.Forms.Cursors]::Hand
 $pnlControles.Controls.Add($chkUpscale)
 
-# 5. Checkbox de Sobreposição Sem Frestas (Hierarchical Stacked)
+# 5. Checkbox de Sobreposicao Sem Frestas (Hierarchical Stacked)
 $chkStacked = New-Object System.Windows.Forms.CheckBox
-$chkStacked.Text = "Camadas Sobrepostas (zero frestas brancas na junção de cores para estamparia)"
+$chkStacked.Text = "Camadas Sobrepostas (zero frestas brancas na juncao de cores para estamparia)"
 $chkStacked.Font = $fontSmall
 $chkStacked.ForeColor = [System.Drawing.Color]::FromArgb(103, 232, 249) # Cyan
 $chkStacked.Location = New-Object System.Drawing.Point(12, 134)
@@ -304,7 +304,7 @@ $form.Controls.Add($lblStatusProgresso)
 
 # --- BOTAO PRINCIPAL DE VETORIZACAO ---
 $btnVetorizar = New-Object System.Windows.Forms.Button
-$btnVetorizar.Text = "⚡ VETORIZAR E ENVIAR PARA O CORELDRAW"
+$btnVetorizar.Text = "VETORIZAR E ENVIAR PARA O CORELDRAW"
 $btnVetorizar.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
 $btnVetorizar.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo 600
 $btnVetorizar.ForeColor = [System.Drawing.Color]::White
@@ -340,7 +340,7 @@ function CarregarImagemNoPreview($caminho) {
     $lblImgNome.Text = "$nome ($($img.Width) x $($img.Height) px - $tamKb KB)"
     $lblImgNome.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
 
-    $lblImgDimensoes.Text = "Imagem carregada e pronta para conversão vetorial de alta fidelidade."
+    $lblImgDimensoes.Text = "Imagem carregada e pronta para conversao vetorial de alta fidelidade."
     $lblStatusProgresso.Text = "Imagem pronta. Escolha o preset e clique em Vetorizar!"
     $lblStatusProgresso.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
   } catch {
@@ -366,7 +366,7 @@ $btnLerCorel.Add_Click({
     $shape = $sel.Shapes[1]
     $global:origemFormaCorel = $shape
 
-    # Exporta para arquivo PNG temporário de alta resolução
+    # Exporta para arquivo PNG temporario de alta resolucao
     $tempDir = [System.IO.Path]::GetTempPath()
     $tempPng = [System.IO.Path]::Combine($tempDir, "corel_trace_temp_$(Get-Random).png")
 
@@ -376,9 +376,9 @@ $btnLerCorel.Add_Click({
 
     if (Test-Path $tempPng) {
       CarregarImagemNoPreview $tempPng
-      $lblImgNome.Text = "Capturado da seleção do CorelDRAW"
+      $lblImgNome.Text = "Capturado da selecao do CorelDRAW"
     } else {
-      [System.Windows.Forms.MessageBox]::Show("Não foi possível exportar a seleção do CorelDRAW.", "Aviso", "OK", "Warning")
+      [System.Windows.Forms.MessageBox]::Show("Nao foi possivel exportar a selecao do CorelDRAW.", "Aviso", "OK", "Warning")
     }
   } catch {
     [System.Windows.Forms.MessageBox]::Show("Erro ao capturar do Corel: $($_.Exception.Message)", "Erro", "OK", "Error")
@@ -393,7 +393,7 @@ $btnVetorizar.Add_Click({
   }
 
   $btnVetorizar.Enabled = $false
-  $btnVetorizar.Text = "⏳ Processando Dual-Splines e Vetorizando..."
+  $btnVetorizar.Text = "Processando Dual-Splines e Vetorizando..."
   $lblStatusProgresso.Text = "Otimizando curvas e gerando vetores limpos..."
   $lblStatusProgresso.ForeColor = [System.Drawing.Color]::FromArgb(251, 191, 36)
   $form.Refresh()
@@ -439,11 +439,11 @@ $btnVetorizar.Add_Click({
     $proc.WaitForExit()
 
     if ($proc.ExitCode -ne 0 -or -not (Test-Path $outputSvg)) {
-      throw "Falha na vetorização: $stderr $stdout"
+      throw "Falha na vetorizacao: $stderr $stdout"
     }
 
     # Agora importa o arquivo SVG gerado diretamente para o CorelDRAW!
-    $lblStatusProgresso.Text = "Importando vetor para a página do CorelDRAW..."
+    $lblStatusProgresso.Text = "Importando vetor para a pagina do CorelDRAW..."
     $form.Refresh()
 
     $corel = New-Object -ComObject "CorelDRAW.Application.24"
@@ -467,21 +467,21 @@ $btnVetorizar.Add_Click({
         $vetorGrupo.CenterY = $doc.ActivePage.CenterY
       }
 
-      [System.Windows.Forms.MessageBox]::Show("Vetorização concluída com sucesso!`n`nO desenho em curvas foi importado e centralizado no CorelDRAW sem nós excessivos e com preenchimentos perfeitos.`n`nVocê já pode desagrupar, separar cores ou mandar para corte e impressão!", "Sucesso!", "OK", "Information")
+      [System.Windows.Forms.MessageBox]::Show("Vetorizacao concluida com sucesso!`n`nO desenho em curvas foi importado e centralizado no CorelDRAW sem nos excessivos e com preenchimentos perfeitos.`n`nVoce ja pode desagrupar, separar cores ou mandar para corte e impressao!", "Sucesso!", "OK", "Information")
     } finally {
       $doc.EndCommandGroup()
       $corel.Refresh()
     }
 
-    $lblStatusProgresso.Text = "Concluído com sucesso! Vetor importado no CorelDRAW."
+    $lblStatusProgresso.Text = "Concluido com sucesso! Vetor importado no CorelDRAW."
     $lblStatusProgresso.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
   } catch {
-    [System.Windows.Forms.MessageBox]::Show("Erro na vetorização: $($_.Exception.Message)", "Erro", "OK", "Error")
-    $lblStatusProgresso.Text = "Erro durante a vetorização."
+    [System.Windows.Forms.MessageBox]::Show("Erro na vetorizacao: $($_.Exception.Message)", "Erro", "OK", "Error")
+    $lblStatusProgresso.Text = "Erro durante a vetorizacao."
     $lblStatusProgresso.ForeColor = [System.Drawing.Color]::FromArgb(239, 68, 68)
   } finally {
     $btnVetorizar.Enabled = $true
-    $btnVetorizar.Text = "⚡ VETORIZAR E ENVIAR PARA O CORELDRAW"
+    $btnVetorizar.Text = "VETORIZAR E ENVIAR PARA O CORELDRAW"
   }
 })
 
