@@ -29,7 +29,13 @@ import {
   Scissors,
   ImagePlus,
   ImageIcon,
-  Eye
+  Eye,
+  Copy,
+  Edit3,
+  CheckSquare,
+  FolderPlus,
+  Grid,
+  Sparkles
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -61,6 +67,9 @@ export default function App() {
   const [notificacao, setNotificacao] = useState(null);
   const [modalConfirmacao, setModalConfirmacao] = useState(null);
   const [imagemModal, setImagemModal] = useState(null); // Preview em tela cheia da estampa
+  const [modoEdicaoId, setModoEdicaoId] = useState(null);
+  const [modalSeparacao, setModalSeparacao] = useState(null);
+  const [itensConferidos, setItensConferidos] = useState({});
 
   // Formulário de Clientes
   const [clienteForm, setClienteForm] = useState({
@@ -109,6 +118,7 @@ export default function App() {
 
   // Gerar número de pedido sequencial automático
   const prepararNovoPedido = () => {
+    setModoEdicaoId(null);
     const proximoNumero = pedidos.length > 0 
       ? Math.max(...pedidos.map(p => Number(p.numeroPedido) || 0)) + 1 
       : 1001;
@@ -128,6 +138,112 @@ export default function App() {
       observacoes: ''
     });
     setAbaAtiva('novo-pedido');
+  };
+
+  // Iniciar Edição de Pedido Existente
+  const iniciarEdicaoPedido = (pedido) => {
+    setModoEdicaoId(pedido.id);
+    setPedidoForm({
+      clienteId: pedido.clienteId || '',
+      numeroPedido: pedido.numeroPedido || '',
+      descricaoEstampa: pedido.descricaoEstampa || '',
+      tipoTecido: pedido.tipoTecido || 'Algodão 30.1 Penteado',
+      corTecido: pedido.corTecido || 'Preta',
+      posicaoEstampa: pedido.posicaoEstampa || 'Frente + Costas',
+      dataEntrega: pedido.dataEntrega || '',
+      grade: { ...criarGradeVazia(), ...(pedido.grade || {}) },
+      imagens: Array.isArray(pedido.imagens) ? [...pedido.imagens] : [],
+      observacoes: pedido.observacoes || ''
+    });
+    setAbaAtiva('novo-pedido');
+    avisar('sucesso', `Editando Pedido #${pedido.numeroPedido}`);
+  };
+
+  // Duplicar Pedido existente com novo número
+  const duplicarPedido = (pedido) => {
+    setModoEdicaoId(null);
+    const proximoNumero = pedidos.length > 0 
+      ? Math.max(...pedidos.map(p => Number(p.numeroPedido) || 0)) + 1 
+      : 1001;
+
+    const dataSugerida = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    setPedidoForm({
+      clienteId: pedido.clienteId || '',
+      numeroPedido: String(proximoNumero),
+      descricaoEstampa: pedido.descricaoEstampa ? `${pedido.descricaoEstampa} (Cópia)` : '',
+      tipoTecido: pedido.tipoTecido || 'Algodão 30.1 Penteado',
+      corTecido: pedido.corTecido || 'Preta',
+      posicaoEstampa: pedido.posicaoEstampa || 'Frente + Costas',
+      dataEntrega: dataSugerida,
+      grade: { ...criarGradeVazia(), ...(pedido.grade || {}) },
+      imagens: Array.isArray(pedido.imagens) ? [...pedido.imagens] : [],
+      observacoes: pedido.observacoes || ''
+    });
+    setAbaAtiva('novo-pedido');
+    avisar('sucesso', `Pedido duplicado como rascunho com o número #${proximoNumero}!`);
+  };
+
+  // Criar Pasta Organizada do Projeto no Windows Explorer
+  const criarPastaProjeto = async (pedido) => {
+    if (!window.electronAPI || !window.electronAPI.criarPastaPedido) {
+      avisar('erro', 'Recurso de pasta de projeto indisponível.');
+      return;
+    }
+    avisar('sucesso', `Organizando pasta do Pedido #${pedido.numeroPedido}...`);
+    try {
+      const res = await window.electronAPI.criarPastaPedido(pedido);
+      if (res.sucesso) {
+        avisar('sucesso', `Pasta criada e aberta: ${res.caminho}`);
+      } else {
+        avisar('erro', `Erro ao criar pasta: ${res.erro}`);
+      }
+    } catch (e) {
+      avisar('erro', 'Erro: ' + e.message);
+    }
+  };
+
+  // Abrir Montador de Folha Flutuante CorelDRAW
+  const abrirMontadorCorel = async () => {
+    if (!window.electronAPI || !window.electronAPI.abrirMontadorCorel) {
+      avisar('erro', 'Montador de Folhas CorelDRAW indisponível.');
+      return;
+    }
+    avisar('sucesso', 'Abrindo janela do Montador de Folha no CorelDRAW...');
+    try {
+      const res = await window.electronAPI.abrirMontadorCorel();
+      if (!res.sucesso) {
+        avisar('erro', `Falha ao abrir montador: ${res.erro}`);
+      }
+    } catch (e) {
+      avisar('erro', 'Erro ao abrir montador: ' + e.message);
+    }
+  };
+
+  // Funções de Checklist de Separação
+  const abrirSeparacao = (pedido) => {
+    setModalSeparacao(pedido);
+    setItensConferidos(prev => ({
+      ...prev,
+      [pedido.id]: prev[pedido.id] || {}
+    }));
+  };
+
+  const alternarItemSeparado = (pedidoId, tamanho) => {
+    setItensConferidos(prev => {
+      const checks = { ...(prev[pedidoId] || {}) };
+      checks[tamanho] = !checks[tamanho];
+      return {
+        ...prev,
+        [pedidoId]: checks
+      };
+    });
+  };
+
+  const concluirSeparacao = async (pedido) => {
+    await mudarStatusPedido(pedido.id, 'Pronto');
+    avisar('sucesso', `🎉 Separação do Pedido #${pedido.numeroPedido} concluída e marcado como Pronto!`);
+    setModalSeparacao(null);
   };
 
   // Selecionar imagens da estampa
@@ -234,7 +350,7 @@ export default function App() {
     });
   };
 
-  // Salvar Pedido
+  // Salvar Pedido (Novo ou Edição)
   const handleSalvarPedido = async (e) => {
     e.preventDefault();
     if (!pedidoForm.clienteId) {
@@ -247,24 +363,29 @@ export default function App() {
     }
 
     const clienteSelecionado = clientes.find(c => c.id === pedidoForm.clienteId);
+    const pedidoExistente = modoEdicaoId ? pedidos.find(p => p.id === modoEdicaoId) : null;
 
-    const novoPedido = {
+    const pedidoSalvar = {
       ...pedidoForm,
-      id: Date.now().toString(),
+      id: modoEdicaoId || Date.now().toString(),
       clienteNome: clienteSelecionado ? clienteSelecionado.nome : 'Cliente Avulso',
       clienteLoja: clienteSelecionado ? clienteSelecionado.loja : '',
       clientePasta: clienteSelecionado ? clienteSelecionado.pastaDiretorio : '',
       totalPecas,
-      dataCriacao: new Date().toISOString(),
-      status: 'Aguardando Produção'
+      dataCriacao: pedidoExistente?.dataCriacao || new Date().toISOString(),
+      status: pedidoExistente?.status || 'Aguardando Produção'
     };
 
     if (window.electronAPI) {
       try {
-        const resposta = await window.electronAPI.salvarPedido(novoPedido);
+        const resposta = await window.electronAPI.salvarPedido(pedidoSalvar);
         if (resposta.sucesso) {
           setPedidos(resposta.pedidos);
-          avisar('sucesso', `Pedido #${novoPedido.numeroPedido} gravado com sucesso! Arquivo JSON gerado na pasta do cliente.`);
+          avisar('sucesso', modoEdicaoId 
+            ? `Pedido #${pedidoSalvar.numeroPedido} atualizado com sucesso!`
+            : `Pedido #${pedidoSalvar.numeroPedido} gravado com sucesso! Arquivo JSON gerado na pasta do cliente.`
+          );
+          setModoEdicaoId(null);
           setAbaAtiva('pedidos');
         }
       } catch (err) {
@@ -456,6 +577,117 @@ export default function App() {
         </div>
       )}
 
+      {/* ================= MODAL DE CONFERÊNCIA DE SEPARAÇÃO ================= */}
+      {modalSeparacao && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="text-indigo-400 font-mono font-black text-xl bg-indigo-950 border border-indigo-800 px-3 py-1 rounded-xl">
+                    #{modalSeparacao.numeroPedido}
+                  </span>
+                  <h3 className="font-extrabold text-xl text-white">Checklist de Separação</h3>
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Cliente: <strong className="text-slate-200">{modalSeparacao.clienteNome}</strong> • Estampa: <strong className="text-slate-200">{modalSeparacao.descricaoEstampa || 'Sem descrição'}</strong>
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Tecido: <strong className="text-slate-200">{modalSeparacao.tipoTecido} ({modalSeparacao.corTecido})</strong> • Posição: <strong className="text-slate-200">{modalSeparacao.posicaoEstampa}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setModalSeparacao(null)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Progresso de Separação */}
+            {(() => {
+              const tamanhosComPecas = Object.entries(modalSeparacao.grade || {}).filter(([_, qtd]) => Number(qtd) > 0);
+              const checksDoPedido = itensConferidos[modalSeparacao.id] || {};
+              const qtdConferidos = tamanhosComPecas.filter(([tam]) => checksDoPedido[tam]).length;
+              const totalTamanhos = tamanhosComPecas.length;
+              const porcentagem = totalTamanhos > 0 ? Math.round((qtdConferidos / totalTamanhos) * 100) : 0;
+              const todosConferidos = totalTamanhos > 0 && qtdConferidos === totalTamanhos;
+
+              return (
+                <div className="space-y-4">
+                  <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="text-slate-400">Progresso de Separação:</span>
+                      <span className="text-indigo-400 font-mono font-bold">{qtdConferidos} de {totalTamanhos} tamanhos conferidos ({porcentagem}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-300 ${todosConferidos ? 'bg-emerald-500' : 'bg-indigo-600'}`}
+                        style={{ width: `${porcentagem}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Grade de Separação com Checkboxes */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-h-[40vh] overflow-y-auto pr-1">
+                    {tamanhosComPecas.map(([tam, qtd]) => {
+                      const conferido = !!checksDoPedido[tam];
+                      return (
+                        <button
+                          key={tam}
+                          type="button"
+                          onClick={() => alternarItemSeparado(modalSeparacao.id, tam)}
+                          className={`p-3 rounded-2xl border flex flex-col items-center justify-between gap-2 transition-all cursor-pointer ${
+                            conferido 
+                              ? 'bg-emerald-950/40 border-emerald-600 text-emerald-300 shadow-lg shadow-emerald-950/50' 
+                              : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className="text-xs font-mono font-bold uppercase">{tam}</span>
+                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border ${
+                              conferido ? 'bg-emerald-600 border-emerald-500 text-white' : 'border-slate-700 bg-slate-900'
+                            }`}>
+                              {conferido && <CheckCircle className="w-3.5 h-3.5" />}
+                            </div>
+                          </div>
+                          <span className="text-2xl font-black font-mono">{qtd}</span>
+                          <span className="text-[10px] uppercase font-bold text-slate-400">peças</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Botões do Rodapé do Modal */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
+                    <span className="text-xs text-slate-400 font-mono">
+                      Total: <strong className="text-white">{modalSeparacao.totalPecas} peças</strong>
+                    </span>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => setModalSeparacao(null)}
+                        className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                      >
+                        Fechar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => concluirSeparacao(modalSeparacao)}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Finalizar Separação & Marcar Pronto
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* ================= BARRA LATERAL ================= */}
       <aside className="w-64 bg-slate-900/90 backdrop-blur border-r border-slate-800/80 flex flex-col justify-between p-4 select-none">
         <div>
@@ -521,6 +753,25 @@ export default function App() {
                 {clientes.length}
               </span>
             </button>
+
+            {/* Atalho Especial: Ferramentas CorelDRAW */}
+            <div className="pt-3 border-t border-slate-800/80">
+              <span className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Ferramentas Corel</span>
+              <button
+                type="button"
+                onClick={abrirMontadorCorel}
+                title="Abrir Janelinha Flutuante do Montador de Folha no CorelDRAW (Imposição / Gang Sheet Automático)"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-300 border border-amber-600/30 hover:border-amber-500/50 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Grid className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
+                  <span>Montador de Folha</span>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
+                  Janela
+                </span>
+              </button>
+            </div>
           </nav>
         </div>
 
@@ -772,40 +1023,77 @@ export default function App() {
                         </div>
 
                         {/* Botões de Ação */}
-                        <div className="flex md:flex-col items-end justify-between md:justify-center gap-2.5 border-t md:border-t-0 pt-3 md:pt-0 border-slate-800">
-                          {/* Botão de Integração Direta com o CorelDRAW */}
-                          <button
-                            onClick={() => carimbarNoCorelDRAW(pedido)}
-                            disabled={enviandoCorel === pedido.id}
-                            title="Carimbar a ficha técnica e grade na arte aberta do CorelDRAW"
-                            className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/20 transition-all cursor-pointer whitespace-nowrap"
-                          >
-                            <Printer className="w-4 h-4 text-emerald-200" />
-                            {enviandoCorel === pedido.id ? 'Carimbando...' : 'Carimbar no Corel'}
-                          </button>
-
-                          {pedido.clientePasta ? (
+                        <div className="flex flex-col items-stretch gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-5 border-slate-800 shrink-0 w-full md:w-56">
+                          {/* Ações CorelDRAW */}
+                          <div className="grid grid-cols-1 gap-1.5">
                             <button
-                              onClick={() => abrirNoExplorer(pedido.clientePasta)}
-                              title={`Abrir diretório: ${pedido.clientePasta}`}
-                              className="flex items-center gap-2 px-3.5 py-2 bg-indigo-950/50 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 text-xs font-semibold rounded-xl border border-indigo-700/40 transition-all shadow-sm"
+                              onClick={() => carimbarNoCorelDRAW(pedido)}
+                              disabled={enviandoCorel === pedido.id}
+                              title="Carimbar a ficha técnica e grade de tamanhos na arte aberta do CorelDRAW"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
                             >
-                              <FolderOpen className="w-4 h-4 text-indigo-400" />
-                              Abrir no Explorer
+                              <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                              {enviandoCorel === pedido.id ? 'Carimbando...' : 'Carimbar no Corel'}
                             </button>
-                          ) : (
-                            <span className="text-xs text-amber-400/90 flex items-center gap-1">
-                              <AlertTriangle className="w-3.5 h-3.5" /> Sem pasta
-                            </span>
-                          )}
 
-                          <button
-                            onClick={() => confirmarExcluirPedido(pedido)}
-                            title="Remover pedido do painel"
-                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors self-end md:self-auto"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                            <button
+                              onClick={abrirMontadorCorel}
+                              title="Abrir Janela do Montador de Folha no CorelDRAW (Imposição / Gang Sheet)"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+                            >
+                              <Grid className="w-3.5 h-3.5 text-amber-200" />
+                              Montar Folha
+                            </button>
+                          </div>
+
+                          {/* Ações Operacionais */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              onClick={() => criarPastaProjeto(pedido)}
+                              title="Criar pasta organizada do pedido, copiar imagens e abrir no Explorer"
+                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-[11px] font-semibold rounded-xl border border-indigo-700/50 transition-all"
+                            >
+                              <FolderPlus className="w-3.5 h-3.5 text-indigo-400" />
+                              Pasta
+                            </button>
+
+                            <button
+                              onClick={() => abrirSeparacao(pedido)}
+                              title="Abrir checklist de separação das peças por tamanho"
+                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 text-[11px] font-semibold rounded-xl border border-cyan-700/50 transition-all"
+                            >
+                              <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+                              Separar
+                            </button>
+                          </div>
+
+                          {/* Barra de Ações Rápidas: Editar, Duplicar, Excluir */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 px-1">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => iniciarEdicaoPedido(pedido)}
+                                title="Editar dados e grade deste pedido"
+                                className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-950/60 rounded-lg transition-colors"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => duplicarPedido(pedido)}
+                                title="Duplicar pedido com novo número"
+                                className="p-1.5 text-slate-400 hover:text-amber-300 hover:bg-amber-950/60 rounded-lg transition-colors"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <button
+                              onClick={() => confirmarExcluirPedido(pedido)}
+                              title="Remover pedido do painel"
+                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -818,9 +1106,33 @@ export default function App() {
           {/* ================= ABA: NOVO PEDIDO COM GRADE ================= */}
           {abaAtiva === 'novo-pedido' && (
             <div className="max-w-4xl mx-auto space-y-6">
-              <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Lançamento de Pedido de Estamparia</h2>
-                <p className="text-sm text-slate-400">Preencha os dados técnicos da arte e a grade quantitativa para produção.</p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-black text-white tracking-tight">
+                      {modoEdicaoId ? `Editando Pedido #${pedidoForm.numeroPedido}` : 'Lançamento de Pedido de Estamparia'}
+                    </h2>
+                    {modoEdicaoId && (
+                      <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                        MODO EDIÇÃO
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-400">
+                    {modoEdicaoId 
+                      ? 'Atualize os dados técnicos ou quantidades da grade deste pedido.' 
+                      : 'Preencha os dados técnicos da arte e a grade quantitativa para produção.'}
+                  </p>
+                </div>
+                {modoEdicaoId && (
+                  <button
+                    type="button"
+                    onClick={prepararNovoPedido}
+                    className="self-start sm:self-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                  >
+                    Cancelar Edição (Novo Pedido)
+                  </button>
+                )}
               </div>
 
               {clientes.length === 0 ? (
@@ -1086,10 +1398,10 @@ export default function App() {
                       </button>
                       <button
                         type="submit"
-                        className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
                       >
                         <Save className="w-4 h-4" />
-                        Salvar Pedido & Gravar no PC
+                        {modoEdicaoId ? 'Atualizar Pedido no PC' : 'Salvar Pedido & Gravar no PC'}
                       </button>
                     </div>
                   </div>

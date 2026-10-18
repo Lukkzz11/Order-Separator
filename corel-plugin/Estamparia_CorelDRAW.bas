@@ -221,3 +221,15 @@ Public Sub SalvarArteNaPastaDoCliente()
     ActiveDocument.SaveAs pastaDestino & nomeArquivo
     MsgBox "Arte salva com sucesso em:" & vbCrLf & pastaDestino & nomeArquivo, vbInformation, "Salvo!"
 End Sub
+
+' ==============================================================================
+' 3. ABRIR JANELINHA DO MONTADOR DE FOLHA (GANG SHEET)
+' ==============================================================================
+Public Sub AbrirMontadorDeFolha()
+    Dim wsh As Object
+    Set wsh = CreateObject("WScript.Shell")
+    Dim cmd As String
+    cmd = "powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""E:\estamparia-manager\corel-plugin\montador_folha.ps1"""
+    wsh.Run cmd, 0, False
+    Set wsh = Nothing
+End Sub

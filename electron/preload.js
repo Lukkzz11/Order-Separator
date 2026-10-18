@@ -11,5 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   salvarPedido: (pedido) => ipcRenderer.invoke('db:salvarPedido', pedido),
   atualizarStatusPedido: (pedidoId, novoStatus) => ipcRenderer.invoke('db:atualizarStatusPedido', { pedidoId, novoStatus }),
   excluirPedido: (pedidoId) => ipcRenderer.invoke('db:excluirPedido', pedidoId),
-  carimbarNoCorel: (pedido) => ipcRenderer.invoke('corel:carimbarPedido', pedido)
+  carimbarNoCorel: (pedido) => ipcRenderer.invoke('corel:carimbarPedido', pedido),
+  abrirMontadorCorel: () => ipcRenderer.invoke('corel:abrirMontador'),
+  criarPastaPedido: (pedido) => ipcRenderer.invoke('pastas:criarPastaPedido', pedido)
 });

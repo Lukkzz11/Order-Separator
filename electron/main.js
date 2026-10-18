@@ -484,3 +484,58 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
     }
   });
 });
+
+// 11. Abrir a Janelinha Flutuante do Montador de Folha (Gang Sheet)
+ipcMain.handle('corel:abrirMontador', async () => {
+  const { execFile } = require('child_process');
+  const scriptPath = path.join(__dirname, '../corel-plugin/montador_folha.ps1');
+
+  if (fs.existsSync(scriptPath)) {
+    execFile('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-WindowStyle', 'Hidden', '-File', scriptPath]);
+    return { sucesso: true };
+  }
+  return { sucesso: false, erro: 'Script do montador de folha não foi encontrado.' };
+});
+
+// 12. Criar Subpasta do Pedido no Explorer e Organizar Arquivos
+ipcMain.handle('pastas:criarPastaPedido', async (event, pedido) => {
+  if (!pedido || !pedido.clientePasta) {
+    return { sucesso: false, erro: 'Este cliente não possui uma pasta vinculada no computador.' };
+  }
+
+  try {
+    const nomeLimpoEstampa = (pedido.descricaoEstampa || 'Arte').replace(/[\\/:*?"<>|]/g, '_').trim();
+    const nomeSubpasta = `PEDIDO_${pedido.numeroPedido}_${nomeLimpoEstampa}`;
+    const caminhoSubpasta = path.join(path.normalize(pedido.clientePasta), nomeSubpasta);
+
+    if (!fs.existsSync(caminhoSubpasta)) {
+      fs.mkdirSync(caminhoSubpasta, { recursive: true });
+    }
+
+    // Copia as fotos/mockups da estampa para dentro da subpasta do pedido
+    if (Array.isArray(pedido.imagens)) {
+      pedido.imagens.forEach((img, idx) => {
+        const origem = img.caminho || img.caminhoSalvo;
+        if (origem && fs.existsSync(origem)) {
+          const ext = path.extname(origem);
+          const destino = path.join(caminhoSubpasta, `Mockup_${idx + 1}${ext}`);
+          try {
+            if (path.normalize(origem) !== destino) {
+              fs.copyFileSync(origem, destino);
+            }
+          } catch (e) {}
+        }
+      });
+    }
+
+    // Grava a ficha técnica do pedido em JSON dentro da subpasta
+    fs.writeFileSync(path.join(caminhoSubpasta, `Ficha_Pedido_${pedido.numeroPedido}.json`), JSON.stringify(pedido, null, 2), 'utf-8');
+
+    // Abre a pasta criada diretamente no Windows Explorer
+    await shell.openPath(caminhoSubpasta);
+
+    return { sucesso: true, caminho: caminhoSubpasta };
+  } catch (err) {
+    return { sucesso: false, erro: err.message };
+  }
+});
