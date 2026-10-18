@@ -552,14 +552,38 @@ ipcMain.handle('corel:abrirMontador', async () => {
 ipcMain.handle('corel:abrirVetorizador', async () => {
   const { execFile } = require('child_process');
 
+  const caminhosPython = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'vetorizador_app.py') : null,
+    path.join(__dirname, '..', 'corel-plugin', 'vetorizador_app.py'),
+    path.join(app.getAppPath(), 'corel-plugin', 'vetorizador_app.py'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'corel-plugin', 'vetorizador_app.py'),
+    'E:\\estamparia-manager\\corel-plugin\\vetorizador_app.py'
+  ].filter(Boolean);
+
+  let pyEncontrado = null;
+  for (const c of caminhosPython) {
+    if (fs.existsSync(c)) {
+      pyEncontrado = c;
+      break;
+    }
+  }
+
+  if (pyEncontrado) {
+    execFile('pythonw.exe', [pyEncontrado], (err) => {
+      if (err) {
+        // Fallback para python normal
+        execFile('python.exe', [pyEncontrado], (err2) => {
+          if (err2) console.error('Erro na execução do vetorizador python:', err2);
+        });
+      }
+    });
+    return { sucesso: true, caminho: pyEncontrado };
+  }
+
   const caminhosPossiveis = [
-    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'vetorizador_ia.ps1') : null,
-    path.join(__dirname, '..', 'corel-plugin', 'vetorizador_ia.ps1'),
-    path.join(app.getAppPath(), 'corel-plugin', 'vetorizador_ia.ps1'),
-    path.join(path.dirname(app.getPath('exe')), 'resources', 'corel-plugin', 'vetorizador_ia.ps1'),
-    path.join(path.dirname(app.getPath('exe')), '..', '..', 'corel-plugin', 'vetorizador_ia.ps1'),
-    'E:\\estamparia-manager\\corel-plugin\\vetorizador_ia.ps1',
-    path.join(app.getPath('userData'), 'vetorizador_ia.ps1')
+    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'vetorizador.ps1') : null,
+    path.join(__dirname, '..', 'corel-plugin', 'vetorizador.ps1'),
+    'E:\\estamparia-manager\\corel-plugin\\vetorizador.ps1'
   ].filter(Boolean);
 
   let scriptEncontrado = null;

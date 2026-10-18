@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 > nul
-title Vetorizador Inteligente CorelDRAW - Order Separator
+title Vetorizador Profissional CorelDRAW - Order Separator
 
 echo ===================================================
 echo   Order Separator - Vetorizador Profissional
@@ -10,10 +10,8 @@ echo.
 echo Iniciando plugin no CorelDRAW...
 echo.
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0corel-plugin\vetorizador_ia.ps1"
+start "" pythonw "%~dp0corel-plugin\vetorizador_app.py"
 
 if %ERRORLEVEL% NEQ 0 (
-  echo.
-  echo Ocorreu um erro ao abrir o vetorizador.
-  pause
+  python "%~dp0corel-plugin\vetorizador_app.py"
 )
