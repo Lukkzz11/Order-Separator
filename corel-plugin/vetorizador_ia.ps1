@@ -464,8 +464,11 @@ $btnVetorizar.Add_Click({
     $doc.BeginCommandGroup("Vetorizar Imagem com IA")
     try {
       $layer = $doc.ActiveLayer
-      $imp = $layer.Import($outputSvg)
-      $imp.Finish()
+      $opt = $corel.CreateStructImportOptions()
+      $imp = $layer.ImportEx($outputSvg, 0, $opt)
+      if ($imp) {
+        $imp.Finish()
+      }
 
       # Seleciona e agrupa o vetor importado
       $sel = $corel.ActiveSelection
