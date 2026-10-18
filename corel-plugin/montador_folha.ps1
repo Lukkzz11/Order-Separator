@@ -169,33 +169,38 @@ function AtualizarBotoesPresets {
   $pnlPresets.Controls.Clear()
   $lista = if ($rbCm.Checked) {
     @(
-      @{ Nome = "DTF (58 cm)"; Val = 58.0 },
-      @{ Nome = "Bobina (30 cm)"; Val = 30.0 },
-      @{ Nome = "A3 (29.7 cm)"; Val = 29.7 },
-      @{ Nome = "A4 (21 cm)"; Val = 21.0 }
+      @{ Nome = "DTF (58cm)"; Val = 58.0; Marg = 0.50; Esp = 0.40 },
+      @{ Nome = "DTF (56cm)"; Val = 56.0; Marg = 0.40; Esp = 0.30 },
+      @{ Nome = "Bobina 30cm"; Val = 30.0; Marg = 0.40; Esp = 0.30 },
+      @{ Nome = "A3 (29.7cm)"; Val = 29.7; Marg = 0.50; Esp = 0.30 },
+      @{ Nome = "A4 (21cm)"; Val = 21.0; Marg = 0.50; Esp = 0.30 }
     )
   } else {
     @(
-      @{ Nome = "DTF (580 mm)"; Val = 580 },
-      @{ Nome = "Bobina (300 mm)"; Val = 300 },
-      @{ Nome = "A3 (297 mm)"; Val = 297 },
-      @{ Nome = "A4 (210 mm)"; Val = 210 }
+      @{ Nome = "DTF (580mm)"; Val = 580; Marg = 5; Esp = 4 },
+      @{ Nome = "DTF (560mm)"; Val = 560; Marg = 4; Esp = 3 },
+      @{ Nome = "Bobina 300mm"; Val = 300; Marg = 4; Esp = 3 },
+      @{ Nome = "A3 (297mm)"; Val = 297; Marg = 5; Esp = 3 },
+      @{ Nome = "A4 (210mm)"; Val = 210; Marg = 5; Esp = 3 }
     )
   }
 
   foreach ($p in $lista) {
     $btn = New-Object System.Windows.Forms.Button
     $btn.Text = $p.Nome
-    $btn.Size = New-Object System.Drawing.Size(110, 25)
+    $btn.Size = New-Object System.Drawing.Size(88, 25)
     $btn.Font = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
     $btn.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
     $btn.ForeColor = [System.Drawing.Color]::FromArgb(226, 232, 240)
     $btn.FlatStyle = "Flat"
     $btn.FlatAppearance.BorderSize = 0
     $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $btn.Tag = [decimal]$p.Val
+    $btn.Tag = $p
     $btn.Add_Click({
-      $numLargura.Value = [decimal]$this.Tag
+      $pData = $this.Tag
+      $numLargura.Value = [decimal]$pData.Val
+      if ($pData.Marg) { $numMargem.Value = [decimal]$pData.Marg }
+      if ($pData.Esp) { $numEspaco.Value = [decimal]$pData.Esp }
       AtualizarCalculo
     })
     $pnlPresets.Controls.Add($btn)
@@ -218,7 +223,7 @@ $numMargem.Size = New-Object System.Drawing.Size(220, 26)
 $numMargem.DecimalPlaces = 2
 $numMargem.Minimum = 0
 $numMargem.Maximum = 10
-$numMargem.Value = 0.80
+$numMargem.Value = 0.50
 $numMargem.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
 $numMargem.ForeColor = [System.Drawing.Color]::White
 $numMargem.Font = $fontInput
@@ -226,7 +231,7 @@ $form.Controls.Add($numMargem)
 
 # Opcoes Inteligentes de Encaixe e Corte
 $chkGiro = New-Object System.Windows.Forms.CheckBox
-$chkGiro.Text = "Otimizar Encaixe: Girar artes para economizar bobina"
+$chkGiro.Text = "Otimizar Encaixe: Girar artes p/ economizar bobina"
 $chkGiro.Font = $fontLabel
 $chkGiro.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
 $chkGiro.Location = New-Object System.Drawing.Point(265, 218)
@@ -236,21 +241,42 @@ $chkGiro.Cursor = [System.Windows.Forms.Cursors]::Hand
 $form.Controls.Add($chkGiro)
 
 $chkLinhasCorte = New-Object System.Windows.Forms.CheckBox
-$chkLinhasCorte.Text = "Tracar linhas-guia para corte reto com tesoura"
+$chkLinhasCorte.Text = "Tracar linhas-guia p/ corte reto com tesoura"
 $chkLinhasCorte.Font = $fontLabel
 $chkLinhasCorte.ForeColor = [System.Drawing.Color]::FromArgb(147, 197, 253) # Light Blue
-$chkLinhasCorte.Location = New-Object System.Drawing.Point(265, 240)
+$chkLinhasCorte.Location = New-Object System.Drawing.Point(265, 238)
 $chkLinhasCorte.Size = New-Object System.Drawing.Size(225, 20)
 $chkLinhasCorte.Checked = $true
 $chkLinhasCorte.Cursor = [System.Windows.Forms.Cursors]::Hand
 $form.Controls.Add($chkLinhasCorte)
+
+# Auto-Encaixe e Auto-Escala
+$chkAutoFit = New-Object System.Windows.Forms.CheckBox
+$chkAutoFit.Text = "Auto-Encaixe: Ajustar margem/espaco p/ caber +1 coluna (evita vao)"
+$chkAutoFit.Font = $fontLabel
+$chkAutoFit.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
+$chkAutoFit.Location = New-Object System.Drawing.Point(20, 264)
+$chkAutoFit.Size = New-Object System.Drawing.Size(465, 20)
+$chkAutoFit.Checked = $true
+$chkAutoFit.Cursor = [System.Windows.Forms.Cursors]::Hand
+$form.Controls.Add($chkAutoFit)
+
+$chkAutoEscala = New-Object System.Windows.Forms.CheckBox
+$chkAutoEscala.Text = "Auto-Escala máx. 2.5%: Reduzir levemente se faltar pouco p/ caber +1 coluna"
+$chkAutoEscala.Font = $fontLabel
+$chkAutoEscala.ForeColor = [System.Drawing.Color]::FromArgb(103, 232, 249) # Cyan
+$chkAutoEscala.Location = New-Object System.Drawing.Point(20, 284)
+$chkAutoEscala.Size = New-Object System.Drawing.Size(465, 20)
+$chkAutoEscala.Checked = $true
+$chkAutoEscala.Cursor = [System.Windows.Forms.Cursors]::Hand
+$form.Controls.Add($chkAutoEscala)
 
 # Opcao de Agrupar Selecao em 1 Unica Arte
 $chkAgrupar = New-Object System.Windows.Forms.CheckBox
 $chkAgrupar.Text = "Agrupar selecao em 1 unica arte (se a estampa tiver varias partes soltas)"
 $chkAgrupar.Font = $fontLabel
 $chkAgrupar.ForeColor = [System.Drawing.Color]::FromArgb(251, 191, 36) # Amber
-$chkAgrupar.Location = New-Object System.Drawing.Point(20, 266)
+$chkAgrupar.Location = New-Object System.Drawing.Point(20, 304)
 $chkAgrupar.Size = New-Object System.Drawing.Size(465, 20)
 $chkAgrupar.Checked = $false
 $chkAgrupar.Cursor = [System.Windows.Forms.Cursors]::Hand
@@ -260,7 +286,7 @@ $chkCarimbo = New-Object System.Windows.Forms.CheckBox
 $chkCarimbo.Text = "Carimbar Ficha Tecnica com Grade no Topo"
 $chkCarimbo.Font = $fontLabel
 $chkCarimbo.ForeColor = [System.Drawing.Color]::FromArgb(167, 139, 250)
-$chkCarimbo.Location = New-Object System.Drawing.Point(20, 288)
+$chkCarimbo.Location = New-Object System.Drawing.Point(20, 324)
 $chkCarimbo.Size = New-Object System.Drawing.Size(465, 20)
 $chkCarimbo.Checked = $false
 $chkCarimbo.Cursor = [System.Windows.Forms.Cursors]::Hand
@@ -272,7 +298,7 @@ $btnDetectar.Text = "1. Ler Arte(s) Selecionada(s) no CorelDRAW"
 $btnDetectar.Font = $fontBtn
 $btnDetectar.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
 $btnDetectar.ForeColor = [System.Drawing.Color]::White
-$btnDetectar.Location = New-Object System.Drawing.Point(20, 314)
+$btnDetectar.Location = New-Object System.Drawing.Point(20, 348)
 $btnDetectar.Size = New-Object System.Drawing.Size(465, 36)
 $btnDetectar.FlatStyle = "Flat"
 $btnDetectar.FlatAppearance.BorderSize = 0
@@ -281,7 +307,7 @@ $form.Controls.Add($btnDetectar)
 
 # --- BARRA DE QUANTIDADE GLOBAL RAPIDA ---
 $pnlQtdGlobal = New-Object System.Windows.Forms.Panel
-$pnlQtdGlobal.Location = New-Object System.Drawing.Point(20, 356)
+$pnlQtdGlobal.Location = New-Object System.Drawing.Point(20, 388)
 $pnlQtdGlobal.Size = New-Object System.Drawing.Size(465, 30)
 $form.Controls.Add($pnlQtdGlobal)
 
@@ -339,8 +365,8 @@ $pnlQtdGlobal.Controls.Add($btnAplicarTodas)
 
 # --- LISTA / GRID DE ARTES DETECTADAS ---
 $pnlArtes = New-Object System.Windows.Forms.Panel
-$pnlArtes.Location = New-Object System.Drawing.Point(20, 392)
-$pnlArtes.Size = New-Object System.Drawing.Size(465, 125)
+$pnlArtes.Location = New-Object System.Drawing.Point(20, 424)
+$pnlArtes.Size = New-Object System.Drawing.Size(465, 115)
 $pnlArtes.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
 $pnlArtes.BorderStyle = "FixedSingle"
 $pnlArtes.AutoScroll = $true
@@ -348,7 +374,7 @@ $form.Controls.Add($pnlArtes)
 
 # Painel de Resumo / Estimativa de Economia
 $pnlResumo = New-Object System.Windows.Forms.Panel
-$pnlResumo.Location = New-Object System.Drawing.Point(20, 524)
+$pnlResumo.Location = New-Object System.Drawing.Point(20, 545)
 $pnlResumo.Size = New-Object System.Drawing.Size(465, 100)
 $pnlResumo.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
 $pnlResumo.BorderStyle = "FixedSingle"
@@ -392,7 +418,7 @@ $btnMontar.Text = "2. MONTAR FOLHA OTIMIZADA (GANG SHEET)"
 $btnMontar.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
 $btnMontar.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo 600
 $btnMontar.ForeColor = [System.Drawing.Color]::White
-$btnMontar.Location = New-Object System.Drawing.Point(20, 632)
+$btnMontar.Location = New-Object System.Drawing.Point(20, 652)
 $btnMontar.Size = New-Object System.Drawing.Size(465, 48)
 $btnMontar.FlatStyle = "Flat"
 $btnMontar.FlatAppearance.BorderSize = 0
@@ -471,93 +497,206 @@ function RenderizarListaArtes {
   }
 }
 
-# --- FUNCAO UNIFICADA DE ENCAIXE INTELIGENTE (GANG SHEET PACKING) ---
+# --- FUNCAO UNIFICADA DE ENCAIXE INTELIGENTE (GANG SHEET PACKING COM SUB-PACKING) ---
 function ExecutarPacking {
   param(
     $artes,
     [double]$larguraFolha,
-    [double]$margem,
-    [double]$espaco,
-    [bool]$otimizarGiro
+    [double]$margemInicial,
+    [double]$espacoInicial,
+    [bool]$otimizarGiro,
+    [bool]$autoFit = $true,
+    [bool]$autoEscala = $true
   )
 
+  $margem = $margemInicial
+  $espaco = $espacoInicial
   $larguraUtil = [Math]::Max(1.0, ($larguraFolha - (2.0 * $margem)))
-  $blocos = @()
+
+  # 1. Analisa cada arte para maximizar colunas e eliminar vaos vazios
+  $artesOtimizadas = @()
+  $infoAjustes = @()
 
   foreach ($a in $artes) {
     $w = [double]$a.W
     $h = [double]$a.H
     $qtd = [int]$a.Qtd
     if ($qtd -le 0) { continue }
-    $rot = $false
 
-    if ($otimizarGiro) {
-      $cabeNorm = ($w -le $larguraUtil)
-      $cabeRot = ($h -le $larguraUtil)
+    $melhorCols = 1
+    $melhorRot = $false
+    $melhorW = $w
+    $melhorH = $h
+    $melhorEscala = 1.0
+    $melhorMarg = $margem
+    $melhorEsp = $espaco
 
-      if ($cabeRot -and -not $cabeNorm) {
-        $rot = $true
-      } elseif ($cabeNorm -and $cabeRot) {
-        $nNorm = [Math]::Max(1.0, [Math]::Floor(($larguraUtil + $espaco) / ($w + $espaco)))
-        $nRot = [Math]::Max(1.0, [Math]::Floor(($larguraUtil + $espaco) / ($h + $espaco)))
-        $rNorm = [Math]::Ceiling($qtd / $nNorm)
-        $rRot = [Math]::Ceiling($qtd / $nRot)
-        $totHNorm = ($rNorm * $h) + (($rNorm - 1.0) * $espaco)
-        $totHRot = ($rRot * $w) + (($rRot - 1.0) * $espaco)
-        if ($totHRot -lt $totHNorm) {
-          $rot = $true
+    $orientacoes = if ($otimizarGiro) { @($false, $true) } else { @($false) }
+
+    foreach ($tryRot in $orientacoes) {
+      $curW = if ($tryRot) { $h } else { $w }
+      $curH = if ($tryRot) { $w } else { $h }
+
+      # Teste 1: Margem/Espaco padrao configurado
+      $cols1 = [int][Math]::Floor([Math]::Round((($larguraUtil + $espaco + 0.01) / ($curW + $espaco)), 4))
+      if ($cols1 -gt $melhorCols) {
+        $melhorCols = $cols1
+        $melhorRot = $tryRot
+        $melhorW = $curW
+        $melhorH = $curH
+        $melhorEscala = 1.0
+      }
+
+      # Teste 2: Se AutoFit ativo, testa margem compacta (0.35cm ou 3.5mm) e espaco compacto (0.25cm ou 2.5mm)
+      if ($autoFit) {
+        $mMin = if ($rbCm.Checked) { 0.35 } else { 3.5 }
+        $eMin = if ($rbCm.Checked) { 0.25 } else { 2.5 }
+        $lUtilTest = $larguraFolha - (2.0 * $mMin)
+        $cols2 = [int][Math]::Floor([Math]::Round((($lUtilTest + $eMin + 0.01) / ($curW + $eMin)), 4))
+        if ($cols2 -gt $melhorCols) {
+          $melhorCols = $cols2
+          $melhorRot = $tryRot
+          $melhorW = $curW
+          $melhorH = $curH
+          $melhorEscala = 1.0
+          $melhorMarg = $mMin
+          $melhorEsp = $eMin
+        }
+
+        # Teste 3: Se AutoEscala ativa e cabe apenas 1 coluna, testa reduzir ate 2.5% para encaixar 2 colunas
+        if ($autoEscala -and $melhorCols -eq 1) {
+          $wMaxPara2 = ($lUtilTest - $eMin) / 2.0
+          if ($curW -gt $wMaxPara2) {
+            $fEscala = $wMaxPara2 / $curW
+            $redPct = (1.0 - $fEscala) * 100.0
+            if ($redPct -le 2.5) {
+              $melhorCols = 2
+              $melhorRot = $tryRot
+              $melhorEscala = $fEscala
+              $melhorW = $curW * $fEscala
+              $melhorH = $curH * $fEscala
+              $melhorMarg = $mMin
+              $melhorEsp = $eMin
+              $infoAjustes += "Desenho #$($a.Id): Auto-ajustado $(- [Math]::Round($redPct, 1))% para encaixar 2 colunas na folha"
+            }
+          }
         }
       }
     }
 
-    $effW = if ($rot) { $h } else { $w }
-    $effH = if ($rot) { $w } else { $h }
+    if ($melhorMarg -lt $margem) { $margem = $melhorMarg }
+    if ($melhorEsp -lt $espaco) { $espaco = $melhorEsp }
+    $larguraUtil = [Math]::Max(1.0, ($larguraFolha - (2.0 * $margem)))
 
-    for ($i = 0; $i -lt $qtd; $i++) {
-      $blocos += [PSCustomObject]@{
-        OrigShape = $a.Shape
-        Id = $a.Id
-        W = $effW
-        H = $effH
-        Rot = $rot
-      }
+    $artesOtimizadas += [PSCustomObject]@{
+      Id = $a.Id
+      Shape = $a.Shape
+      OrigW = $w
+      OrigH = $h
+      W = $melhorW
+      H = $melhorH
+      Qtd = $qtd
+      QtdRestante = $qtd
+      Rot = $melhorRot
+      Escala = $melhorEscala
+      Colunas = $melhorCols
     }
   }
 
-  if ($blocos.Count -eq 0) { return $null }
+  if ($artesOtimizadas.Count -eq 0) { return $null }
 
-  # Ordena decrescente por altura para criar faixas de corte uniformes (Guillotine Shelf)
-  $ordenados = $blocos | Sort-Object { $_.H } -Descending
+  # Ordena artes por altura decrescente (as maiores criam as prateleiras principais)
+  $artesOrdenadas = $artesOtimizadas | Sort-Object { $_.H } -Descending
 
   $prateleiras = @()
-  foreach ($b in $ordenados) {
-    $melhorPrat = $null
-    $menorDiffH = 999999.0
+  $totalPecasColocadas = 0
 
-    foreach ($p in $prateleiras) {
-      $disp = $larguraUtil - $p.LarguraOcupada
-      if ($disp -ge ($espaco + $b.W)) {
-        $diffH = [Math]::Abs($p.Altura - $b.H)
-        if ($diffH -lt $menorDiffH) {
-          $menorDiffH = $diffH
-          $melhorPrat = $p
-        }
-      }
-    }
-
-    if ($melhorPrat) {
-      $melhorPrat.Itens.Add($b)
-      $melhorPrat.LarguraOcupada += ($espaco + $b.W)
-      if ($b.H -gt $melhorPrat.Altura) {
-        $melhorPrat.Altura = $b.H
-      }
-    } else {
+  foreach ($artePrincipal in $artesOrdenadas) {
+    while ($artePrincipal.QtdRestante -gt 0) {
       $novaPrat = [PSCustomObject]@{
-        Altura = $b.H
-        LarguraOcupada = $b.W
+        Altura = $artePrincipal.H
+        LarguraOcupada = 0.0
         Itens = New-Object 'System.Collections.Generic.List[PSCustomObject]'
       }
-      $novaPrat.Itens.Add($b)
+
+      # 1. Preenche a prateleira com pecas da arte principal
+      while ($artePrincipal.QtdRestante -gt 0) {
+        $disp = $larguraUtil - $novaPrat.LarguraOcupada
+        $precisa = if ($novaPrat.LarguraOcupada -eq 0.0) { $artePrincipal.W } else { $espaco + $artePrincipal.W }
+        if (($disp + 0.01) -ge $precisa) {
+          $novaPrat.Itens.Add([PSCustomObject]@{
+            ArteId = $artePrincipal.Id
+            OrigShape = $artePrincipal.Shape
+            W = $artePrincipal.W
+            H = $artePrincipal.H
+            Rot = $artePrincipal.Rot
+            Escala = $artePrincipal.Escala
+            SubX = $novaPrat.LarguraOcupada
+            SubY = 0.0
+            IsSubItem = $false
+          })
+          $novaPrat.LarguraOcupada += $precisa
+          $artePrincipal.QtdRestante--
+          $totalPecasColocadas++
+        } else {
+          break
+        }
+      }
+
+      # 2. SUB-PACKING: Preenchimento de vãos restantes com artes menores da mesma folha
+      $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
+      $minVao = if ($rbCm.Checked) { 2.0 } else { 20.0 }
+      if ($dispVao -gt ($espaco + $minVao)) {
+        foreach ($arteMenor in ($artesOrdenadas | Where-Object { $_.Id -ne $artePrincipal.Id -and $_.QtdRestante -gt 0 })) {
+          $wMenor = $arteMenor.W
+          $hMenor = $arteMenor.H
+
+          $vaoW = $dispVao - $espaco
+          $vaoH = $novaPrat.Altura
+
+          $colsVao = [int][Math]::Floor([Math]::Round((($vaoW + $espaco + 0.01) / ($wMenor + $espaco)), 4))
+          $rowsVao = [int][Math]::Floor([Math]::Round((($vaoH + $espaco + 0.01) / ($hMenor + $espaco)), 4))
+
+          if ($colsVao -ge 1 -and $rowsVao -ge 1) {
+            $maxCaberVao = [int]($colsVao * $rowsVao)
+            $colocarQtd = [Math]::Min($maxCaberVao, $arteMenor.QtdRestante)
+
+            $colIdx = 0
+            $rowIdx = 0
+            $inicioX = $novaPrat.LarguraOcupada + $espaco
+
+            for ($p = 0; $p -lt $colocarQtd; $p++) {
+              $itemX = $inicioX + ($colIdx * ($wMenor + $espaco))
+              $itemY = $rowIdx * ($hMenor + $espaco)
+
+              $novaPrat.Itens.Add([PSCustomObject]@{
+                ArteId = $arteMenor.Id
+                OrigShape = $arteMenor.Shape
+                W = $wMenor
+                H = $hMenor
+                Rot = $arteMenor.Rot
+                Escala = $arteMenor.Escala
+                SubX = $itemX
+                SubY = $itemY
+                IsSubItem = $true
+              })
+              $arteMenor.QtdRestante--
+              $totalPecasColocadas++
+
+              $colIdx++
+              if ($colIdx -ge $colsVao) {
+                $colIdx = 0
+                $rowIdx++
+              }
+            }
+
+            $larguraGradeInserida = ($colsVao * $wMenor) + (($colsVao - 1) * $espaco)
+            $novaPrat.LarguraOcupada += ($espaco + $larguraGradeInserida)
+            $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
+          }
+        }
+      }
+
       $prateleiras += $novaPrat
     }
   }
@@ -572,9 +711,12 @@ function ExecutarPacking {
 
   return @{
     Prateleiras = $prateleiras
-    TotalPecas = $blocos.Count
+    TotalPecas = $totalPecasColocadas
     TotalLinhas = $prateleiras.Count
     AlturaArtesTotal = $altArtesTotal
+    MargemEfetiva = $margem
+    EspacoEfetivo = $espaco
+    Ajustes = $infoAjustes
   }
 }
 
@@ -591,21 +733,26 @@ function AtualizarCalculo {
   $margem = [double]$numMargem.Value
   $espaco = [double]$numEspaco.Value
   $otimizarGiro = $chkGiro.Checked
+  $autoFit = $chkAutoFit.Checked
+  $autoEscala = $chkAutoEscala.Checked
 
-  $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margem $margem -espaco $espaco -otimizarGiro $otimizarGiro
+  $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margemInicial $margem -espacoInicial $espaco -otimizarGiro $otimizarGiro -autoFit $autoFit -autoEscala $autoEscala
   if (-not $res) { return }
 
   $carimboH = if ($chkCarimbo.Checked) {
     if ($rbCm.Checked) { 13.0 } else { 130.0 }
   } else { 0.0 }
 
-  $alturaTotal = $res.AlturaArtesTotal + (2.0 * $margem) + $carimboH
+  $alturaTotal = $res.AlturaArtesTotal + (2.0 * $res.MargemEfetiva) + $carimboH
 
   $lblStatusSelecao.Text = "Total de Desenhos no Projeto: $($res.TotalPecas) pecas em $($res.TotalLinhas) faixas de corte"
   $lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
 
-  if ($otimizarGiro) {
-    $lblOtimizacaoInfo.Text = "Otimizacao Ativa: Auto-Giro aplicado para minimo consumo de bobina"
+  if ($res.Ajustes.Count -gt 0) {
+    $lblOtimizacaoInfo.Text = "Auto-Encaixe Ativo: $($res.Ajustes -join '; ')"
+    $lblOtimizacaoInfo.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Green
+  } elseif ($otimizarGiro) {
+    $lblOtimizacaoInfo.Text = "Otimizacao Ativa: Auto-Giro e encaixe por faixas aplicado"
     $lblOtimizacaoInfo.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
   } else {
     $lblOtimizacaoInfo.Text = "Otimizacao: Mantendo orientacao original das artes (0 graus)"
@@ -827,25 +974,29 @@ $btnMontar.Add_Click({
     }
 
     $larguraFolha = [double]$numLargura.Value
-    $margem = [double]$numMargem.Value
-    $espaco = [double]$numEspaco.Value
+    $margemConfig = [double]$numMargem.Value
+    $espacoConfig = [double]$numEspaco.Value
     $otimizarGiro = $chkGiro.Checked
+    $autoFit = $chkAutoFit.Checked
+    $autoEscala = $chkAutoEscala.Checked
     $criarLinhasCorte = $chkLinhasCorte.Checked
 
-    $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margem $margem -espaco $espaco -otimizarGiro $otimizarGiro
+    $res = ExecutarPacking -artes $global:artesDetectadas -larguraFolha $larguraFolha -margemInicial $margemConfig -espacoInicial $espacoConfig -otimizarGiro $otimizarGiro -autoFit $autoFit -autoEscala $autoEscala
     if (-not $res -or $res.TotalPecas -eq 0) {
       [System.Windows.Forms.MessageBox]::Show("Informe ao menos 1 peca na quantidade!", "Aviso", "OK", "Warning")
       return
     }
 
     $prateleiras = $res.Prateleiras
+    $margemEfetiva = [double]$res.MargemEfetiva
+    $espacoEfetivo = [double]$res.EspacoEfetivo
 
     # Altura do carimbo na unidade ativa (13 cm ou 130 mm)
     $carimboH = if ($chkCarimbo.Checked) {
       if ($rbCm.Checked) { 13.0 } else { 130.0 }
     } else { 0.0 }
 
-    $alturaTotalFolha = [double]($res.AlturaArtesTotal + (2.0 * $margem) + $carimboH)
+    $alturaTotalFolha = [double]($res.AlturaArtesTotal + (2.0 * $margemEfetiva) + $carimboH)
 
     # Inicia grupo de comando e otimizacao para execucao ultra-rapida e 1 unico Ctrl+Z
     $doc.BeginCommandGroup("Montar Gang Sheet")
@@ -860,7 +1011,7 @@ $btnMontar.Add_Click({
       # Carimbo Tecnico no Topo
       if ($chkCarimbo.Checked) {
         $pSel = if ($cboPedidos.SelectedIndex -gt 0) { $pedidosCarregados[$cboPedidos.SelectedIndex - 1] } else { $null }
-        $leftC = [double]$margem
+        $leftC = [double]$margemEfetiva
         
         $fundoW = if ($rbCm.Checked) { 26.0 } else { 260.0 }
         $fundoH = if ($rbCm.Checked) { 11.0 } else { 110.0 }
@@ -871,7 +1022,7 @@ $btnMontar.Add_Click({
         $gap2   = if ($rbCm.Checked) { 1.2 } else { 12.0 }
         $gap3   = if ($rbCm.Checked) { 3.5 } else { 35.0 }
 
-        $bottomC = [double]($alturaTotalFolha - $margem - ($fundoH + 1.0))
+        $bottomC = [double]($alturaTotalFolha - $margemEfetiva - ($fundoH + 1.0))
 
         $bgC = $layer.CreateRectangle2($leftC, $bottomC, $fundoW, $fundoH)
         $bgC.Fill.UniformColor.CMYKAssign(0, 0, 0, 0)
@@ -906,13 +1057,12 @@ $btnMontar.Add_Click({
         $corel.ActiveSelection.Group() | Out-Null
       }
 
-      # Posicionamento fisico e duplicacao limpa dos blocos
-      $curY = [double]($alturaTotalFolha - $margem - $carimboH)
+      # Posicionamento fisico e duplicacao limpa dos blocos com Sub-Packing
+      $curY = [double]($alturaTotalFolha - $margemEfetiva - $carimboH)
       $formasCriadas = @()
       $linhasCorteY = @()
 
       foreach ($prat in $prateleiras) {
-        $curX = [double]$margem
         $pratH = [double]$prat.Altura
 
         foreach ($it in $prat.Itens) {
@@ -926,18 +1076,24 @@ $btnMontar.Add_Click({
             $novaForma.Rotate([double]90.0)
           }
 
-          # Alinha na grade com corredor de tesoura perfeito
-          $targetY = [double]($curY - $it.H)
-          $novaForma.LeftX = [double]$curX
-          $novaForma.BottomY = [double]$targetY
+          # Aplica micro-escala se foi necessária para encaixar mais colunas
+          if ($it.Escala -and $it.Escala -ne 1.0) {
+            $novaForma.SetSize([double]$it.W, [double]$it.H)
+          }
+
+          # Posicionamento absoluto exato na prateleira ou sub-grade
+          $posX = [double]($margemEfetiva + $it.SubX)
+          $posY = [double]($curY - $it.SubY - $it.H)
+
+          $novaForma.LeftX = $posX
+          $novaForma.BottomY = $posY
 
           $formasCriadas += $novaForma
-          $curX += ($it.W + $espaco)
         }
 
         # Ponto médio do vão entre prateleiras para a linha de corte de tesoura
-        $linhasCorteY += ($curY - $pratH - ($espaco / 2.0))
-        $curY -= ($pratH + $espaco)
+        $linhasCorteY += ($curY - $pratH - ($espacoEfetivo / 2.0))
+        $curY -= ($pratH + $espacoEfetivo)
       }
 
       # Cria Linhas-Guia Discretas para Corte com Tesoura
@@ -945,7 +1101,7 @@ $btnMontar.Add_Click({
         $tamLinha = if ($rbCm.Checked) { 0.02 } else { 0.2 }
         for ($lIdx = 0; $lIdx -lt ($linhasCorteY.Count - 1); $lIdx++) {
           $corteY = [double]$linhasCorteY[$lIdx]
-          $lineH = $layer.CreateLineSegment([double]$margem, $corteY, [double]($larguraFolha - $margem), $corteY)
+          $lineH = $layer.CreateLineSegment([double]$margemEfetiva, $corteY, [double]($larguraFolha - $margemEfetiva), $corteY)
           $lineH.Outline.Width = $tamLinha
           $lineH.Outline.Color.CMYKAssign(0, 0, 0, 30) # Cinza suave
           $formasCriadas += $lineH
@@ -968,8 +1124,9 @@ $btnMontar.Add_Click({
 
       $uExt = if ($rbCm.Checked) { "cm" } else { "mm" }
       $mFim = if ($rbCm.Checked) { [Math]::Round(($alturaTotalFolha / 100.0), 2) } else { [Math]::Round(($alturaTotalFolha / 1000.0), 2) }
-      
-      [System.Windows.Forms.MessageBox]::Show("Folha montada e otimizada com sucesso no CorelDRAW!`n`n- Total de Estampas: $($res.TotalPecas) pecas`n- Faixas de Corte: $($prateleiras.Count) linhas retas`n- Largura da Folha: $larguraFolha $uExt`n- Metragem Total da Bobina: $alturaTotalFolha $uExt ($mFim metros)`n- Corredores de tesoura aplicados com precisao!`n`nDica: Caso queira desfazer a montagem, basta teclar Ctrl+Z no CorelDRAW.", "Sucesso!", "OK", "Information")
+      $msgAjustes = if ($res.Ajustes.Count -gt 0) { "`n`nOtimizacoes aplicadas:`n- " + ($res.Ajustes -join "`n- ") } else { "" }
+
+      [System.Windows.Forms.MessageBox]::Show("Folha montada e otimizada com sucesso no CorelDRAW!`n`n- Total de Estampas: $($res.TotalPecas) pecas`n- Faixas de Corte: $($prateleiras.Count) linhas retas`n- Largura da Folha: $larguraFolha $uExt`n- Metragem Total da Bobina: $alturaTotalFolha $uExt ($mFim metros)`n- Corredores de tesoura aplicados com precisao!$msgAjustes`n`nDica: Caso queira desfazer a montagem, basta teclar Ctrl+Z no CorelDRAW.", "Sucesso!", "OK", "Information")
     } finally {
       $corel.Optimization = $false
       $doc.EndCommandGroup()
@@ -985,6 +1142,8 @@ $numLargura.Add_ValueChanged({ AtualizarCalculo })
 $numEspaco.Add_ValueChanged({ AtualizarCalculo })
 $numMargem.Add_ValueChanged({ AtualizarCalculo })
 $chkGiro.Add_CheckedChanged({ AtualizarCalculo })
+$chkAutoFit.Add_CheckedChanged({ AtualizarCalculo })
+$chkAutoEscala.Add_CheckedChanged({ AtualizarCalculo })
 $chkCarimbo.Add_CheckedChanged({ AtualizarCalculo })
 $chkLinhasCorte.Add_CheckedChanged({ AtualizarCalculo })
 
