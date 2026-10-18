@@ -35,7 +35,14 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
-      "build/**/*"
+      "build/**/*",
+      "corel-plugin/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "corel-plugin",
+        "to": "corel-plugin"
+      }
     ],
     "win": {
       "target": "dir",

@@ -1,4 +1,4 @@
 @echo off
-title Estamparia Manager
-start "" "%~dp0dist-electron\win-unpacked\Estamparia Manager.exe"
+title Order Separator
+start "" "%~dp0dist-electron\win-unpacked\Order Separator.exe"
 exit

@@ -488,13 +488,54 @@ ipcMain.handle('corel:carimbarPedido', async (event, pedido) => {
 // 11. Abrir a Janelinha Flutuante do Montador de Folha (Gang Sheet)
 ipcMain.handle('corel:abrirMontador', async () => {
   const { execFile } = require('child_process');
-  const scriptPath = path.join(__dirname, '../corel-plugin/montador_folha.ps1');
 
-  if (fs.existsSync(scriptPath)) {
-    execFile('powershell.exe', ['-ExecutionPolicy', 'Bypass', '-NoProfile', '-WindowStyle', 'Hidden', '-File', scriptPath]);
-    return { sucesso: true };
+  const caminhosPossiveis = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'montador_folha.ps1') : null,
+    path.join(__dirname, '..', 'corel-plugin', 'montador_folha.ps1'),
+    path.join(app.getAppPath(), 'corel-plugin', 'montador_folha.ps1'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'corel-plugin', 'montador_folha.ps1'),
+    path.join(path.dirname(app.getPath('exe')), '..', '..', 'corel-plugin', 'montador_folha.ps1'),
+    'E:\\estamparia-manager\\corel-plugin\\montador_folha.ps1',
+    path.join(app.getPath('userData'), 'montador_folha.ps1')
+  ].filter(Boolean);
+
+  let scriptEncontrado = null;
+  for (const c of caminhosPossiveis) {
+    if (fs.existsSync(c)) {
+      scriptEncontrado = c;
+      break;
+    }
   }
-  return { sucesso: false, erro: 'Script do montador de folha não foi encontrado.' };
+
+  // Se não estiver em disco acessível, copia do diretório base do projeto para userData
+  if (!scriptEncontrado) {
+    try {
+      const fallbackOrigem = 'E:\\estamparia-manager\\corel-plugin\\montador_folha.ps1';
+      const destinoUserData = path.join(app.getPath('userData'), 'montador_folha.ps1');
+      if (fs.existsSync(fallbackOrigem)) {
+        fs.copyFileSync(fallbackOrigem, destinoUserData);
+        scriptEncontrado = destinoUserData;
+      }
+    } catch (eCopy) {
+      console.warn('Erro ao copiar script para userData:', eCopy);
+    }
+  }
+
+  if (scriptEncontrado) {
+    execFile('powershell.exe', [
+      '-ExecutionPolicy', 'Bypass',
+      '-NoProfile',
+      '-WindowStyle', 'Hidden',
+      '-File', scriptEncontrado
+    ], (err) => {
+      if (err) {
+        console.error('Erro na execução do montador:', err);
+      }
+    });
+    return { sucesso: true, caminho: scriptEncontrado };
+  }
+
+  return { sucesso: false, erro: 'Script do montador de folha não foi encontrado nos caminhos do sistema.' };
 });
 
 // 12. Criar Subpasta do Pedido no Explorer e Organizar Arquivos
