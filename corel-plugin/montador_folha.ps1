@@ -677,18 +677,66 @@ function ExecutarPacking {
     $espArte = if ($artePrincipal.EspacoColuna -gt 0) { [double]$artePrincipal.EspacoColuna } else { $espaco }
 
     while ($artePrincipal.QtdRestante -gt 0) {
-      # Se for a ultima fileira com poucas pecas restantes de uma arte em pe (H > W), verifica se deitada gasta menos altura de bobina!
+      # Se for a ultima fileira com poucas pecas restantes de uma arte em pe (H > W), verifica se vale a pena deitar
       $usarW = $artePrincipal.W
       $usarH = $artePrincipal.H
       $usarRot = $artePrincipal.Rot
-      if ($otimizarGiro -and $artePrincipal.H -gt ($artePrincipal.W * 1.25) -and $artePrincipal.QtdRestante -lt $artePrincipal.Colunas) {
+      if ($otimizarGiro -and $artePrincipal.H -gt ($artePrincipal.W * 1.15) -and $artePrincipal.QtdRestante -lt $artePrincipal.Colunas) {
         $wDeitado = $artePrincipal.H
         $hDeitado = $artePrincipal.W
         $colsDeitado = [int][Math]::Floor([Math]::Round((($larguraUtil + $espArte + 0.01) / ($wDeitado + $espArte)), 4))
         if ($colsDeitado -ge 1 -and $artePrincipal.QtdRestante -le $colsDeitado) {
-          $usarW = $wDeitado
-          $usarH = $hDeitado
-          $usarRot = (-not $artePrincipal.Rot)
+          # Só deita se NÃO existirem outras artes pendentes que caibam no vão em pé mas deixem de caber se deitarmos!
+          $artesPendentes = @($artesOrdenadas | Where-Object { $_.Id -ne $artePrincipal.Id -and $_.QtdRestante -gt 0 })
+          $deveGirar = $true
+          if ($artesPendentes.Count -gt 0) {
+            $larguraOcupEmPe = ($artePrincipal.W * $artePrincipal.QtdRestante) + (($artePrincipal.QtdRestante - 1) * $espArte)
+            $vaoEmPeW = [Math]::Max(0.0, ($larguraUtil - $larguraOcupEmPe))
+            $vaoEmPeH = $artePrincipal.H
+
+            $larguraOcupDeit = ($wDeitado * $artePrincipal.QtdRestante) + (($artePrincipal.QtdRestante - 1) * $espArte)
+            $vaoDeitW = [Math]::Max(0.0, ($larguraUtil - $larguraOcupDeit))
+            $vaoDeitH = $hDeitado
+
+            $cabemEmPe = 0
+            $cabemDeitado = 0
+            foreach ($ap in $artesPendentes) {
+              $espPendente = if ($ap.EspacoColuna -gt 0) { [Math]::Min($espaco, [double]$ap.EspacoColuna) } else { $espaco }
+
+              # No vão em pé
+              $cCols1 = [int][Math]::Floor([Math]::Round((($vaoEmPeW + 0.01) / ($ap.W + $espPendente)), 4))
+              $cRows1 = [int][Math]::Floor([Math]::Round((($vaoEmPeH + $espPendente + 0.01) / ($ap.H + $espPendente)), 4))
+              $c1 = [Math]::Max(0, ($cCols1 * $cRows1))
+
+              $cCols2 = [int][Math]::Floor([Math]::Round((($vaoEmPeW + 0.01) / ($ap.H + $espPendente)), 4))
+              $cRows2 = [int][Math]::Floor([Math]::Round((($vaoEmPeH + $espPendente + 0.01) / ($ap.W + $espPendente)), 4))
+              $c2 = [Math]::Max(0, ($cCols2 * $cRows2))
+
+              $cabemEmPe += [Math]::Max($c1, $c2)
+
+              # No vão deitado
+              $dCols1 = [int][Math]::Floor([Math]::Round((($vaoDeitW + 0.01) / ($ap.W + $espPendente)), 4))
+              $dRows1 = [int][Math]::Floor([Math]::Round((($vaoDeitH + $espPendente + 0.01) / ($ap.H + $espPendente)), 4))
+              $d1 = [Math]::Max(0, ($dCols1 * $dRows1))
+
+              $dCols2 = [int][Math]::Floor([Math]::Round((($vaoDeitW + 0.01) / ($ap.H + $espPendente)), 4))
+              $dRows2 = [int][Math]::Floor([Math]::Round((($vaoDeitH + $espPendente + 0.01) / ($ap.W + $espPendente)), 4))
+              $d2 = [Math]::Max(0, ($dCols2 * $dRows2))
+
+              $cabemDeitado += [Math]::Max($d1, $d2)
+            }
+
+            # Se cabem mais peças pendentes mantendo em pé, NÃO gira para absorver essas peças e economizar faixas inteiras!
+            if ($cabemEmPe -gt $cabemDeitado) {
+              $deveGirar = $false
+            }
+          }
+
+          if ($deveGirar) {
+            $usarW = $wDeitado
+            $usarH = $hDeitado
+            $usarRot = (-not $artePrincipal.Rot)
+          }
         }
       }
 
@@ -722,74 +770,110 @@ function ExecutarPacking {
         }
       }
 
-      # 2. SUB-PACKING: Preenchimento de vãos restantes com artes menores da mesma folha (testando normal e girada)
+      # 2. SUB-PACKING: Preenchimento de vãos restantes com outras artes da mesma folha (testando normal e girada)
       $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
-      $minVao = if ($rbCm.Checked) { 2.0 } else { 20.0 }
-      if ($dispVao -gt ($espArte + $minVao)) {
+      $minVao = if ($rbCm.Checked) { 1.5 } else { 15.0 }
+
+      $continuarSubPacking = $true
+      while ($continuarSubPacking -and ($dispVao -gt $minVao)) {
+        $continuarSubPacking = $false
+        
+        $melhorCandidato = $null
+        $melhorCabemTotal = 0
+        $melhorSubW = 0.0
+        $melhorSubH = 0.0
+        $melhorSubRot = $false
+        $melhorColsVao = 0
+        $melhorRowsVao = 0
+        $melhorEspSub = $espaco
+
         foreach ($arteMenor in ($artesOrdenadas | Where-Object { $_.Id -ne $artePrincipal.Id -and $_.QtdRestante -gt 0 })) {
           $espSub = if ($arteMenor.EspacoColuna -gt 0) { [Math]::Min($espaco, [double]$arteMenor.EspacoColuna) } else { $espaco }
           $vaoW = $dispVao - $espSub
           $vaoH = $novaPrat.Altura
+          if ($vaoW -le 0.1) { continue }
 
-          # Testa a orientacao atual e (se otimizarGiro ativo) a orientacao girada para ver qual encaixa mais pecas no vao
-          $melhorSubW = $arteMenor.W
-          $melhorSubH = $arteMenor.H
-          $melhorSubRot = $arteMenor.Rot
-          $melhorColsVao = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
-          $melhorRowsVao = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
-          $melhorCabem = [Math]::Max(0, ($melhorColsVao * $melhorRowsVao))
+          # Testa orientacao normal
+          $cCols = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
+          $cRows = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
+          $cabemNormal = [Math]::Max(0, ($cCols * $cRows))
 
+          # Testa orientacao girada (se otimizarGiro)
+          $rCols = 0; $rRows = 0; $cabemRot = 0
           if ($otimizarGiro) {
-            $colsRot = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
-            $rowsRot = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
-            $cabemRot = [Math]::Max(0, ($colsRot * $rowsRot))
-            if ($cabemRot -gt $melhorCabem) {
-              $melhorCabem = $cabemRot
-              $melhorColsVao = $colsRot
-              $melhorRowsVao = $rowsRot
-              $melhorSubW = $arteMenor.H
-              $melhorSubH = $arteMenor.W
-              $melhorSubRot = (-not $arteMenor.Rot)
+            $rCols = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
+            $rRows = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
+            $cabemRot = [Math]::Max(0, ($rCols * $rRows))
+          }
+
+          $arteCabem = $cabemNormal
+          $arteW = $arteMenor.W
+          $arteH = $arteMenor.H
+          $arteRot = $arteMenor.Rot
+          $arteCols = $cCols
+          $arteRows = $cRows
+
+          if ($cabemRot -gt $cabemNormal) {
+            $arteCabem = $cabemRot
+            $arteW = $arteMenor.H
+            $arteH = $arteMenor.W
+            $arteRot = (-not $arteMenor.Rot)
+            $arteCols = $rCols
+            $arteRows = $rRows
+          }
+
+          if ($arteCabem -ge 1 -and $arteCols -ge 1 -and $arteRows -ge 1) {
+            $arteCabemEfetivo = [Math]::Min([int]$arteCabem, $arteMenor.QtdRestante)
+            if ($arteCabemEfetivo -gt $melhorCabemTotal) {
+              $melhorCabemTotal = $arteCabemEfetivo
+              $melhorCandidato = $arteMenor
+              $melhorSubW = $arteW
+              $melhorSubH = $arteH
+              $melhorSubRot = $arteRot
+              $melhorColsVao = $arteCols
+              $melhorRowsVao = $arteRows
+              $melhorEspSub = $espSub
+            }
+          }
+        }
+
+        # Insere a melhor arte no vao
+        if ($melhorCandidato -and $melhorCabemTotal -gt 0) {
+          $colocarQtd = $melhorCabemTotal
+          $colIdx = 0
+          $rowIdx = 0
+          $inicioX = $novaPrat.LarguraOcupada + $melhorEspSub
+
+          for ($p = 0; $p -lt $colocarQtd; $p++) {
+            $itemX = $inicioX + ($colIdx * ($melhorSubW + $melhorEspSub))
+            $itemY = $rowIdx * ($melhorSubH + $melhorEspSub)
+
+            $novaPrat.Itens.Add([PSCustomObject]@{
+              ArteId = $melhorCandidato.Id
+              OrigShape = $melhorCandidato.Shape
+              W = $melhorSubW
+              H = $melhorSubH
+              Rot = $melhorSubRot
+              Escala = $melhorCandidato.Escala
+              SubX = $itemX
+              SubY = $itemY
+              IsSubItem = $true
+            })
+            $melhorCandidato.QtdRestante--
+            $totalPecasColocadas++
+
+            $colIdx++
+            if ($colIdx -ge $melhorColsVao) {
+              $colIdx = 0
+              $rowIdx++
             }
           }
 
-          if ($melhorColsVao -ge 1 -and $melhorRowsVao -ge 1) {
-            $colocarQtd = [Math]::Min([int]$melhorCabem, $arteMenor.QtdRestante)
-
-            $colIdx = 0
-            $rowIdx = 0
-            $inicioX = $novaPrat.LarguraOcupada + $espSub
-
-            for ($p = 0; $p -lt $colocarQtd; $p++) {
-              $itemX = $inicioX + ($colIdx * ($melhorSubW + $espSub))
-              $itemY = $rowIdx * ($melhorSubH + $espSub)
-
-              $novaPrat.Itens.Add([PSCustomObject]@{
-                ArteId = $arteMenor.Id
-                OrigShape = $arteMenor.Shape
-                W = $melhorSubW
-                H = $melhorSubH
-                Rot = $melhorSubRot
-                Escala = $arteMenor.Escala
-                SubX = $itemX
-                SubY = $itemY
-                IsSubItem = $true
-              })
-              $arteMenor.QtdRestante--
-              $totalPecasColocadas++
-
-              $colIdx++
-              if ($colIdx -ge $melhorColsVao) {
-                $colIdx = 0
-                $rowIdx++
-              }
-            }
-
-            $colsEfetivasUsadas = [Math]::Min($melhorColsVao, $colocarQtd)
-            $larguraGradeInserida = ($colsEfetivasUsadas * $melhorSubW) + (($colsEfetivasUsadas - 1) * $espSub)
-            $novaPrat.LarguraOcupada += ($espSub + $larguraGradeInserida)
-            $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
-          }
+          $colsUsadas = if ($colocarQtd -lt $melhorColsVao) { $colocarQtd } else { $melhorColsVao }
+          $larguraGrade = ($colsUsadas * $melhorSubW) + (($colsUsadas - 1) * $melhorEspSub)
+          $novaPrat.LarguraOcupada += ($melhorEspSub + $larguraGrade)
+          $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
+          $continuarSubPacking = $true
         }
       }
 
