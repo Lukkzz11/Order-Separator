@@ -26,22 +26,22 @@ try:
 except ImportError:
     HAS_REMBG = False
 
-# Sessões mantidas em memória para resposta instantânea
-GLOBAL_SESSIONS = {}
+# Sessão U2-Net global mantida em memória para resposta instantânea e ultra leve
+GLOBAL_REMBG_SESSION = None
 
-def get_rembg_session(model_name="u2net"):
-    global GLOBAL_SESSIONS
+def get_rembg_session():
+    global GLOBAL_REMBG_SESSION
     if not HAS_REMBG:
         return None
-    if model_name not in GLOBAL_SESSIONS:
+    if GLOBAL_REMBG_SESSION is None:
         try:
-            GLOBAL_SESSIONS[model_name] = rembg.new_session(model_name)
+            GLOBAL_REMBG_SESSION = rembg.new_session("u2net")
         except Exception:
             try:
-                GLOBAL_SESSIONS[model_name] = rembg.new_session("u2net")
+                GLOBAL_REMBG_SESSION = rembg.new_session("u2netp")
             except Exception:
-                GLOBAL_SESSIONS[model_name] = None
-    return GLOBAL_SESSIONS.get(model_name)
+                GLOBAL_REMBG_SESSION = None
+    return GLOBAL_REMBG_SESSION
 
 
 # =========================================================================
@@ -257,16 +257,16 @@ def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2,
     return res_img
 
 
-def remove_ai_semantic(pil_img, model_name="birefnet-general", alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True):
+def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True):
     """
-    Remove o fundo usando Inteligência Artificial Semântica (BiRefNet Ultra HD ou U2-Net) + Despill VFX.
+    Remove o fundo usando Inteligência Artificial Semântica (U2-Net) + Despill VFX.
     Funciona para pessoas, fones de ouvido, cabelos, mascotes, carros e cenários complexos.
     Elimina 100% dos resquícios verdes de estúdio.
     """
     if not HAS_REMBG:
         raise RuntimeError("Biblioteca 'rembg' não está instalada no ambiente Python.")
 
-    session = get_rembg_session(model_name)
+    session = get_rembg_session()
 
     out_img = rembg.remove(
         pil_img,
@@ -358,18 +358,14 @@ class RemovedorFundoApp:
         # Cor customizada para Chroma Key
         self.custom_chroma_color = (0, 255, 0)
 
-        # Modelo de IA selecionado: 'u2net' (Rápido) ou 'birefnet-general' (Ultra HD)
-        self.ai_model_var = tk.StringVar(value="u2net")
-
         # Posições de desenho nos canvases para conversão do clique do conta-gotas
         self.orig_canvas_offset = (0, 0, 1, 1)
 
         # Construir UI
         self.setup_ui()
 
-        # Pré-carregar sessões em segundo plano
-        threading.Thread(target=lambda: get_rembg_session("u2net"), daemon=True).start()
-        threading.Thread(target=lambda: get_rembg_session("birefnet-general"), daemon=True).start()
+        # Pré-carregar sessão U2-Net leve em segundo plano
+        threading.Thread(target=get_rembg_session, daemon=True).start()
 
         # Auto-detectar se há seleção ativa no CorelDRAW ao iniciar
         self.root.after(800, self.verificar_selecao_inicial_corel)
@@ -396,7 +392,7 @@ class RemovedorFundoApp:
 
         lbl_sub = tk.Label(
             title_frame,
-            text="IA Dual (BiRefNet Ultra HD & U2-Net), Despill VFX Anti-Verde, Choke DTF e Preservação de Brancos",
+            text="IA U2-Net Leve & Rápida, Despill VFX Anti-Verde, Choke DTF e Preservação de Brancos",
             font=("Segoe UI", 8),
             fg="#94A3B8",
             bg="#0B0F19"
@@ -708,40 +704,16 @@ class RemovedorFundoApp:
 
         # Controles Específicos por Modo
         if mode == "ia_geral":
-            row_ai = tk.Frame(self.pnl_params, bg="#0F172A")
-            row_ai.pack(fill=tk.X, pady=(0, 4))
-
-            tk.Label(row_ai, text="Motor de IA:", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
-
-            btn_m_u2 = tk.Radiobutton(
-                row_ai,
-                text="⚡ U2-Net Rápido (1-2s)",
-                variable=self.ai_model_var,
-                value="u2net",
-                font=("Segoe UI", 8, "bold"),
-                fg="#CBD5E1",
+            lbl_desc = tk.Label(
+                self.pnl_params,
+                text="Rede neural profunda U2-Net otimizada com Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes.",
+                font=("Segoe UI", 8),
+                fg="#94A3B8",
                 bg="#0F172A",
-                selectcolor="#1E293B",
-                activebackground="#0F172A",
-                activeforeground="#FFFFFF",
-                command=self.agendar_preview_recalculo
+                wraplength=800,
+                justify="left"
             )
-            btn_m_u2.pack(side=tk.LEFT, padx=4)
-
-            btn_m_bi = tk.Radiobutton(
-                row_ai,
-                text="👑 BiRefNet Ultra HD (Máxima Precisão em Fones & Cabelos)",
-                variable=self.ai_model_var,
-                value="birefnet-general",
-                font=("Segoe UI", 8, "bold"),
-                fg="#FBBF24",
-                bg="#0F172A",
-                selectcolor="#1E293B",
-                activebackground="#0F172A",
-                activeforeground="#FBBF24",
-                command=self.agendar_preview_recalculo
-            )
-            btn_m_bi.pack(side=tk.LEFT, padx=6)
+            lbl_desc.pack(anchor="w", pady=(0, 4))
 
             if not hasattr(self, 'var_post_process'):
                 self.var_post_process = tk.BooleanVar(value=True)
@@ -986,7 +958,6 @@ class RemovedorFundoApp:
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
-            ai_model = self.ai_model_var.get() if hasattr(self, 'ai_model_var') else "u2net"
 
             orig = self.pil_original
             max_dim = max(orig.size)
@@ -1001,7 +972,7 @@ class RemovedorFundoApp:
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
                 res = remove_white_background_floodfill(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke)
@@ -1009,7 +980,7 @@ class RemovedorFundoApp:
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(proc_input, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
             else:
                 res = proc_input.convert("RGBA")
 
@@ -1100,8 +1071,8 @@ class RemovedorFundoApp:
             temp_png = os.path.join(temp_dir, f"corel_rembg_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
 
             opt = corel.CreateStructExportOptions()
-            opt.SizeX = 2400
-            opt.SizeY = 2400
+            opt.SizeX = 1600
+            opt.SizeY = 1600
             opt.MaintainAspect = True
             opt.Transparent = True
             pal = corel.CreateStructPaletteOptions()
@@ -1136,12 +1107,11 @@ class RemovedorFundoApp:
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
-            ai_model = self.ai_model_var.get() if hasattr(self, 'ai_model_var') else "u2net"
             full_img = self.pil_original
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
                 res = remove_white_background_floodfill(full_img, tolerance=tol, edge_feather=feather, choke_px=choke)
@@ -1149,7 +1119,7 @@ class RemovedorFundoApp:
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(full_img, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
             else:
                 res = full_img.convert("RGBA")
 
