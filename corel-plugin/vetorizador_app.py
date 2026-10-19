@@ -28,6 +28,99 @@ import vtracer
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
 # =========================================================================
 
+def detect_image_mode(img_bgr):
+    """
+    Classifica automaticamente a complexidade da imagem em um dos 3 motores especializados:
+    - 'line_art'      : Ilustrações detalhadas P&B/monocromáticas, gravuras, mangá, traços finos (ex: Leão)
+    - 'photo_complex' : Fotos, retratos, degradês, pinturas ou imagens pixeladas/baixa resolução (ex: Retrato 100x100)
+    - 'flat_logo'     : Logos, ícones, escudos e tipografia com cores sólidas chapadas (ex: Logo E/S/NE)
+    """
+    h, w = img_bgr.shape[:2]
+    scale = min(1.0, 400.0 / max(h, w))
+    small = cv2.resize(img_bgr, (max(1, int(w * scale)), max(1, int(h * scale))), interpolation=cv2.INTER_AREA)
+
+    sh, sw = small.shape[:2]
+    core_crop = small[sh // 8 : max(sh // 8 + 1, 7 * sh // 8), sw // 8 : max(sw // 8 + 1, 7 * sw // 8)]
+
+    img_f = small.astype(np.float32)
+    chroma = np.max(img_f, axis=2) - np.min(img_f, axis=2)
+    strong_color_ratio = float(np.mean(chroma > 42.0))
+
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 60, 160)
+    edge_density = float(np.mean(edges > 0))
+
+    if strong_color_ratio < 0.0025:
+        _, bw = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
+        cnts, _ = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        valid_cnts = sum(1 for c in cnts if cv2.contourArea(c) >= 4)
+        if valid_cnts >= 40 or edge_density > 0.045:
+            return "line_art"
+        return "flat_logo"
+
+    cf = core_crop.reshape(-1, 3)
+    non_white = cf[np.max(cf, axis=1) < 242]
+    if len(non_white) < 50:
+        non_white = cf
+    bins = (non_white // 24) * 24
+    _, counts = np.unique(bins, axis=0, return_counts=True)
+    counts_sorted = np.sort(counts)[::-1]
+    cum_ratios = np.cumsum(counts_sorted) / max(1, np.sum(counts_sorted))
+    bins_90 = int(np.searchsorted(cum_ratios, 0.90)) + 1
+
+    if bins_90 >= 6:
+        return "photo_complex"
+    return "flat_logo"
+
+
+def detect_pixel_grid_dimensions_robust(img_bgr):
+    """
+    Detecta automaticamente se uma imagem foi ampliada com blocos quadrados (pixelada / Nearest-Neighbor)
+    analisando picos periódicos no perfil de gradiente horizontal e vertical do miolo da imagem.
+    """
+    h, w = img_bgr.shape[:2]
+    y0, y1 = int(h * 0.15), int(h * 0.85)
+    x0, x1 = int(w * 0.15), int(w * 0.85)
+    crop = img_bgr[y0:y1, x0:x1]
+    ch, cw = crop.shape[:2]
+    if ch < 32 or cw < 32:
+        return w, h, False
+
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    col_prof = np.mean(np.abs(np.diff(gray, axis=1)), axis=0)
+    row_prof = np.mean(np.abs(np.diff(gray, axis=0)), axis=1)
+
+    med_x = max(0.1, float(np.median(col_prof)))
+    med_y = max(0.1, float(np.median(row_prof)))
+    ratio_x = float(np.percentile(col_prof, 85)) / med_x
+    ratio_y = float(np.percentile(row_prof, 85)) / med_y
+
+    if ratio_x > 1.55 and ratio_y > 1.55:
+        peaks_x = int(np.sum((col_prof[1:-1] > col_prof[:-2]) & (col_prof[1:-1] >= col_prof[2:]) & (col_prof[1:-1] > med_x * 1.22)))
+        peaks_y = int(np.sum((row_prof[1:-1] > row_prof[:-2]) & (row_prof[1:-1] >= row_prof[2:]) & (row_prof[1:-1] > med_y * 1.22)))
+        if peaks_x >= 12 and peaks_y >= 12:
+            full_tw = int(round(peaks_x * (float(w) / float(cw))))
+            full_th = int(round(peaks_y * (float(h) / float(ch))))
+            if 25 <= full_tw <= (w // 2) and 25 <= full_th <= (h // 2):
+                return full_tw, full_th, True
+    return w, h, False
+
+
+def get_exterior_white_bg_mask(img_bgr, white_thresh=232):
+    """
+    Identifica apenas o fundo branco/claro EXTERNO conectado às bordas da imagem,
+    preservando 100% dos brilhos claros e detalhes brancos no interior do desenho/retrato.
+    """
+    h, w = img_bgr.shape[:2]
+    is_light = np.all(img_bgr >= white_thresh, axis=2).astype(np.uint8)
+    num_labels, labels = cv2.connectedComponents(is_light, connectivity=8)
+    border_labels = set(labels[0, :]) | set(labels[h - 1, :]) | set(labels[:, 0]) | set(labels[:, w - 1])
+    border_labels.discard(0)
+    if not border_labels:
+        return np.zeros((h, w), dtype=bool)
+    return np.isin(labels, list(border_labels))
+
+
 def extract_exact_palette_and_segment(img_bgr, k_colors="auto", unify_colors=True):
     """
     Extrai as cores EXATAS das regiões planas (sem misturar com pixels de anti-aliasing)
@@ -95,6 +188,140 @@ def extract_exact_palette_and_segment(img_bgr, k_colors="auto", unify_colors=Tru
     return palette[labels], palette
 
 
+def smooth_contour_gaussian(pts, sigma=1.4, is_closed=True):
+    """Suaviza pontos de contorno (N, 2) em sub-pixel com filtro Gaussiano circular."""
+    N = len(pts)
+    if N < 5 or sigma <= 0.1:
+        return pts.astype(np.float64)
+    r = max(2, int(round(sigma * 3.0)))
+    if N <= 2 * r + 1:
+        return pts.astype(np.float64)
+    idx = np.arange(-r, r + 1, dtype=np.float64)
+    weights = np.exp(-0.5 * (idx / sigma) ** 2)
+    weights /= np.sum(weights)
+    if is_closed:
+        padded = np.vstack([pts[-r:], pts, pts[:r]]).astype(np.float64)
+        sx = np.convolve(padded[:, 0], weights, mode="valid")
+        sy = np.convolve(padded[:, 1], weights, mode="valid")
+        return np.column_stack([sx, sy])
+    return pts.astype(np.float64)
+
+
+def fit_cubic_bezier_chain(pts, corner_angle_deg=52.0, rdp_eps=1.1, sigma=1.4, allow_hv_snap=False):
+    """
+    Motor de Splines Bézier Cúbicas Adaptativas:
+    - Preserva 100% dos detalhes finos (pelos, gravuras, retratos, mascotes)
+    - Mantém quinas vivas agudas nas pontas reais
+    - Emite curvas Bézier cúbicas ('C') suaves sem auto-interseção
+    """
+    N = len(pts)
+    if N < 3:
+        return ""
+    poly_raw = cv2.approxPolyDP(pts.astype(np.float32).reshape(-1, 1, 2), rdp_eps, True)[:, 0, :].astype(np.float64)
+    if len(poly_raw) < 3:
+        return ""
+
+    smooth_dense = smooth_contour_gaussian(pts, sigma=sigma, is_closed=True)
+    poly = cv2.approxPolyDP(smooth_dense.astype(np.float32).reshape(-1, 1, 2), rdp_eps, True)[:, 0, :].astype(np.float64)
+    M = len(poly)
+    if M < 3:
+        poly = poly_raw
+        M = len(poly)
+
+    is_corner = np.zeros(M, dtype=bool)
+    for i in range(M):
+        p_prev, p_curr, p_next = poly[(i - 1) % M], poly[i], poly[(i + 1) % M]
+        v1, v2 = p_curr - p_prev, p_next - p_curr
+        l1, l2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        if l1 > 1e-3 and l2 > 1e-3:
+            cos_a = np.clip(np.dot(v1, v2) / (l1 * l2), -1.0, 1.0)
+            turn_angle = np.degrees(np.arccos(cos_a))
+            if turn_angle >= corner_angle_deg or (turn_angle >= 28.0 and max(l1, l2) >= 20.0):
+                is_corner[i] = True
+                dists_raw = np.sum((poly_raw - p_curr) ** 2, axis=1)
+                nearest_raw = poly_raw[np.argmin(dists_raw)]
+                if np.linalg.norm(nearest_raw - p_curr) <= 3.5:
+                    poly[i] = nearest_raw
+
+    if allow_hv_snap:
+        for i in range(M):
+            j = (i + 1) % M
+            if is_corner[i] and is_corner[j]:
+                seg_vec = poly[j] - poly[i]
+                seg_len = np.linalg.norm(seg_vec)
+                if seg_len >= 12.0:
+                    ang = abs(np.degrees(np.arctan2(seg_vec[1], seg_vec[0])))
+                    if ang < 5.0 or abs(ang - 180.0) < 5.0:
+                        mid_y = 0.5 * (poly[i][1] + poly[j][1])
+                        poly[i][1] = mid_y
+                        poly[j][1] = mid_y
+                    elif abs(ang - 90.0) < 5.0:
+                        mid_x = 0.5 * (poly[i][0] + poly[j][0])
+                        poly[i][0] = mid_x
+                        poly[j][0] = mid_x
+
+    tangents = np.zeros_like(poly)
+    for i in range(M):
+        if not is_corner[i]:
+            tangents[i] = (poly[(i + 1) % M] - poly[(i - 1) % M]) * 0.5
+
+    cmds = [f"M {poly[0][0]:.2f} {poly[0][1]:.2f}"]
+    for i in range(M):
+        j = (i + 1) % M
+        p0, p1 = poly[i], poly[j]
+        seg_len = np.linalg.norm(p1 - p0)
+        if (is_corner[i] and is_corner[j]) or seg_len < 2.2:
+            cmds.append(f"L {p1[0]:.2f} {p1[1]:.2f}")
+        else:
+            t0, t1 = tangents[i], tangents[j]
+            len_t0, len_t1 = np.linalg.norm(t0), np.linalg.norm(t1)
+            max_t = seg_len * 0.36
+            if len_t0 > max_t and len_t0 > 1e-5:
+                t0 = t0 * (max_t / len_t0)
+            if len_t1 > max_t and len_t1 > 1e-5:
+                t1 = t1 * (max_t / len_t1)
+            c1 = p0 + t0 * (0.65 if not is_corner[i] else 0.0)
+            c2 = p1 - t1 * (0.65 if not is_corner[j] else 0.0)
+            cmds.append(f"C {c1[0]:.2f} {c1[1]:.2f}, {c2[0]:.2f} {c2[1]:.2f}, {p1[0]:.2f} {p1[1]:.2f}")
+    cmds.append("Z")
+    return " ".join(cmds)
+
+
+def trace_mask_compound_svg(mask, rdp_eps=1.1, corner_angle_deg=52.0, sigma=1.4, min_area=12, allow_hv_snap=False):
+    """
+    Extrai contornos externos + furos internos (hierarquia RETR_CCOMP) como caminhos compostos
+    ('M ... Z M ... Z' com fill-rule='evenodd') para furos 100% precisos sem cobrir detalhes internos.
+    """
+    cnts, hier = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+    if hier is None or len(cnts) == 0:
+        return [], (0, 0, 0, 0)
+    hier = hier[0]
+    compound_paths = []
+    min_x, min_y, max_x, max_y = 10**9, 10**9, 0, 0
+    for idx, cnt in enumerate(cnts):
+        if hier[idx][3] != -1:
+            continue
+        area = cv2.contourArea(cnt)
+        if area < min_area:
+            continue
+        x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+        outer_d = fit_cubic_bezier_chain(cnt[:, 0, :], corner_angle_deg=corner_angle_deg, rdp_eps=rdp_eps, sigma=sigma, allow_hv_snap=allow_hv_snap)
+        if not outer_d:
+            continue
+        sub_paths = [outer_d]
+        child_idx = hier[idx][2]
+        while child_idx != -1:
+            hole_cnt = cnts[child_idx]
+            if cv2.contourArea(hole_cnt) >= max(6, min_area * 0.4):
+                hole_d = fit_cubic_bezier_chain(hole_cnt[:, 0, :], corner_angle_deg=corner_angle_deg, rdp_eps=rdp_eps, sigma=sigma, allow_hv_snap=allow_hv_snap)
+                if hole_d:
+                    sub_paths.append(hole_d)
+            child_idx = hier[child_idx][0]
+        compound_paths.append((area, " ".join(sub_paths), (x_b, y_b, w_b, h_b)))
+        min_x, min_y, max_x, max_y = min(min_x, x_b), min(min_y, y_b), max(max_x, x_b + w_b), max(max_y, y_b + h_b)
+    return compound_paths, (min_x, min_y, max_x, max_y)
+
+
 def _fit_clean_line(pts, allow_hv=True, hv_angle_tol=16.0):
     N = len(pts)
     core = pts[max(1, N // 4) : N - max(1, N // 4)] if N >= 8 else pts
@@ -138,10 +365,11 @@ def _intersect_lines(p1, d1, p2, d2, fallback):
 
 def _contour_to_svg_path(cnt, corner_threshold=38):
     """
-    Converte um contorno em caminho SVG matemático de alta precisão:
-    - Retas horizontais, verticais e diagonais viram segmentos 'L' 100% retos sem serrilhado
-    - Quinas vivas são reconstruídas pela interseção exata das retas
-    - Cantos arredondados viram arcos Bézier cúbicos ('C') suaves e simétricos
+    Seletor Geométrico Híbrido por Contorno:
+    - Para formas geométricas simples (letras retas, escudos, caixas com <= 28 vértices e chanfros curtos),
+      aplica Reconstrução Matemática CAD (interseção exata de retas + fillets Bézier).
+    - Para formas orgânicas ou complexas (mascotes, curvas livres, ilustrações detalhadas),
+      aplica automaticamente Splines Bézier Cúbicas Adaptativas sem jamais cortar pedaços da arte!
     """
     pts = cnt[:, 0, :].astype(np.float64)
     if len(pts) < 4:
@@ -151,7 +379,10 @@ def _contour_to_svg_path(cnt, corner_threshold=38):
     if len(poly) < 3:
         return ""
 
-    # 1. Fundir segmentos consecutivos quase colineares (< 14 graus)
+    # Se o contorno tem muitos vértices (> 28), é uma forma orgânica/complexa -> usa spline Bézier adaptativa
+    if len(poly) > 28:
+        return fit_cubic_bezier_chain(pts, corner_angle_deg=max(32.0, float(corner_threshold)), rdp_eps=1.15, sigma=1.4, allow_hv_snap=True)
+
     merged = [poly[0]]
     for i in range(1, len(poly)):
         p_prev, p_curr, p_next = merged[-1], poly[i], poly[(i + 1) % len(poly)]
@@ -178,7 +409,6 @@ def _contour_to_svg_path(cnt, corner_threshold=38):
         s_pt, e_pt, p0, d_vec, is_hv = _fit_clean_line(seg, allow_hv=(length >= 14.0), hv_angle_tol=16.0)
         edges.append({"s": s_pt, "e": e_pt, "p0": p0, "d": d_vec, "len": length, "raw": seg, "is_hv": is_hv})
 
-    # 2. Unificar arestas consecutivas que alinharam na mesma direção
     merged_edges = []
     for e in edges:
         if merged_edges and np.allclose(merged_edges[-1]["d"], e["d"], atol=0.05):
@@ -198,11 +428,9 @@ def _contour_to_svg_path(cnt, corner_threshold=38):
     edges = merged_edges
     M = len(edges)
 
-    # 3. Classificar arestas principais vs chanfros/curvas de canto
     for e in edges:
         e["major"] = (e["is_hv"] and e["len"] >= 15.0) or (e["len"] >= 32.0)
 
-    # 4. Promover degraus em U ou Z (entre duas retas paralelas) para aresta principal ortogonal
     major_indices = [i for i, e in enumerate(edges) if e["major"]]
     if len(major_indices) >= 2:
         for m_i in range(len(major_indices)):
@@ -240,10 +468,19 @@ def _contour_to_svg_path(cnt, corner_threshold=38):
     major_indices = [i for i, e in enumerate(edges) if e["major"]]
     K_maj = len(major_indices)
     if K_maj < 3:
-        for e in edges:
-            e["major"] = True
-        major_indices = list(range(M))
-        K_maj = M
+        return fit_cubic_bezier_chain(pts, corner_angle_deg=max(32.0, float(corner_threshold)), rdp_eps=1.15, sigma=1.4, allow_hv_snap=True)
+
+    # Trava de segurança: se qualquer cadeia de 'minors' entre duas arestas principais for muito longa (> 48px),
+    # significa que é uma curva orgânica e não um chanfro de canto -> usa fit_cubic_bezier_chain!
+    for m_i in range(K_maj):
+        idx_curr, idx_next = major_indices[m_i], major_indices[(m_i + 1) % K_maj]
+        k = (idx_curr + 1) % M
+        minor_len = 0.0
+        while k != idx_next:
+            minor_len += edges[k]["len"]
+            k = (k + 1) % M
+        if minor_len > 48.0:
+            return fit_cubic_bezier_chain(pts, corner_angle_deg=max(32.0, float(corner_threshold)), rdp_eps=1.15, sigma=1.4, allow_hv_snap=True)
 
     sharp_limit = 14.5 if corner_threshold <= 50 else 11.0
     transitions = []
@@ -312,10 +549,10 @@ def execute_vectorization(
     unify_colors=True,
 ):
     """
-    Motor de Vetorização Híbrido CAD/Bézier + Extração de Cores Puras por Croma:
-    - Mantém 100% a fidelidade das cores originais (sem misturar cinzas de anti-aliasing)
-    - Elimina 100% dos cantos serrilhados reconstruindo retas perfeitas e curvas Bézier suaves
-    - Retorna (output_svg, (w_ratio, h_ratio)) para dimensionamento exato no CorelDRAW
+    Motor de Vetorização Inteligente Tri-Modal (Auto-Adaptativo):
+    1. 'line_art'      -> Ilustrações detalhadas P&B/gravuras (ex: Leão): contraste adaptativo + limpeza de marca d'água + furos compostos RETR_CCOMP
+    2. 'photo_complex' -> Fotos/retratos/baixa resolução (ex: Retrato 100x100): despixelização de grade + Super-Resolução Bilateral/Mean-Shift + K-Means LAB
+    3. 'flat_logo'     -> Logos/ícones/tipografia (ex: Logo E/S/NE): paleta exata por Croma + reconstrução geométrica CAD/Bézier
     """
     img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
     if img is None:
@@ -330,6 +567,156 @@ def execute_vectorization(
     elif len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
+    mode = detect_image_mode(img)
+    if colormode == "binary" and mode == "photo_complex":
+        mode = "line_art"
+
+    # =====================================================================
+    # MODO 1: ILUSTRAÇÕES DETALHADAS / LINE-ART / GRAVURAS (Ex: Leão)
+    # =====================================================================
+    if mode == "line_art":
+        h0, w0 = img.shape[:2]
+        scale = max(2, min(3, int(1800 / max(w0, h0)))) if upscale_small else 1
+        work = cv2.resize(img, (w0 * scale, h0 * scale), interpolation=cv2.INTER_LANCZOS4) if scale > 1 else img.copy()
+        h, w = work.shape[:2]
+
+        gray = cv2.cvtColor(work, cv2.COLOR_BGR2GRAY)
+        blur_bg = cv2.GaussianBlur(gray, (51, 51), 0)
+        diff = blur_bg.astype(np.float32) - gray.astype(np.float32)
+        # Recupera 100% dos traços finos e pelos enquanto ignora marcas d'água cinza-claro de fundo
+        ink_mask = ((gray < 168) | ((diff > 16.0) & (gray < 212))).astype(np.uint8) * 255
+        ink_mask = cv2.GaussianBlur(ink_mask, (5, 5), 1.1)
+        _, ink_mask = cv2.threshold(ink_mask, 125, 255, cv2.THRESH_BINARY)
+
+        min_area = max(12, int(filter_speckle) * 2)
+        paths, (min_x, min_y, max_x, max_y) = trace_mask_compound_svg(
+            ink_mask,
+            rdp_eps=1.15,
+            corner_angle_deg=max(35.0, float(corner_threshold)),
+            sigma=1.35,
+            min_area=min_area,
+            allow_hv_snap=False,
+        )
+
+        svg_lines = [
+            f'<?xml version="1.0" encoding="UTF-8"?>',
+            f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
+        ]
+        if not remove_bg:
+            svg_lines.append(f'  <rect width="{w}" height="{h}" fill="#FFFFFF" />')
+        for _, d_str, _ in paths:
+            svg_lines.append(f'  <path fill="#000000" fill-rule="evenodd" d="{d_str}" />')
+        svg_lines.append("</svg>")
+
+        with open(output_svg, "w", encoding="utf-8") as f:
+            f.write("\n".join(svg_lines))
+
+        if max_x > min_x and max_y > min_y:
+            return output_svg, (float(max_x - min_x) / float(w), float(max_y - min_y) / float(h))
+        return output_svg, (1.0, 1.0)
+
+    # =====================================================================
+    # MODO 2: FOTOS / RETRATOS / IMAGENS PIXELADAS OU COM DEGRADÊS
+    # =====================================================================
+    if mode == "photo_complex":
+        tw, th, is_blocky = detect_pixel_grid_dimensions_robust(img)
+        work = img.copy()
+        if is_blocky:
+            work = cv2.resize(work, (tw, th), interpolation=cv2.INTER_AREA)
+
+        while max(work.shape[:2]) < 920:
+            nh, nw = work.shape[0] * 2, work.shape[1] * 2
+            work = cv2.resize(work, (nw, nh), interpolation=cv2.INTER_LANCZOS4)
+            work = cv2.bilateralFilter(work, d=9, sigmaColor=28, sigmaSpace=28)
+
+        work = cv2.pyrMeanShiftFiltering(work, sp=8, sr=16)
+        work = cv2.bilateralFilter(work, d=7, sigmaColor=22, sigmaSpace=22)
+
+        h, w = work.shape[:2]
+        ext_bg_mask = get_exterior_white_bg_mask(work, white_thresh=232) if remove_bg else np.zeros((h, w), dtype=bool)
+        subject_mask = (~ext_bg_mask).astype(np.uint8) * 255
+
+        K_photo = 18
+        if k_colors is not None and k_colors not in ("auto", "all"):
+            try:
+                K_photo = max(12, int(k_colors))
+            except ValueError:
+                K_photo = 18
+        elif k_colors == "all":
+            K_photo = 24
+
+        lab = cv2.cvtColor(work, cv2.COLOR_BGR2LAB).astype(np.float32)
+        small_lab = cv2.resize(lab, (max(1, w // 3), max(1, h // 3)), interpolation=cv2.INTER_AREA)
+        Z = small_lab.reshape((-1, 3))
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 25, 1.0)
+        _, _, centers_lab = cv2.kmeans(Z, K_photo, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
+
+        flat_lab = lab.reshape((-1, 3))
+        dists_lab = np.zeros((flat_lab.shape[0], K_photo), dtype=np.float32)
+        for k in range(K_photo):
+            dists_lab[:, k] = np.sum((flat_lab - centers_lab[k]) ** 2, axis=1)
+        labels_p = np.argmin(dists_lab, axis=1).reshape((h, w))
+        centers_bgr = cv2.cvtColor(centers_lab.reshape(1, K_photo, 3).astype(np.uint8), cv2.COLOR_LAB2BGR)[0]
+
+        svg_lines = [
+            f'<?xml version="1.0" encoding="UTF-8"?>',
+            f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
+        ]
+
+        # Cria silhueta base sólida sob o sujeito para garantir ZERO furos brancos dentro do rosto/foto
+        valid_labels = labels_p[~ext_bg_mask] if np.any(~ext_bg_mask) else labels_p.reshape(-1)
+        vals_l, cnts_l = np.unique(valid_labels, return_counts=True)
+        dom_k = int(vals_l[np.argmax(cnts_l)])
+        base_c = centers_bgr[dom_k]
+        base_hex = "#{:02X}{:02X}{:02X}".format(int(base_c[2]), int(base_c[1]), int(base_c[0]))
+
+        min_x, min_y, max_x, max_y = w, h, 0, 0
+        if remove_bg and np.any(ext_bg_mask):
+            subj_smooth = cv2.GaussianBlur(subject_mask, (9, 9), 2.0)
+            _, subj_smooth = cv2.threshold(subj_smooth, 125, 255, cv2.THRESH_BINARY)
+            base_paths, (bx0, by0, bx1, by1) = trace_mask_compound_svg(subj_smooth, rdp_eps=1.4, corner_angle_deg=60.0, sigma=2.0, min_area=40)
+            for _, d_str, _ in base_paths:
+                svg_lines.append(f'  <path fill="{base_hex}" fill-rule="evenodd" d="{d_str}" />')
+            if bx1 > bx0 and by1 > by0:
+                min_x, min_y, max_x, max_y = min(min_x, bx0), min(min_y, by0), max(max_x, bx1), max(max_y, by1)
+        else:
+            svg_lines.append(f'  <rect width="{w}" height="{h}" fill="{base_hex}" />')
+            min_x, min_y, max_x, max_y = 0, 0, w, h
+
+        all_photo_shapes = []
+        min_area = max(22, int(filter_speckle) * 4)
+        for k in range(K_photo):
+            mask_k = ((labels_p == k) & (~ext_bg_mask)).astype(np.uint8) * 255
+            if not np.any(mask_k):
+                continue
+            mask_k = cv2.dilate(mask_k, np.ones((3, 3), np.uint8), iterations=1)
+            mask_k = cv2.GaussianBlur(mask_k, (11, 11), 2.4)
+            _, mask_k = cv2.threshold(mask_k, 122, 255, cv2.THRESH_BINARY)
+            c_bgr = centers_bgr[k]
+            hex_col = "#{:02X}{:02X}{:02X}".format(int(c_bgr[2]), int(c_bgr[1]), int(c_bgr[0]))
+            paths_k, (kx0, ky0, kx1, ky1) = trace_mask_compound_svg(
+                mask_k, rdp_eps=1.4, corner_angle_deg=65.0, sigma=2.2, min_area=min_area, allow_hv_snap=False
+            )
+            for area, d_str, _ in paths_k:
+                all_photo_shapes.append((area, hex_col, d_str))
+            if kx1 > kx0 and ky1 > ky0:
+                min_x, min_y, max_x, max_y = min(min_x, kx0), min(min_y, ky0), max(max_x, kx1), max(max_y, ky1)
+
+        all_photo_shapes.sort(key=lambda x: x[0], reverse=True)
+        for _, hex_col, d_str in all_photo_shapes:
+            svg_lines.append(f'  <path fill="{hex_col}" fill-rule="evenodd" d="{d_str}" />')
+        svg_lines.append("</svg>")
+
+        with open(output_svg, "w", encoding="utf-8") as f:
+            f.write("\n".join(svg_lines))
+
+        if max_x > min_x and max_y > min_y:
+            return output_svg, (float(max_x - min_x) / float(w), float(max_y - min_y) / float(h))
+        return output_svg, (1.0, 1.0)
+
+    # =====================================================================
+    # MODO 3: LOGOS / ÍCONES / ESCUDOS E TIPOGRAFIA DE CORES SÓLIDAS
+    # =====================================================================
     h, w = img.shape[:2]
     if upscale_small and (w < 1200 or h < 1200):
         scale = max(2, min(4, int(1600 / max(w, h))))
