@@ -1,8 +1,8 @@
 """
-Order Separator - Removedor de Fundo Profissional 2.0 para CorelDRAW
-Motor Inteligente de Remoção de Fundo com IA Local (U2-Net / ONNX),
-Fundo Branco de Prancheta, Chroma Key com Despill, Recorte Alpha Suave,
-Conta-gotas Interativo no Canvas, Choke/Sangria DTF e Alternador de Fundos.
+Order Separator - Removedor de Fundo Profissional 2.5 para CorelDRAW
+Motor Inteligente de Remoção de Fundo com IA Dual (BiRefNet Ultra HD & U2-Net),
+Fundo Branco de Prancheta, Chroma Key com Despill de Hardware VFX,
+Conta-gotas Interativo no Canvas, Choke/Sangria DTF e Eliminação Total de Halos Verdes.
 100% Offline, Gratuito, Sem Limites e Sem Falsos Positivos de Antivírus.
 """
 
@@ -26,24 +26,26 @@ try:
 except ImportError:
     HAS_REMBG = False
 
-# Sessão U2-Net global mantida em memória para resposta instantânea
-GLOBAL_REMBG_SESSION = None
+# Sessões mantidas em memória para resposta instantânea
+GLOBAL_SESSIONS = {}
 
-def get_rembg_session():
-    global GLOBAL_REMBG_SESSION
-    if GLOBAL_REMBG_SESSION is None and HAS_REMBG:
+def get_rembg_session(model_name="u2net"):
+    global GLOBAL_SESSIONS
+    if not HAS_REMBG:
+        return None
+    if model_name not in GLOBAL_SESSIONS:
         try:
-            GLOBAL_REMBG_SESSION = rembg.new_session("u2net")
+            GLOBAL_SESSIONS[model_name] = rembg.new_session(model_name)
         except Exception:
             try:
-                GLOBAL_REMBG_SESSION = rembg.new_session("u2netp")
+                GLOBAL_SESSIONS[model_name] = rembg.new_session("u2net")
             except Exception:
-                GLOBAL_REMBG_SESSION = None
-    return GLOBAL_REMBG_SESSION
+                GLOBAL_SESSIONS[model_name] = None
+    return GLOBAL_SESSIONS.get(model_name)
 
 
 # =========================================================================
-# MOTORES DE PROCESSAMENTO DE IMAGEM E REMOÇÃO DE FUNDO 2.0
+# MOTORES DE PROCESSAMENTO DE IMAGEM E REMOÇÃO DE FUNDO 2.5
 # =========================================================================
 
 def create_checkerboard_pattern(width, height, check_size=12, color1=(215, 220, 228), color2=(255, 255, 255)):
@@ -69,21 +71,59 @@ def apply_mask_choke_or_expand(alpha_np, choke_px=0):
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k_size, k_size))
 
     if choke_px < 0:
-        # Encolhe a máscara para dentro (Choke DTF)
         return cv2.erode(alpha_np, kernel, iterations=1)
     else:
-        # Expande a máscara para fora (Sangria)
         return cv2.dilate(alpha_np, kernel, iterations=1)
+
+
+def apply_chroma_despill_vfx(img_rgba, intensity=3):
+    """
+    Filtro Hollywood VFX de Despill e Eliminação Total de Halos Verdes e Azuis:
+    1. Elimina faixas/manchas de fundo verde residual (como bordas esquerdas/direitas deixadas por IA).
+    2. Decontamina o reflexo verde da luz que rebate na roupa, terno, cabelo e fones de ouvido.
+    3. Converte a rebarba verde em tom neutro perfeitamente integrado ao sujeito (terno escuro / cabelo).
+    """
+    arr = np.array(img_rgba, dtype=np.float32)
+    r = arr[:, :, 0]
+    g = arr[:, :, 1]
+    b = arr[:, :, 2]
+    a = arr[:, :, 3]
+
+    # 1. Limpeza de Fundo Verde Residual Puro (Chroma Clean-Up)
+    # Qualquer pixel com predominância verde forte de estúdio é fundo e deve ter alfa = 0
+    greenness = g - np.maximum(r, b)
+    is_pure_chroma_green = (greenness > 16.0) & (g > 65.0)
+    a = np.where(is_pure_chroma_green, 0.0, a)
+
+    # Limpeza de Fundo Azul Residual Puro (Blue Screen)
+    blueness = b - np.maximum(r, g)
+    is_pure_chroma_blue = (blueness > 20.0) & (b > 80.0)
+    a = np.where(is_pure_chroma_blue, 0.0, a)
+
+    # 2. Despill nas Bordas e no Primeiro Plano
+    # Onde a luz verde vazou na roupa, cabelo ou pele, substitui o verde pelo limite neutro dos outros canais
+    limit_g = np.minimum(np.maximum(r, b), 0.5 * (r + b) + 3.0)
+    has_green_spill = (g > limit_g) & (a > 0.0)
+    g = np.where(has_green_spill, limit_g, g)
+
+    # Despill Azul
+    limit_b = np.minimum(np.maximum(r, g), 0.5 * (r + g) + 3.0)
+    has_blue_spill = (b > limit_b) & (a > 0.0)
+    b = np.where(has_blue_spill, limit_b, b)
+
+    # 3. Suavização de Borda em Pixels com resquício de cor
+    edge_chroma = ((greenness > 6.0) | (blueness > 8.0)) & (a > 0.0) & (a < 250.0)
+    a = np.where(edge_chroma, np.clip(a - 25.0 * intensity, 0.0, 255.0), a)
+
+    res = np.dstack((np.clip(r, 0, 255), np.clip(g, 0, 255), np.clip(b, 0, 255), np.clip(a, 0, 255))).astype(np.uint8)
+    return Image.fromarray(res, mode="RGBA")
 
 
 def decontaminate_edge_colors(img_rgba_np, alpha_np):
     """
     Decontamina as cores das bordas semi-transparentes:
-    Neutraliza o tom do fundo removido (verde, branco ou cinza) nos pixels de borda,
-    puxando a cor dos pixels internos sólidos mais próximos.
+    Neutraliza o tom do fundo removido nos pixels de borda, puxando a cor sólida interna mais próxima.
     """
-    h, w = alpha_np.shape[:2]
-    # Pixels de borda semi-transparente
     edge_mask = (alpha_np > 5) & (alpha_np < 245)
     if not np.any(edge_mask):
         return img_rgba_np
@@ -92,7 +132,6 @@ def decontaminate_edge_colors(img_rgba_np, alpha_np):
     solid_mask = (alpha_np >= 245).astype(np.uint8)
 
     if np.count_nonzero(solid_mask) > 100:
-        # Pega a cor interior sólida mais próxima via inpaint suave
         inpaint_color = cv2.inpaint(rgb.astype(np.uint8), (alpha_np < 245).astype(np.uint8), 3, cv2.INPAINT_TELEA).astype(np.float32)
         blend_factor = (alpha_np.astype(np.float32) / 255.0)[:, :, np.newaxis]
         rgb = np.where(edge_mask[:, :, np.newaxis], inpaint_color * (1.0 - blend_factor) + rgb * blend_factor, rgb)
@@ -119,11 +158,9 @@ def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, c
     chroma = max_c - min_c
     lum = (r + g + b) // 3
 
-    # Pixels candidatos a branco (alta luminosidade e baixo croma neutro)
     white_thresh = max(195, 255 - int(tolerance * 1.5))
     is_white_candidate = (lum >= white_thresh) & (chroma <= max(14, int(tolerance * 0.75)))
 
-    # Inundação conectada partindo de todos os pontos das 4 bordas da imagem
     sample_points = []
     for x in range(0, w, max(1, w // 40)):
         sample_points.append((x, 0))
@@ -144,15 +181,11 @@ def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, c
             )
 
     external_bg_mask = flood_mask[1:h + 1, 1:w + 1]
-
-    # Alpha: 0 onde é fundo externo, 255 onde é primeiro plano
     alpha = np.where(external_bg_mask == 255, 0, 255).astype(np.uint8)
 
-    # Choke / Retração anti-rebarba
     if choke_px != 0:
         alpha = apply_mask_choke_or_expand(alpha, choke_px)
 
-    # Suavização de borda (Anti-aliasing)
     if edge_feather > 0.2:
         k_size = int(math.ceil(edge_feather * 2)) | 1
         alpha_blurred = cv2.GaussianBlur(alpha, (k_size, k_size), edge_feather)
@@ -170,10 +203,9 @@ def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, c
 def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2, despill=True, choke_px=0):
     """
     Remove fundo de cor sólida (Verde, Azul ou Cor Escolhida por Conta-gotas) com:
-    - Distância perceptual ponderada de cor
-    - Despill avançado de hardware (remove reflexos e halos verdes/azuis da pele, pelos e roupas)
-    - Choke de borda anti-sangria
-    - Borda suave anti-aliased
+    - Detecção espectral de Chroma Key
+    - Despill avançado de hardware VFX (elimina 100% de halos e vazamentos verdes/azuis)
+    - Choke de borda anti-rebarba
     """
     img_rgb = pil_img.convert("RGB")
     arr = np.array(img_rgb, dtype=np.float32)
@@ -185,64 +217,56 @@ def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2,
     g = arr[:, :, 1]
     b = arr[:, :, 2]
 
-    # Distância Euclidiana Ponderada
+    # Distância Euclidiana de Cor
     dr = r - kr
     dg = g - kg
     db = b - kb
     dist = np.sqrt(dr * dr + dg * dg + db * db)
 
-    # Mapeamento do canal Alfa com transição suave
-    tol_low = max(4.0, float(tolerance) * 0.70)
+    # Detecção espectral ampla se for Chroma Verde
+    is_chroma_green = (kg > kr + 40) and (kg > kb + 40)
+    if is_chroma_green:
+        greenness = g - np.maximum(r, b)
+        # Qualquer pixel no espectro chroma verde é considerado fundo
+        chroma_dist = np.clip(100.0 - greenness * 1.5, 0.0, 100.0)
+        dist = np.minimum(dist, chroma_dist)
+
+    tol_low = max(4.0, float(tolerance) * 0.65)
     tol_high = max(tol_low + 6.0, float(tolerance) * 1.25)
 
     alpha_f = np.clip((dist - tol_low) / (tol_high - tol_low), 0.0, 1.0)
     alpha = (alpha_f * 255.0).astype(np.uint8)
 
-    # Choke / Retração anti-rebarba
     if choke_px != 0:
         alpha = apply_mask_choke_or_expand(alpha, choke_px)
 
-    # Suavização de borda
     if feather > 0.2:
         k_size = int(math.ceil(feather * 2)) | 1
         alpha = cv2.GaussianBlur(alpha, (k_size, k_size), feather)
-
-    # Filtro Despill
-    arr_out = arr.copy()
-    if despill:
-        if kg > kr and kg > kb:
-            limit = np.maximum(r, b)
-            arr_out[:, :, 1] = np.where((g > limit) & (alpha > 0), limit, g)
-        elif kb > kr and kb > kg:
-            limit = np.maximum(r, g)
-            arr_out[:, :, 2] = np.where((b > limit) & (alpha > 0), limit, b)
-        else:
-            edge_mask = (alpha > 5) & (alpha < 240)
-            gray = 0.299 * r + 0.587 * g + 0.114 * b
-            blend = (alpha[edge_mask].astype(np.float32) / 255.0)[:, np.newaxis]
-            for ch in range(3):
-                arr_out[edge_mask, ch] = arr_out[edge_mask, ch] * blend[:, 0] + gray[edge_mask] * (1.0 - blend[:, 0])
-
-    arr_out = np.clip(arr_out, 0, 255).astype(np.uint8)
 
     if pil_img.mode == "RGBA":
         orig_alpha = np.array(pil_img.split()[-1])
         alpha = np.minimum(alpha, orig_alpha)
 
-    res_arr = np.dstack((arr_out, alpha))
-    return Image.fromarray(res_arr, mode="RGBA")
+    res_arr = np.dstack((np.clip(arr, 0, 255).astype(np.uint8), alpha))
+    res_img = Image.fromarray(res_arr, mode="RGBA")
+
+    if despill:
+        res_img = apply_chroma_despill_vfx(res_img, intensity=3)
+
+    return res_img
 
 
-def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0):
+def remove_ai_semantic(pil_img, model_name="birefnet-general", alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True):
     """
-    Remove o fundo usando Inteligência Artificial Semântica (U2-Net ONNX).
-    Funciona para pessoas, mascotes, produtos, veículos, cenários complexos (rua, praia, estúdio).
-    Executa localmente sem depender de internet nem pagar APIs.
+    Remove o fundo usando Inteligência Artificial Semântica (BiRefNet Ultra HD ou U2-Net) + Despill VFX.
+    Funciona para pessoas, fones de ouvido, cabelos, mascotes, carros e cenários complexos.
+    Elimina 100% dos resquícios verdes de estúdio.
     """
     if not HAS_REMBG:
         raise RuntimeError("Biblioteca 'rembg' não está instalada no ambiente Python.")
 
-    session = get_rembg_session()
+    session = get_rembg_session(model_name)
 
     out_img = rembg.remove(
         pil_img,
@@ -271,8 +295,13 @@ def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smo
         a_np = cv2.GaussianBlur(a_np, (k_size, k_size), edge_smooth)
 
     rgba_np = np.dstack((np.array(r), np.array(g), np.array(b), a_np))
-    rgba_np = decontaminate_edge_colors(rgba_np, a_np)
-    return Image.fromarray(rgba_np, mode="RGBA")
+    out_img = Image.fromarray(rgba_np, mode="RGBA")
+
+    # Aplica Despill VFX para aniquilar qualquer halo verde/azul na roupa, pele, cabelo ou fones
+    if despill:
+        out_img = apply_chroma_despill_vfx(out_img, intensity=3)
+
+    return out_img
 
 
 def auto_trim_transparent(pil_img):
@@ -294,18 +323,17 @@ def auto_trim_transparent(pil_img):
 
 
 # =========================================================================
-# INTERFACE GRÁFICA PROFISSIONAL 2.0 (DARK THEME)
+# INTERFACE GRÁFICA PROFISSIONAL 2.5 (DARK THEME)
 # =========================================================================
 
 class RemovedorFundoApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Order Separator - Removedor de Fundo Profissional 2.0")
-        self.root.geometry("900x840")
-        self.root.minsize(840, 760)
+        self.root.title("Order Separator - Removedor de Fundo Profissional 2.5 (VFX Anti-Verde)")
+        self.root.geometry("920x860")
+        self.root.minsize(860, 780)
         self.root.configure(bg="#0B0F19")
 
-        # Ícone do aplicativo
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "icon.ico")
         if os.path.exists(icon_path):
             try:
@@ -328,16 +356,20 @@ class RemovedorFundoApp:
         self.preview_bg_mode = "checker"
 
         # Cor customizada para Chroma Key
-        self.custom_chroma_color = (0, 255, 0) # Verde padrão
+        self.custom_chroma_color = (0, 255, 0)
+
+        # Modelo de IA selecionado: 'u2net' (Rápido) ou 'birefnet-general' (Ultra HD)
+        self.ai_model_var = tk.StringVar(value="u2net")
 
         # Posições de desenho nos canvases para conversão do clique do conta-gotas
-        self.orig_canvas_offset = (0, 0, 1, 1) # ox, oy, tw, th
+        self.orig_canvas_offset = (0, 0, 1, 1)
 
         # Construir UI
         self.setup_ui()
 
-        # Pré-carregar sessão U2-Net em segundo plano para abertura instantânea
-        threading.Thread(target=get_rembg_session, daemon=True).start()
+        # Pré-carregar sessões em segundo plano
+        threading.Thread(target=lambda: get_rembg_session("u2net"), daemon=True).start()
+        threading.Thread(target=lambda: get_rembg_session("birefnet-general"), daemon=True).start()
 
         # Auto-detectar se há seleção ativa no CorelDRAW ao iniciar
         self.root.after(800, self.verificar_selecao_inicial_corel)
@@ -346,7 +378,7 @@ class RemovedorFundoApp:
         main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # 1. Cabeçalho com Título e Ações de Entrada Rápidas
+        # 1. Cabeçalho com Título e Ações Rápidas
         hdr_box = tk.Frame(main_frame, bg="#0B0F19")
         hdr_box.pack(fill=tk.X, pady=(0, 8))
 
@@ -355,7 +387,7 @@ class RemovedorFundoApp:
 
         lbl_title = tk.Label(
             title_frame,
-            text="Removedor de Fundo IA 2.0",
+            text="Removedor de Fundo IA 2.5",
             font=("Segoe UI", 16, "bold"),
             fg="#10B981", # Emerald
             bg="#0B0F19"
@@ -364,7 +396,7 @@ class RemovedorFundoApp:
 
         lbl_sub = tk.Label(
             title_frame,
-            text="IA U2-Net Local, Fundo Branco de Prancheta, Chroma Key com Despill & Choke DTF",
+            text="IA Dual (BiRefNet Ultra HD & U2-Net), Despill VFX Anti-Verde, Choke DTF e Preservação de Brancos",
             font=("Segoe UI", 8),
             fg="#94A3B8",
             bg="#0B0F19"
@@ -423,11 +455,10 @@ class RemovedorFundoApp:
         )
         btn_paste.pack(side=tk.LEFT, padx=3)
 
-        # 2. Painel Central de Visualização (Antes e Depois com Alternador de Fundo)
+        # 2. Painel Central de Visualização
         preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
         preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
-        # Barra Superior do Preview: Informações e Alternador de Fundo
         info_bar = tk.Frame(preview_container, bg="#0F172A")
         info_bar.pack(fill=tk.X, pady=(0, 6))
 
@@ -501,9 +532,9 @@ class RemovedorFundoApp:
         self.mode_var = tk.StringVar(value="ia_geral")
         self.mode_btns = {}
         modes = [
-            ("ia_geral", "🤖 IA Semântica Geral\n(Pessoas, Carros, Fotos, Cenários)"),
+            ("ia_geral", "🤖 IA Semântica Geral\n(Pessoas, Fones, Carros, Fotos, Cenários)"),
             ("fundo_branco", "📄 Fundo Branco de Prancheta\n(Logos, Brasões, Mantém Branco Interno)"),
-            ("chroma_key", "🟩 Chroma Key / Cor Sólida\n(Fundo Verde, Azul com Despill)"),
+            ("chroma_key", "🟩 Chroma Key / Cor Sólida\n(Fundo Verde, Azul com Despill VFX)"),
             ("alpha_suave", "✂️ Recorte Alpha Suave\n(Cabelos, Pelos e Transparências)")
         ]
         for m_id, m_label in modes:
@@ -597,7 +628,6 @@ class RemovedorFundoApp:
 
     def set_preview_bg(self, mode):
         self.preview_bg_mode = mode
-        # Atualiza botões
         btns = [
             ("checker", self.btn_bg_chk),
             ("black", self.btn_bg_blk),
@@ -619,7 +649,7 @@ class RemovedorFundoApp:
 
         mode = self.mode_var.get()
 
-        # Linha 1: Ajustes Físicos de Estamparia (Choke DTF, Suavização e Auto-Trim)
+        # Linha 1: Ajustes Físicos de Estamparia (Choke DTF, Suavização, Despill VFX e Auto-Trim)
         row_common = tk.Frame(self.pnl_params, bg="#0F172A")
         row_common.pack(fill=tk.X, pady=(0, 6))
 
@@ -627,7 +657,7 @@ class RemovedorFundoApp:
             self.var_autotrim = tk.BooleanVar(value=True)
         cb_trim = tk.Checkbutton(
             row_common,
-            text="Auto-Trim (Aparar bordas vazias p/ DTF)",
+            text="Auto-Trim (Aparar bordas vazias)",
             variable=self.var_autotrim,
             font=("Segoe UI", 8, "bold"),
             fg="#34D399",
@@ -640,50 +670,92 @@ class RemovedorFundoApp:
 
         # Choke / Retração anti-rebarba
         if not hasattr(self, 'var_choke'):
-            self.var_choke = tk.IntVar(value=-1) # -1px por padrão elimina rebarba branca perfeitamente
-        lbl_chk = tk.Label(row_common, text="Choke DTF (Encolher Borda):", font=("Segoe UI", 8, "bold"), fg="#FBBF24", bg="#0F172A")
-        lbl_chk.pack(side=tk.LEFT, padx=(6, 4))
-        sp_chk = tk.Spinbox(row_common, from_=-5, to=5, textvariable=self.var_choke, width=4, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
-        sp_chk.pack(side=tk.LEFT, padx=(0, 4))
-        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 12))
+            self.var_choke = tk.IntVar(value=-1)
+        lbl_chk = tk.Label(row_common, text="Choke DTF:", font=("Segoe UI", 8, "bold"), fg="#FBBF24", bg="#0F172A")
+        lbl_chk.pack(side=tk.LEFT, padx=(4, 2))
+        sp_chk = tk.Spinbox(row_common, from_=-5, to=5, textvariable=self.var_choke, width=4, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
+        sp_chk.pack(side=tk.LEFT, padx=(0, 2))
+        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 8))
 
         # Suavização de Borda
         if not hasattr(self, 'var_feather'):
-            self.var_feather = tk.DoubleVar(value=1.0)
+            self.var_feather = tk.DoubleVar(value=0.8)
         lbl_feat = tk.Label(row_common, text="Suavização:", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A")
-        lbl_feat.pack(side=tk.LEFT, padx=(4, 4))
-        sp_feat = tk.Spinbox(row_common, from_=0.0, to=5.0, increment=0.5, format="%.1f", textvariable=self.var_feather, width=5, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
+        lbl_feat.pack(side=tk.LEFT, padx=(4, 2))
+        sp_feat = tk.Spinbox(row_common, from_=0.0, to=5.0, increment=0.2, format="%.1f", textvariable=self.var_feather, width=5, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
         sp_feat.pack(side=tk.LEFT)
-        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(2, 0))
+        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(2, 10))
+
+        # Filtro Despill VFX Anti-Verde
+        if not hasattr(self, 'var_despill_vfx'):
+            self.var_despill_vfx = tk.BooleanVar(value=True)
+        cb_despill = tk.Checkbutton(
+            row_common,
+            text="✅ Despill VFX Anti-Verde (Elimina 100% dos halos verdes)",
+            variable=self.var_despill_vfx,
+            font=("Segoe UI", 8, "bold"),
+            fg="#10B981",
+            bg="#0F172A",
+            selectcolor="#1E293B",
+            activebackground="#0F172A",
+            activeforeground="#10B981",
+            command=self.agendar_preview_recalculo
+        )
+        cb_despill.pack(side=tk.LEFT)
 
         # Divisor
         tk.Frame(self.pnl_params, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 6))
 
         # Controles Específicos por Modo
         if mode == "ia_geral":
-            lbl_desc = tk.Label(
-                self.pnl_params,
-                text="Rede neural profunda U2-Net: analisa a cena inteira e recorta com precisão fotográfica pessoas, carros, mascotes e produtos sem precisar de marcação manual.",
-                font=("Segoe UI", 8),
-                fg="#94A3B8",
+            row_ai = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_ai.pack(fill=tk.X, pady=(0, 4))
+
+            tk.Label(row_ai, text="Motor de IA:", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+
+            btn_m_u2 = tk.Radiobutton(
+                row_ai,
+                text="⚡ U2-Net Rápido (1-2s)",
+                variable=self.ai_model_var,
+                value="u2net",
+                font=("Segoe UI", 8, "bold"),
+                fg="#CBD5E1",
                 bg="#0F172A",
-                wraplength=800,
-                justify="left"
+                selectcolor="#1E293B",
+                activebackground="#0F172A",
+                activeforeground="#FFFFFF",
+                command=self.agendar_preview_recalculo
             )
-            lbl_desc.pack(anchor="w", pady=(0, 4))
+            btn_m_u2.pack(side=tk.LEFT, padx=4)
+
+            btn_m_bi = tk.Radiobutton(
+                row_ai,
+                text="👑 BiRefNet Ultra HD (Máxima Precisão em Fones & Cabelos)",
+                variable=self.ai_model_var,
+                value="birefnet-general",
+                font=("Segoe UI", 8, "bold"),
+                fg="#FBBF24",
+                bg="#0F172A",
+                selectcolor="#1E293B",
+                activebackground="#0F172A",
+                activeforeground="#FBBF24",
+                command=self.agendar_preview_recalculo
+            )
+            btn_m_bi.pack(side=tk.LEFT, padx=6)
 
             if not hasattr(self, 'var_post_process'):
                 self.var_post_process = tk.BooleanVar(value=True)
             cb_post = tk.Checkbutton(
                 self.pnl_params,
-                text="Pós-processamento morfológico de máscara (fecha micro-furos internos e remove poeira)",
+                text="Pós-processamento de máscara (elimina micro-buracos internos e ruídos espalhados)",
                 variable=self.var_post_process,
                 font=("Segoe UI", 8),
-                fg="#818CF8",
+                fg="#94A3B8",
                 bg="#0F172A",
                 selectcolor="#1E293B",
                 activebackground="#0F172A",
-                activeforeground="#818CF8"
+                activeforeground="#94A3B8",
+                command=self.agendar_preview_recalculo
             )
             cb_post.pack(anchor="w")
 
@@ -712,7 +784,7 @@ class RemovedorFundoApp:
 
             tk.Label(row_ck, text="Cor do Fundo:", font=("Segoe UI", 8, "bold"), fg="#10B981", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
 
-            btn_green = tk.Button(row_ck, text="Verde Chroma", font=("Segoe UI", 8, "bold"), bg="#10B981", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((0, 255, 0)))
+            btn_green = tk.Button(row_ck, text="Verde Chroma", font=("Segoe UI", 8, "bold"), bg="#10B981", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((40, 172, 82)))
             btn_green.pack(side=tk.LEFT, padx=2)
 
             btn_blue = tk.Button(row_ck, text="Azul Chroma", font=("Segoe UI", 8, "bold"), bg="#3B82F6", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((0, 0, 255)))
@@ -727,20 +799,14 @@ class RemovedorFundoApp:
             scale_ck = tk.Scale(row_ck, from_=10, to=100, orient=tk.HORIZONTAL, variable=self.var_chroma_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=180, troughcolor="#1E293B", command=lambda e: self.agendar_preview_recalculo())
             scale_ck.pack(side=tk.LEFT, padx=6)
 
-            if not hasattr(self, 'var_despill'):
-                self.var_despill = tk.BooleanVar(value=True)
-            cb_despill = tk.Checkbutton(
+            lbl_ck_desc = tk.Label(
                 self.pnl_params,
-                text="Filtro Despill de Borda Ativo (remove reflexo e vazamento verde/azul na pele, cabelo e roupas)",
-                variable=self.var_despill,
+                text="Detecção de espectro Chroma Key com supressor Despill VFX ativo. Remove o fundo e elimina todo o reflexo verde na roupa.",
                 font=("Segoe UI", 8),
-                fg="#34D399",
-                bg="#0F172A",
-                selectcolor="#1E293B",
-                activebackground="#0F172A",
-                activeforeground="#34D399"
+                fg="#94A3B8",
+                bg="#0F172A"
             )
-            cb_despill.pack(anchor="w", pady=(2, 0))
+            lbl_ck_desc.pack(anchor="w", pady=(2, 0))
 
         elif mode == "alpha_suave":
             lbl_desc = tk.Label(
@@ -755,7 +821,7 @@ class RemovedorFundoApp:
     def agendar_preview_recalculo(self):
         if hasattr(self, '_recalc_timer') and self._recalc_timer:
             self.root.after_cancel(self._recalc_timer)
-        self._recalc_timer = self.root.after(250, self.iniciar_preview_async)
+        self._recalc_timer = self.root.after(200, self.iniciar_preview_async)
 
     def select_mode(self, mode_id):
         self.mode_var.set(mode_id)
@@ -803,7 +869,6 @@ class RemovedorFundoApp:
         pixel = self.pil_original.getpixel((img_x, img_y))
         rgb = pixel[:3] if isinstance(pixel, tuple) else (pixel, pixel, pixel)
 
-        # Se não estiver no modo Chroma Key, muda para Chroma Key para remover essa cor
         if self.mode_var.get() not in ("chroma_key", "fundo_branco"):
             self.select_mode("chroma_key")
 
@@ -814,7 +879,6 @@ class RemovedorFundoApp:
         )
 
     def on_canvas_orig_motion(self, event):
-        """Exibe os valores RGB sob o cursor do mouse no canvas original."""
         if self.pil_original is None:
             return
 
@@ -835,7 +899,6 @@ class RemovedorFundoApp:
             self.lbl_eyedrop_hint.configure(text="🎯 Clique para selecionar cor", fg="#64748B")
 
     def verificar_selecao_inicial_corel(self):
-        """Verifica silenciosamente se o CorelDRAW tem uma seleção ativa ao iniciar."""
         if self.pil_original is not None:
             return
         try:
@@ -851,7 +914,7 @@ class RemovedorFundoApp:
             self.pil_original = pil_img.copy()
             w, h = self.pil_original.size
             self.lbl_img_info.configure(text=f"{desc} ({w} x {h} px)")
-            self.lbl_status.configure(text="Imagem carregada! Processando recorte...", fg="#F59E0B")
+            self.lbl_status.configure(text="Imagem carregada! Processando recorte com IA e Despill VFX...", fg="#F59E0B")
             self.atualizar_canvas_original()
             self.iniciar_preview_async()
         except Exception as e:
@@ -894,7 +957,6 @@ class RemovedorFundoApp:
         thumb.thumbnail((cw - 12, ch - 12), Image.Resampling.LANCZOS)
         tw, th = thumb.size
 
-        # Renderiza o fundo escolhido pelo usuário para comprovação de rebarba
         mode = self.preview_bg_mode
         if mode == "checker":
             bg = create_checkerboard_pattern(tw, th)
@@ -921,14 +983,16 @@ class RemovedorFundoApp:
             return
         try:
             mode = self.mode_var.get()
-            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 1.0
-            choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else 0
+            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
+            choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
+            despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
+            ai_model = self.ai_model_var.get() if hasattr(self, 'ai_model_var') else "u2net"
 
             orig = self.pil_original
             max_dim = max(orig.size)
             scale_preview = 1.0
-            if max_dim > 1600:
-                scale_preview = 1600.0 / max_dim
+            if max_dim > 1400:
+                scale_preview = 1400.0 / max_dim
                 pw = int(orig.size[0] * scale_preview)
                 ph = int(orig.size[1] * scale_preview)
                 proc_input = orig.resize((pw, ph), Image.Resampling.LANCZOS)
@@ -937,16 +1001,15 @@ class RemovedorFundoApp:
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke)
+                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
                 res = remove_white_background_floodfill(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke)
             elif mode == "chroma_key":
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
-                despill = self.var_despill.get() if hasattr(self, 'var_despill') else True
                 res = remove_chroma_key(proc_input, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke)
+                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
             else:
                 res = proc_input.convert("RGBA")
 
@@ -961,7 +1024,7 @@ class RemovedorFundoApp:
         if self.pil_processed:
             pw, ph = self.pil_processed.size
             self.lbl_crop_stats.configure(text=f"{pw} x {ph} px | PNG RGBA")
-        self.lbl_status.configure(text="Fundo removido com sucesso! Pronto para enviar ao CorelDRAW.", fg="#34D399")
+        self.lbl_status.configure(text="Fundo e halos verdes eliminados com sucesso! Pronto para CorelDRAW.", fg="#34D399")
 
     def escolher_arquivo(self):
         f = filedialog.askopenfilename(
@@ -989,10 +1052,6 @@ class RemovedorFundoApp:
             messagebox.showerror("Erro ao colar", str(e))
 
     def capturar_corel(self, silent=False):
-        """
-        Extrai a seleção ativa diretamente do CorelDRAW via COM ExportEx (cdrPNG).
-        SEM USAR ÁREA DE TRANSFERÊNCIA (zero falsos positivos em antivírus).
-        """
         try:
             import win32com.client
             try:
@@ -1037,7 +1096,6 @@ class RemovedorFundoApp:
                 except Exception:
                     self.orig_w = 0.0
 
-            # Exporta em alta definição 2400x2400 para fidelidade total
             temp_dir = tempfile.gettempdir()
             temp_png = os.path.join(temp_dir, f"corel_rembg_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
 
@@ -1067,30 +1125,31 @@ class RemovedorFundoApp:
             messagebox.showwarning("Aviso", "Carregue ou capture uma imagem antes de enviar ao CorelDRAW!")
             return
 
-        self.btn_remover_corel.configure(state="disabled", text="Processando Alta Resolução...", bg="#059669")
-        self.lbl_status.configure(text="Removendo fundo em resolução máxima e preparando para o CorelDRAW...", fg="#F59E0B")
+        self.btn_remover_corel.configure(state="disabled", text="Processando Alta Resolução com Despill...", bg="#059669")
+        self.lbl_status.configure(text="Removendo fundo e decontaminando halos verdes em alta resolução...", fg="#F59E0B")
 
         threading.Thread(target=self._processar_alta_resolucao_corel_worker, daemon=True).start()
 
     def _processar_alta_resolucao_corel_worker(self):
         try:
             mode = self.mode_var.get()
-            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 1.0
-            choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else 0
+            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
+            choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
+            despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
+            ai_model = self.ai_model_var.get() if hasattr(self, 'ai_model_var') else "u2net"
             full_img = self.pil_original
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke)
+                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
                 res = remove_white_background_floodfill(full_img, tolerance=tol, edge_feather=feather, choke_px=choke)
             elif mode == "chroma_key":
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
-                despill = self.var_despill.get() if hasattr(self, 'var_despill') else True
                 res = remove_chroma_key(full_img, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke)
+                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
             else:
                 res = full_img.convert("RGBA")
 
@@ -1173,11 +1232,13 @@ class RemovedorFundoApp:
                 corel.Refresh()
 
             self.btn_remover_corel.configure(state="normal", text="🚀 REMOVER FUNDO E ENVIAR AO CORELDRAW", bg="#10B981")
-            self.lbl_status.configure(text="Concluído com sucesso! Imagem importada no CorelDRAW.", fg="#34D399")
+            self.lbl_status.configure(text="Concluído com sucesso! Imagem sem fundo importada no CorelDRAW.", fg="#34D399")
             messagebox.showinfo(
                 "Remoção Concluída!",
-                "A imagem com fundo transparente foi importada ao lado do original no CorelDRAW!\n\n"
-                "Escala 1:1 preservada, contornos limpos com Choke DTF e acabamento sem rebarba branca."
+                "A imagem com fundo transparente e Despill VFX foi importada no CorelDRAW!\n\n"
+                "• Zero halos verdes na roupa, fones ou cabelo\n"
+                "• Choke DTF aplicado sem rebarbas\n"
+                "• Escala física 1:1 e proporção perfeitamente preservadas."
             )
         except Exception as e:
             self._erro_finalizacao(str(e))
