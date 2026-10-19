@@ -849,10 +849,26 @@ export default function App() {
                   <p className="text-sm text-slate-400">Gerencie a produção e acesse as pastas físicas dos clientes no PC com 1 clique.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={abrirMontadorCorel}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Grid className="w-4 h-4 text-amber-400" />
+                    Montador Corel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirVetorizadorCorel}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                    Vetorizador IA
+                  </button>
                   <button
                     onClick={prepararNovoPedido}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all whitespace-nowrap"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all whitespace-nowrap cursor-pointer"
                   >
                     <PlusCircle className="w-4 h-4" />
                     Lançar Pedido

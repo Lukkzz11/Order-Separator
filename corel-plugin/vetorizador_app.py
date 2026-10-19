@@ -558,19 +558,21 @@ class VetorizadorApp:
                 return
 
             try:
-                shape = sel.Shapes(1)
+                self.orig_w = float(sel.SizeWidth)
+                self.orig_h = float(sel.SizeHeight)
+                self.orig_x = float(sel.LeftX)
+                self.orig_y = float(sel.BottomY)
             except Exception:
-                shape = sel.Shapes[0]
+                try:
+                    shape = sel.Shapes(1)
+                    self.orig_w = float(shape.SizeWidth)
+                    self.orig_h = float(shape.SizeHeight)
+                    self.orig_x = float(shape.LeftX)
+                    self.orig_y = float(shape.BottomY)
+                except Exception:
+                    self.orig_w = 0.0
 
-            try:
-                self.orig_w = float(shape.SizeWidth)
-                self.orig_h = float(shape.SizeHeight)
-                self.orig_x = float(shape.LeftX)
-                self.orig_y = float(shape.BottomY)
-            except Exception:
-                self.orig_w = 0.0
-
-            # Exporta diretamente para PNG temporário com alta definição (sem clipboard)
+            # Exporta APENAS A SELEÇÃO ATIVA (cdrSelection = 2, cdrPNG = 802)
             temp_dir = tempfile.gettempdir()
             temp_png = os.path.join(temp_dir, f"corel_art_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
 
@@ -581,8 +583,8 @@ class VetorizadorApp:
             opt.Transparent = True
             pal = corel.CreateStructPaletteOptions()
 
-            # cdrFilterPNG = 774, cdrSelection = 1
-            exp = doc.ExportEx(temp_png, 774, 1, opt, pal)
+            # cdrPNG = 802, cdrSelection = 2 (Exporta somente o objeto selecionado, não a página toda!)
+            exp = doc.ExportEx(temp_png, 802, 2, opt, pal)
             if exp:
                 exp.Finish()
 
@@ -590,7 +592,7 @@ class VetorizadorApp:
                 raise ValueError("O CorelDRAW não gerou o arquivo temporário da seleção.")
 
             self.carregar_imagem_no_preview(temp_png)
-            self.lbl_img_nome.configure(text=f"Capturado do CorelDRAW (Alta Resolução)")
+            self.lbl_img_nome.configure(text=f"Objeto Selecionado Capturado ({int(os.path.getsize(temp_png)/1024)} KB)")
         except Exception as e:
             messagebox.showerror("Erro ao capturar do CorelDRAW", f"Não foi possível capturar a seleção:\n{e}")
 
@@ -640,10 +642,23 @@ class VetorizadorApp:
                 unify_colors=harmonize
             )
 
-            self.root.after(0, lambda: self.lbl_status.configure(text="Importando vetor para a página do CorelDRAW...", fg="#818CF8"))
-            
+            self.root.after(0, lambda: self._finalizar_importacao_corel(output_svg))
+        except Exception as e:
+            err_msg = str(e)
+            self.root.after(0, lambda: self._erro_finalizacao(err_msg))
+
+    def _finalizar_importacao_corel(self, output_svg):
+        try:
+            self.lbl_status.configure(text="Importando vetor para a página do CorelDRAW...", fg="#818CF8")
+            self.root.update_idletasks()
+
             import win32com.client
-            corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
+            try:
+                corel = win32com.client.GetActiveObject("CorelDRAW.Application.24")
+            except Exception:
+                corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
+            corel.Visible = True
+
             if not corel.ActiveDocument:
                 doc = corel.CreateDocument()
             else:
@@ -672,7 +687,7 @@ class VetorizadorApp:
                     grp = sel.Group()
                     if self.orig_w > 0:
                         grp.SetSize(self.orig_w, self.orig_h)
-                        grp.LeftX = float(self.orig_x + self.orig_w + 2.0)
+                        grp.LeftX = float(self.orig_x + self.orig_w + (self.orig_w * 0.08))
                         grp.BottomY = float(self.orig_y)
                     else:
                         grp.CenterX = doc.ActivePage.CenterX
@@ -681,10 +696,9 @@ class VetorizadorApp:
                 doc.EndCommandGroup()
                 corel.Refresh()
 
-            self.root.after(0, self._sucesso_finalizacao)
+            self._sucesso_finalizacao()
         except Exception as e:
-            err_msg = str(e)
-            self.root.after(0, lambda: self._erro_finalizacao(err_msg))
+            self._erro_finalizacao(str(e))
 
     def _sucesso_finalizacao(self):
         self.btn_vetorizar.configure(state="normal", text="VETORIZAR E ENVIAR PARA O CORELDRAW", bg="#4F46E5")
