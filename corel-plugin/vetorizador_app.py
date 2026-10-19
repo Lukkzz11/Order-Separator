@@ -28,172 +28,277 @@ import vtracer
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
 # =========================================================================
 
-def auto_detect_palette_k(img_bgr, max_k=8):
-    """Detecta automaticamente o número ideal de cores sólidas via Elbow Method."""
-    try:
-        small = cv2.resize(img_bgr, (120, 120), interpolation=cv2.INTER_AREA)
-        pixels = small.reshape(-1, 3).astype(np.float32)
-        
-        inertias = []
-        for k in range(1, max_k + 1):
-            crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 15, 1.0)
-            comp, _, _ = cv2.kmeans(pixels, k, None, crit, 3, cv2.KMEANS_PP_CENTERS)
-            inertias.append(comp)
-        
-        drops = [inertias[i-1] - inertias[i] for i in range(1, len(inertias))]
-        total_drop = sum(drops) if sum(drops) > 0 else 1.0
-        
-        chosen_k = 2
-        for i, drop in enumerate(drops):
-            if (drop / total_drop) < 0.05 and i >= 1:
-                chosen_k = i + 1
+def extract_exact_palette_and_segment(img_bgr, k_colors="auto", unify_colors=True):
+    """
+    Extrai as cores EXATAS das regiões planas (sem misturar com pixels de anti-aliasing)
+    e segmenta a imagem usando Distância Ponderada por Croma (evita que cinzas virem vermelho/marrom).
+    """
+    h, w = img_bgr.shape[:2]
+    kernel3 = np.ones((3, 3), np.uint8)
+    grad = np.max(cv2.morphologyEx(img_bgr, cv2.MORPH_GRADIENT, kernel3), axis=2)
+    flat_mask = (grad <= 6)
+    flat_pixels = img_bgr[flat_mask]
+    if len(flat_pixels) < 100:
+        flat_pixels = img_bgr.reshape(-1, 3)
+
+    bins = (flat_pixels // 16) * 16
+    uniq_bins, counts = np.unique(bins, axis=0, return_counts=True)
+    order = np.argsort(-counts)
+
+    max_k = 12
+    if k_colors is not None and k_colors not in ("auto", "all"):
+        try:
+            max_k = max(2, int(k_colors))
+        except ValueError:
+            max_k = 8
+    elif k_colors == "all":
+        max_k = 24
+
+    dist_thresh = 52 if unify_colors and max_k <= 12 else 28
+    min_pixels = max(60, int(len(flat_pixels) * 0.0005))
+
+    palette = []
+    for idx in order:
+        if counts[idx] < min_pixels and len(palette) >= 2:
+            break
+        b_val = uniq_bins[idx]
+        mask_bin = np.all((flat_pixels // 16) * 16 == b_val, axis=1)
+        exact_vals, exact_cnts = np.unique(flat_pixels[mask_bin], axis=0, return_counts=True)
+        mode_color = exact_vals[np.argmax(exact_cnts)].astype(int)
+
+        if unify_colors:
+            if np.all(mode_color < 35):
+                mode_color = np.array([0, 0, 0])
+            elif np.all(mode_color > 235):
+                mode_color = np.array([255, 255, 255])
+
+        if not any(np.sum((mode_color - ex) ** 2) < (dist_thresh ** 2) for ex in palette):
+            palette.append(mode_color)
+            if len(palette) >= max_k:
                 break
-            chosen_k = i + 2
-        return max(2, min(chosen_k, max_k))
-    except Exception:
-        return 4
 
-def preprocess_image(input_path, output_png_path, k_colors="auto", upscale_small=True, is_binary=False):
+    if len(palette) == 0:
+        palette = [np.array([255, 255, 255]), np.array([0, 0, 0])]
+
+    palette = np.array(palette, dtype=np.uint8)
+    img_f = img_bgr.astype(np.float32)
+    img_chroma = np.max(img_f, axis=2) - np.min(img_f, axis=2)
+
+    K = len(palette)
+    dists = np.zeros((h, w, K), dtype=np.float32)
+    for k in range(K):
+        c = palette[k].astype(np.float32)
+        c_chroma = np.max(c) - np.min(c)
+        dists[:, :, k] = np.sum((img_f - c) ** 2, axis=2) + 4.5 * ((img_chroma - c_chroma) ** 2)
+
+    labels = np.argmin(dists, axis=2)
+    return palette[labels], palette
+
+
+def _fit_clean_line(pts, allow_hv=True, hv_angle_tol=16.0):
+    N = len(pts)
+    core = pts[max(1, N // 4) : N - max(1, N // 4)] if N >= 8 else pts
+    vx, vy, x0, y0 = cv2.fitLine(core.astype(np.float32), cv2.DIST_L2, 0, 0.01, 0.01).flatten()
+    chord = pts[-1] - pts[0]
+    if vx * chord[0] + vy * chord[1] < 0:
+        vx, vy = -vx, -vy
+    chord_angle = abs(np.degrees(np.arctan2(chord[1], chord[0])))
+
+    is_hv = False
+    if allow_hv:
+        if chord_angle < hv_angle_tol or abs(chord_angle - 180.0) < hv_angle_tol:
+            vx, vy = (1.0 if chord[0] >= 0 else -1.0), 0.0
+            y0 = np.median(core[:, 1])
+            x0 = np.median(core[:, 0])
+            is_hv = True
+        elif abs(chord_angle - 90.0) < hv_angle_tol:
+            vx, vy = 0.0, (1.0 if chord[1] >= 0 else -1.0)
+            x0 = np.median(core[:, 0])
+            y0 = np.median(core[:, 1])
+            is_hv = True
+
+    p0 = np.array([float(x0), float(y0)])
+    d = np.array([float(vx), float(vy)])
+    t0 = np.dot(pts[0] - p0, d)
+    t1 = np.dot(pts[-1] - p0, d)
+    return p0 + t0 * d, p0 + t1 * d, p0, d, is_hv
+
+
+def _intersect_lines(p1, d1, p2, d2, fallback):
+    cross = d1[0] * d2[1] - d1[1] * d2[0]
+    if abs(cross) < 0.25:
+        return fallback
+    diff = p2 - p1
+    t1 = (diff[0] * d2[1] - diff[1] * d2[0]) / cross
+    inter = p1 + t1 * d1
+    if np.linalg.norm(inter - fallback) <= 45.0:
+        return inter
+    return fallback
+
+
+def _contour_to_svg_path(cnt, corner_threshold=38):
     """
-    Super-resolução Lanczos + Filtro Bilateral + K-Means de Paleta.
-    Elimina 100% dos anéis de anti-aliasing e halos de cor que estragam o PowerTRACE.
+    Converte um contorno em caminho SVG matemático de alta precisão:
+    - Retas horizontais, verticais e diagonais viram segmentos 'L' 100% retos sem serrilhado
+    - Quinas vivas são reconstruídas pela interseção exata das retas
+    - Cantos arredondados viram arcos Bézier cúbicos ('C') suaves e simétricos
     """
-    img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
-    if img is None:
-        raise ValueError(f"Não foi possível abrir o arquivo de imagem: {input_path}")
-    
-    if len(img.shape) == 3 and img.shape[2] == 4:
-        alpha = img[:, :, 3]
-        bgr = img[:, :, :3]
-        white_bg = np.ones_like(bgr, dtype=np.uint8) * 255
-        alpha_factor = (alpha.astype(np.float32) / 255.0)[:, :, np.newaxis]
-        img = (bgr.astype(np.float32) * alpha_factor + white_bg.astype(np.float32) * (1.0 - alpha_factor)).astype(np.uint8)
-    elif len(img.shape) == 2:
-        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    pts = cnt[:, 0, :].astype(np.float64)
+    if len(pts) < 4:
+        return ""
 
-    h, w = img.shape[:2]
+    poly = cv2.approxPolyDP(cnt, 3.8, True)[:, 0, :].astype(np.float64)
+    if len(poly) < 3:
+        return ""
 
-    # 1. Super-Resolução Lanczos para imagens pequenas
-    if upscale_small and (w < 1400 or h < 1400):
-        scale = max(2, min(4, int(1800 / max(w, h))))
-        if scale > 1:
-            img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)
+    # 1. Fundir segmentos consecutivos quase colineares (< 14 graus)
+    merged = [poly[0]]
+    for i in range(1, len(poly)):
+        p_prev, p_curr, p_next = merged[-1], poly[i], poly[(i + 1) % len(poly)]
+        v1, v2 = p_curr - p_prev, p_next - p_curr
+        l1, l2 = np.linalg.norm(v1), np.linalg.norm(v2)
+        if l1 > 1e-3 and l2 > 1e-3:
+            cos_a = np.clip(np.dot(v1, v2) / (l1 * l2), -1.0, 1.0)
+            if np.degrees(np.arccos(cos_a)) < 14.0:
+                continue
+        merged.append(poly[i])
+    poly = np.array(merged)
+    M = len(poly)
+    if M < 3:
+        return ""
 
-    # 2. Modo Binário (Silk Screen / Fotolito Puro)
-    if is_binary:
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray, (3, 3), 0)
-        _, bin_img = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        cv2.imwrite(output_png_path, bin_img)
-        return output_png_path, None
+    idxs = [int(np.argmin(np.sum((pts - v) ** 2, axis=1))) for v in poly]
+    edges = []
+    for i in range(M):
+        i1, i2 = idxs[i], idxs[(i + 1) % M]
+        seg = pts[i1 : i2 + 1] if i2 > i1 else np.vstack([pts[i1:], pts[: i2 + 1]])
+        if len(seg) < 2:
+            seg = np.array([poly[i], poly[(i + 1) % M]])
+        length = float(np.linalg.norm(poly[(i + 1) % M] - poly[i]))
+        s_pt, e_pt, p0, d_vec, is_hv = _fit_clean_line(seg, allow_hv=(length >= 14.0), hv_angle_tol=16.0)
+        edges.append({"s": s_pt, "e": e_pt, "p0": p0, "d": d_vec, "len": length, "raw": seg, "is_hv": is_hv})
 
-    # 3. Filtro Bilateral Edge-Preserving
-    img_filtered = cv2.bilateralFilter(img, d=7, sigmaColor=50, sigmaSpace=50)
-
-    # 4. Quantização de Cores K-Means
-    final_k = None
-    if k_colors is not None and k_colors != "all":
-        if k_colors == "auto":
-            final_k = auto_detect_palette_k(img_filtered)
+    # 2. Unificar arestas consecutivas que alinharam na mesma direção
+    merged_edges = []
+    for e in edges:
+        if merged_edges and np.allclose(merged_edges[-1]["d"], e["d"], atol=0.05):
+            prev = merged_edges[-1]
+            comb_raw = np.vstack([prev["raw"], e["raw"]])
+            new_len = prev["len"] + e["len"]
+            s_pt, e_pt, p0, d_vec, is_hv = _fit_clean_line(comb_raw, allow_hv=True)
+            merged_edges[-1] = {"s": s_pt, "e": e_pt, "p0": p0, "d": d_vec, "len": new_len, "raw": comb_raw, "is_hv": is_hv}
         else:
-            try:
-                final_k = int(k_colors)
-            except ValueError:
-                final_k = 4
+            merged_edges.append(e)
+    if len(merged_edges) >= 2 and np.allclose(merged_edges[0]["d"], merged_edges[-1]["d"], atol=0.05):
+        comb_raw = np.vstack([merged_edges[-1]["raw"], merged_edges[0]["raw"]])
+        new_len = merged_edges[-1]["len"] + merged_edges[0]["len"]
+        s_pt, e_pt, p0, d_vec, is_hv = _fit_clean_line(comb_raw, allow_hv=True)
+        merged_edges[0] = {"s": s_pt, "e": e_pt, "p0": p0, "d": d_vec, "len": new_len, "raw": comb_raw, "is_hv": is_hv}
+        merged_edges.pop()
+    edges = merged_edges
+    M = len(edges)
 
-        if final_k and final_k >= 2:
-            pixels = img_filtered.reshape((-1, 3)).astype(np.float32)
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 25, 0.5)
-            _, labels, centers = cv2.kmeans(pixels, final_k, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
-            centers = np.uint8(centers)
-            img_quantized = centers[labels.flatten()].reshape(img_filtered.shape)
-            
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-            img_quantized = cv2.morphologyEx(img_quantized, cv2.MORPH_CLOSE, kernel)
-            
-            cv2.imwrite(output_png_path, img_quantized)
-            return output_png_path, centers
+    # 3. Classificar arestas principais vs chanfros/curvas de canto
+    for e in edges:
+        e["major"] = (e["is_hv"] and e["len"] >= 15.0) or (e["len"] >= 32.0)
 
-    cv2.imwrite(output_png_path, img_filtered)
-    return output_png_path, None
-
-def hex_to_rgb(hex_str):
-    hex_str = hex_str.lstrip('#')
-    if len(hex_str) == 3:
-        hex_str = ''.join([c*2 for c in hex_str])
-    return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
-
-def color_distance_sq(c1, c2):
-    return (c1[0]-c2[0])**2 + (c1[1]-c2[1])**2 + (c1[2]-c2[2])**2
-
-def postprocess_svg(svg_path, remove_bg=False, unify_colors=True):
-    """
-    Otimiza o arquivo SVG gerado:
-    1. Harmoniza cores próximas em uma única cor pura
-    2. Remove o caminho de fundo branco / bounding box da prancheta
-    """
-    with open(svg_path, 'r', encoding='utf-8') as f:
-        svg_content = f.read()
-
-    width_m = re.search(r'width=[\x27\x22]([0-9.]+)[\x27\x22]', svg_content)
-    height_m = re.search(r'height=[\x27\x22]([0-9.]+)[\x27\x22]', svg_content)
-    svg_w = float(width_m.group(1)) if width_m else 0
-    svg_h = float(height_m.group(1)) if height_m else 0
-
-    if unify_colors:
-        raw_colors = re.findall(r'fill=[\x27\x22](#[0-9a-fA-F]{3,6})[\x27\x22]', svg_content)
-        unique_hex = list(set(raw_colors))
-        rgb_map = {h: hex_to_rgb(h) for h in unique_hex}
-
-        color_groups = []
-        for h, rgb in rgb_map.items():
-            if rgb[0] < 35 and rgb[1] < 35 and rgb[2] < 35:
-                color_groups.append((h, '#000000'))
-                continue
-            if rgb[0] > 235 and rgb[1] > 235 and rgb[2] > 235:
-                color_groups.append((h, '#FFFFFF'))
-                continue
-
-            matched = False
-            for parent_h, target_h in color_groups:
-                p_rgb = rgb_map.get(parent_h, (0, 0, 0))
-                if color_distance_sq(rgb, p_rgb) < (22 * 22):
-                    color_groups.append((h, target_h))
-                    matched = True
-                    break
-            if not matched:
-                color_groups.append((h, h.upper()))
-
-        for src_h, dest_h in color_groups:
-            if src_h != dest_h:
-                svg_content = re.sub(
-                    f'fill=[\x27\x22]{re.escape(src_h)}[\x27\x22]', 
-                    f'fill="{dest_h}"', 
-                    svg_content, 
-                    flags=re.IGNORECASE
+    # 4. Promover degraus em U ou Z (entre duas retas paralelas) para aresta principal ortogonal
+    major_indices = [i for i, e in enumerate(edges) if e["major"]]
+    if len(major_indices) >= 2:
+        for m_i in range(len(major_indices)):
+            idx_curr = major_indices[m_i]
+            idx_next = major_indices[(m_i + 1) % len(major_indices)]
+            e1, e2 = edges[idx_curr], edges[idx_next]
+            cross_val = abs(e1["d"][0] * e2["d"][1] - e1["d"][1] * e2["d"][0])
+            if cross_val < 0.35 and (idx_curr + 1) % M != idx_next:
+                k = (idx_curr + 1) % M
+                best_k, best_len = k, -1.0
+                while k != idx_next:
+                    if edges[k]["len"] > best_len:
+                        best_len = edges[k]["len"]
+                        best_k = k
+                    k = (k + 1) % M
+                em = edges[best_k]
+                chord = em["raw"][-1] - em["raw"][0]
+                if abs(e1["d"][1]) < 0.1:
+                    d_vec = np.array([0.0, 1.0 if chord[1] >= 0 else -1.0])
+                elif abs(e1["d"][0]) < 0.1:
+                    d_vec = np.array([1.0 if chord[0] >= 0 else -1.0, 0.0])
+                else:
+                    d_vec = chord / max(1e-5, np.linalg.norm(chord))
+                p0 = np.array([float(np.median(em["raw"][:, 0])), float(np.median(em["raw"][:, 1]))])
+                t0, t1 = np.dot(em["raw"][0] - p0, d_vec), np.dot(em["raw"][-1] - p0, d_vec)
+                em["s"], em["e"], em["p0"], em["d"], em["is_hv"], em["major"] = (
+                    p0 + t0 * d_vec,
+                    p0 + t1 * d_vec,
+                    p0,
+                    d_vec,
+                    True,
+                    True,
                 )
 
-    if remove_bg and svg_w > 0 and svg_h > 0:
-        paths = list(re.finditer(r'<path[^>]+>', svg_content))
-        if paths:
-            first_path = paths[0].group(0)
-            fill_m = re.search(r'fill=[\x27\x22]([^\x27\x22]+)[\x27\x22]', first_path)
-            d_m = re.search(r'd=[\x27\x22]([^\x27\x22]+)[\x27\x22]', first_path)
-            if fill_m and d_m:
-                fill = fill_m.group(1).upper()
-                d_val = d_m.group(1)
-                if fill in ('#FFFFFF', '#FDFDFD', '#FEFEFE', '#FAFAFA', '#F5F5F5'):
-                    if "M0 0" in d_val and (str(int(svg_w)) in d_val or str(int(svg_h)) in d_val):
-                        svg_content = svg_content.replace(first_path, '', 1)
+    major_indices = [i for i, e in enumerate(edges) if e["major"]]
+    K_maj = len(major_indices)
+    if K_maj < 3:
+        for e in edges:
+            e["major"] = True
+        major_indices = list(range(M))
+        K_maj = M
 
-    with open(svg_path, 'w', encoding='utf-8') as f:
-        f.write(svg_content)
+    sharp_limit = 14.5 if corner_threshold <= 50 else 11.0
+    transitions = []
+    for m_i in range(K_maj):
+        idx_curr, idx_next = major_indices[m_i], major_indices[(m_i + 1) % K_maj]
+        e1, e2 = edges[idx_curr], edges[idx_next]
+        minors = []
+        k = (idx_curr + 1) % M
+        while k != idx_next:
+            minors.append(edges[k])
+            k = (k + 1) % M
+
+        minor_total_len = sum(m["len"] for m in minors)
+        adj_min_len = min(e1["len"], e2["len"])
+        is_sharp = (len(minors) == 0) or (minor_total_len <= sharp_limit) or (minor_total_len < 0.14 * adj_min_len)
+        fallback_pt = e1["e"] if len(minors) == 0 else 0.5 * (e1["e"] + e2["s"])
+        corner_pt = _intersect_lines(e1["p0"], e1["d"], e2["p0"], e2["d"], fallback_pt)
+
+        if is_sharp:
+            e1["trim_e"] = corner_pt
+            e2["trim_s"] = corner_pt
+            transitions.append({"type": "sharp", "pt": corner_pt})
+        else:
+            r = np.clip(minor_total_len * 0.58, 12.0, 22.0)
+            p_start = corner_pt - e1["d"] * r
+            p_end = corner_pt + e2["d"] * r
+            e1["trim_e"] = p_start
+            e2["trim_s"] = p_end
+            c1 = p_start + 0.552 * (corner_pt - p_start)
+            c2 = p_end + 0.552 * (corner_pt - p_end)
+            transitions.append({"type": "fillet", "p_start": p_start, "c1": c1, "c2": c2, "p_end": p_end})
+
+    first_e = edges[major_indices[0]]
+    start_pt = first_e["trim_s"]
+    d_cmds = [f"M {start_pt[0]:.2f} {start_pt[1]:.2f}"]
+
+    for m_i in range(K_maj):
+        idx_curr = major_indices[m_i]
+        e1 = edges[idx_curr]
+        tr = transitions[m_i]
+        end_line = e1["trim_e"]
+        d_cmds.append(f"L {end_line[0]:.2f} {end_line[1]:.2f}")
+        if tr["type"] == "fillet":
+            c1, c2, pe = tr["c1"], tr["c2"], tr["p_end"]
+            d_cmds.append(f"C {c1[0]:.2f} {c1[1]:.2f}, {c2[0]:.2f} {c2[1]:.2f}, {pe[0]:.2f} {pe[1]:.2f}")
+
+    d_cmds.append("Z")
+    return " ".join(d_cmds)
+
 
 def execute_vectorization(
-    input_path, 
-    output_svg, 
-    colormode='color',
-    hierarchical='stacked',
+    input_path,
+    output_svg,
+    colormode="color",
+    hierarchical="stacked",
     filter_speckle=6,
     color_precision=8,
     layer_difference=16,
@@ -204,43 +309,100 @@ def execute_vectorization(
     k_colors="auto",
     upscale_small=True,
     remove_bg=True,
-    unify_colors=True
+    unify_colors=True,
 ):
-    temp_png = input_path + "._proc.png"
-    try:
-        is_binary = (colormode == 'binary')
-        proc_path, _ = preprocess_image(
-            input_path, 
-            temp_png, 
-            k_colors=k_colors, 
-            upscale_small=upscale_small,
-            is_binary=is_binary
-        )
-        
-        vtracer.convert_image_to_svg_py(
-            str(proc_path),
-            str(output_svg),
-            str(colormode),
-            str(hierarchical),
-            'spline',
-            int(filter_speckle),
-            int(color_precision),
-            int(layer_difference),
-            int(corner_threshold),
-            float(length_threshold),
-            10,
-            int(splice_threshold),
-            int(path_precision)
-        )
-        
-        postprocess_svg(output_svg, remove_bg=remove_bg, unify_colors=unify_colors)
-        return output_svg
-    finally:
-        if os.path.exists(temp_png):
-            try:
-                os.remove(temp_png)
-            except:
-                pass
+    """
+    Motor de Vetorização Híbrido CAD/Bézier + Extração de Cores Puras por Croma:
+    - Mantém 100% a fidelidade das cores originais (sem misturar cinzas de anti-aliasing)
+    - Elimina 100% dos cantos serrilhados reconstruindo retas perfeitas e curvas Bézier suaves
+    - Retorna (output_svg, (w_ratio, h_ratio)) para dimensionamento exato no CorelDRAW
+    """
+    img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise ValueError(f"Não foi possível abrir o arquivo de imagem: {input_path}")
+
+    if len(img.shape) == 3 and img.shape[2] == 4:
+        alpha = img[:, :, 3]
+        bgr = img[:, :, :3]
+        white_bg = np.ones_like(bgr, dtype=np.uint8) * 255
+        alpha_factor = (alpha.astype(np.float32) / 255.0)[:, :, np.newaxis]
+        img = (bgr.astype(np.float32) * alpha_factor + white_bg.astype(np.float32) * (1.0 - alpha_factor)).astype(np.uint8)
+    elif len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    h, w = img.shape[:2]
+    if upscale_small and (w < 1200 or h < 1200):
+        scale = max(2, min(4, int(1600 / max(w, h))))
+        if scale > 1:
+            img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)
+            h, w = img.shape[:2]
+
+    if colormode == "binary":
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        seg_img = cv2.cvtColor(bw, cv2.COLOR_GRAY2BGR)
+    else:
+        seg_img, _ = extract_exact_palette_and_segment(img, k_colors=k_colors, unify_colors=unify_colors)
+
+    unique_colors = np.unique(seg_img.reshape(-1, 3), axis=0)
+    bg_color = seg_img[0, 0].copy()
+
+    min_area = max(15, int(filter_speckle) * 3)
+    all_shapes = []
+    min_x, min_y = w, h
+    max_x, max_y = 0, 0
+
+    for c in unique_colors:
+        mask = np.all(seg_img == c, axis=2).astype(np.uint8) * 255
+        mask = cv2.medianBlur(mask, 5)
+        cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        if hier is None:
+            continue
+        hier = hier[0]
+        for idx, cnt in enumerate(cnts):
+            depth = 0
+            p_idx = hier[idx][3]
+            while p_idx != -1:
+                depth += 1
+                p_idx = hier[p_idx][3]
+            if depth % 2 == 0:
+                area = cv2.contourArea(cnt)
+                if area < min_area:
+                    continue
+                x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+                touches_border = (x_b <= 2 or y_b <= 2 or (x_b + w_b) >= (w - 2) or (y_b + h_b) >= (h - 2))
+                if remove_bg and touches_border and np.all(c == bg_color) and area > (h * w * 0.15):
+                    continue
+
+                svg_d = _contour_to_svg_path(cnt, corner_threshold=corner_threshold)
+                if svg_d:
+                    hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
+                    all_shapes.append((area, hex_col, svg_d))
+                    min_x = min(min_x, x_b)
+                    min_y = min(min_y, y_b)
+                    max_x = max(max_x, x_b + w_b)
+                    max_y = max(max_y, y_b + h_b)
+
+    all_shapes.sort(key=lambda x: x[0], reverse=True)
+
+    svg_lines = [
+        f'<?xml version="1.0" encoding="UTF-8"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
+    ]
+    for _, hex_col, svg_d in all_shapes:
+        svg_lines.append(f'  <path fill="{hex_col}" d="{svg_d}" />')
+    svg_lines.append("</svg>")
+
+    with open(output_svg, "w", encoding="utf-8") as f:
+        f.write("\n".join(svg_lines))
+
+    if max_x > min_x and max_y > min_y:
+        w_ratio = float(max_x - min_x) / float(w)
+        h_ratio = float(max_y - min_y) / float(h)
+    else:
+        w_ratio, h_ratio = 1.0, 1.0
+
+    return output_svg, (w_ratio, h_ratio)
 
 # =========================================================================
 # INTERFACE GRÁFICA PROFISSIONAL (TKINTER NATIVO)
@@ -629,7 +791,7 @@ class VetorizadorApp:
             temp_dir = tempfile.gettempdir()
             output_svg = os.path.join(temp_dir, f"vetor_estamparia_{np.random.randint(1000, 9999)}.svg")
 
-            execute_vectorization(
+            _, (w_ratio, h_ratio) = execute_vectorization(
                 input_path=self.current_img_path,
                 output_svg=output_svg,
                 colormode=color_mode,
@@ -642,12 +804,12 @@ class VetorizadorApp:
                 unify_colors=harmonize
             )
 
-            self.root.after(0, lambda: self._finalizar_importacao_corel(output_svg))
+            self.root.after(0, lambda: self._finalizar_importacao_corel(output_svg, w_ratio, h_ratio))
         except Exception as e:
             err_msg = str(e)
             self.root.after(0, lambda: self._erro_finalizacao(err_msg))
 
-    def _finalizar_importacao_corel(self, output_svg):
+    def _finalizar_importacao_corel(self, output_svg, w_ratio=1.0, h_ratio=1.0):
         try:
             self.lbl_status.configure(text="Importando vetor para a página do CorelDRAW...", fg="#818CF8")
             self.root.update_idletasks()
@@ -686,9 +848,11 @@ class VetorizadorApp:
                 if sel and sel.Shapes.Count > 0:
                     grp = sel.Group()
                     if self.orig_w > 0:
-                        grp.SetSize(self.orig_w, self.orig_h)
-                        grp.LeftX = float(self.orig_x + self.orig_w + (self.orig_w * 0.08))
-                        grp.BottomY = float(self.orig_y)
+                        target_w = float(self.orig_w * w_ratio)
+                        target_h = float(self.orig_h * h_ratio)
+                        grp.SetSize(target_w, target_h)
+                        grp.LeftX = float(self.orig_x + self.orig_w + (self.orig_w * 0.05))
+                        grp.BottomY = float(self.orig_y + (self.orig_h * (1.0 - h_ratio) * 0.5))
                     else:
                         grp.CenterX = doc.ActivePage.CenterX
                         grp.CenterY = doc.ActivePage.CenterY

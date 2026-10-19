@@ -555,52 +555,97 @@ function ExecutarPacking {
       $curW = if ($tryRot) { $h } else { $w }
       $curH = if ($tryRot) { $w } else { $h }
 
+      $candCols = 1
+      $candEscala = 1.0
+      $candW = $curW
+      $candH = $curH
+      $candMarg = $margem
+      $candEsp = $espaco
+      $candMsg = $null
+
       # Teste 1: Margem/Espaco padrao configurado
       $cols1 = [int][Math]::Floor([Math]::Round((($larguraUtil + $espaco + 0.01) / ($curW + $espaco)), 4))
-      if ($cols1 -gt $melhorCols) {
-        $melhorCols = $cols1
-        $melhorRot = $tryRot
-        $melhorW = $curW
-        $melhorH = $curH
-        $melhorEscala = 1.0
+      if ($cols1 -ge 1) {
+        $candCols = $cols1
       }
 
-      # Teste 2: Se AutoFit ativo, adapta a margem da folha (mantendo rigorosamente o espaco de tesoura escolhido)
+      # Teste 2: Se AutoFit ativo, adapta margem e ate 18% do espaco de tesoura para caber +1 coluna (evita vao na direita)
       if ($autoFit) {
-        $mMin = if ($rbCm.Checked) { 0.35 } else { 3.5 }
+        $mMin = if ($rbCm.Checked) { 0.30 } else { 3.0 }
         $lUtilTest = $larguraFolha - (2.0 * $mMin)
         $cols2 = [int][Math]::Floor([Math]::Round((($lUtilTest + $espaco + 0.01) / ($curW + $espaco)), 4))
-        if ($cols2 -gt $melhorCols) {
-          $melhorCols = $cols2
-          $melhorRot = $tryRot
-          $melhorW = $curW
-          $melhorH = $curH
-          $melhorEscala = 1.0
-          $melhorMarg = $mMin
-          $melhorEsp = $espaco
+        if ($cols2 -gt $candCols) {
+          $candCols = $cols2
+          $candMarg = $mMin
+          $candEsp = $espaco
+          $candMsg = "Desenho #$($a.Id): Margem ajustada p/ caber $candCols colunas"
         }
 
-        # Teste 3: Se AutoEscala ativa e cabe apenas 1 coluna, testa reduzir ate 2.5% para encaixar 2 colunas
-        if ($autoEscala -and $melhorCols -eq 1) {
-          $wMaxPara2 = ($lUtilTest - $espaco) / 2.0
-          if ($curW -gt $wMaxPara2) {
-            $fEscala = $wMaxPara2 / $curW
-            $redPct = (1.0 - $fEscala) * 100.0
-            if ($redPct -le 2.5) {
-              $melhorCols = 2
-              $melhorRot = $tryRot
-              $melhorEscala = $fEscala
-              $melhorW = $curW * $fEscala
-              $melhorH = $curH * $fEscala
-              $melhorMarg = $mMin
-              $melhorEsp = $espaco
-              $infoAjustes += "Desenho #$($a.Id): Auto-ajustado $(- [Math]::Round($redPct, 1))% para encaixar 2 colunas na folha"
+        # Calcula o vao vazio que sobraria na direita com o numero atual de colunas
+        $largOcupadaAtual = ($candCols * $curW) + (($candCols - 1) * $espaco)
+        $vaoDireita = $lUtilTest - $largOcupadaAtual
+
+        # Testa se cabe +1 coluna flexibilizando o espaco entre artes quando ha grande sobra lateral
+        $targetNext = $candCols + 1
+        $largArtesNext = $targetNext * $curW
+        if ($largArtesNext -le $lUtilTest) {
+          $espDisponivel = ($lUtilTest - $largArtesNext) / [double]($targetNext - 1)
+          $minTesouraAbs = if ($rbCm.Checked) { 0.50 } else { 5.0 }
+          # Se o vao na direita for quase do tamanho da propria arte (>= 70% de curW), permite flexibilizar ate 55% do espaco (respeitando minimo absoluto de 0.5cm)
+          $fatorMinEsp = if ($vaoDireita -ge ($curW * 0.70)) { 0.55 } else { 0.78 }
+          $espMinAceitavel = [Math]::Max($minTesouraAbs, ($espaco * $fatorMinEsp))
+          if ($espDisponivel -ge $espMinAceitavel) {
+            $candCols = $targetNext
+            $candMarg = $mMin
+            $candEsp = [Math]::Round($espDisponivel, 2)
+            $candMsg = "Desenho #$($a.Id): Auto-encaixe colocou +1 na fileira ($candCols cols, espaco $($candEsp))"
+          }
+        }
+
+        # Teste 3: Se AutoEscala ativa (para QUALQUER numero de colunas >= 1), testa reduzir ate 2.5% para encaixar +1 coluna
+        if ($autoEscala -and $candCols -ge 1) {
+          # So tenta +1 coluna via escala se o Teste 2 ainda nao tiver acabado de incrementar candCols, ou se ainda couber mais
+          $targetEscCols = if ($candCols -eq $cols1 -or $candCols -eq $cols2) { $candCols + 1 } else { $candCols }
+          if ($targetEscCols -gt $candCols) {
+            $minTesouraAbs = if ($rbCm.Checked) { 0.50 } else { 5.0 }
+            $espUsar = [Math]::Max($minTesouraAbs, ($espaco * 0.80))
+            $wMaxParaNext = ($lUtilTest - (($targetEscCols - 1) * $espUsar)) / [double]$targetEscCols
+            if ($curW -gt $wMaxParaNext -and $wMaxParaNext -gt 0) {
+              $fEscala = $wMaxParaNext / $curW
+              $redPct = (1.0 - $fEscala) * 100.0
+              if ($redPct -gt 0.0 -and $redPct -le 2.5) {
+                $candCols = $targetEscCols
+                $candEscala = $fEscala
+                $candW = $curW * $fEscala
+                $candH = $curH * $fEscala
+                $candMarg = $mMin
+                $candEsp = [Math]::Round($espUsar, 2)
+                $candMsg = "Desenho #$($a.Id): Auto-ajustado -$([Math]::Round($redPct, 1))% p/ caber $candCols colunas"
+              }
             }
           }
         }
       }
+
+      # Escolhe a orientacao que entrega o MENOR gasto vertical por peca (candH / candCols) ou mais colunas
+      $gastoPorPecaAtual = $candH / [double][Math]::Max(1, $candCols)
+      $gastoPorPecaMelhor = $melhorH / [double][Math]::Max(1, $melhorCols)
+
+      if (($candCols -gt $melhorCols) -or ($candCols -eq $melhorCols -and $gastoPorPecaAtual -lt $gastoPorPecaMelhor)) {
+        $melhorCols = $candCols
+        $melhorRot = $tryRot
+        $melhorW = $candW
+        $melhorH = $candH
+        $melhorEscala = $candEscala
+        $melhorMarg = $candMarg
+        $melhorEsp = $candEsp
+        $melhorMsgArte = $candMsg
+      }
     }
 
+    if ($melhorMsgArte) {
+      $infoAjustes += $melhorMsgArte
+    }
     if ($melhorMarg -lt $margem) { $margem = $melhorMarg }
     $larguraUtil = [Math]::Max(1.0, ($larguraFolha - (2.0 * $margem)))
 
@@ -616,6 +661,7 @@ function ExecutarPacking {
       Rot = $melhorRot
       Escala = $melhorEscala
       Colunas = $melhorCols
+      EspacoColuna = $melhorEsp
     }
   }
 
@@ -628,30 +674,47 @@ function ExecutarPacking {
   $totalPecasColocadas = 0
 
   foreach ($artePrincipal in $artesOrdenadas) {
+    $espArte = if ($artePrincipal.EspacoColuna -gt 0) { [double]$artePrincipal.EspacoColuna } else { $espaco }
+
     while ($artePrincipal.QtdRestante -gt 0) {
+      # Se for a ultima fileira com poucas pecas restantes de uma arte em pe (H > W), verifica se deitada gasta menos altura de bobina!
+      $usarW = $artePrincipal.W
+      $usarH = $artePrincipal.H
+      $usarRot = $artePrincipal.Rot
+      if ($otimizarGiro -and $artePrincipal.H -gt ($artePrincipal.W * 1.25) -and $artePrincipal.QtdRestante -lt $artePrincipal.Colunas) {
+        $wDeitado = $artePrincipal.H
+        $hDeitado = $artePrincipal.W
+        $colsDeitado = [int][Math]::Floor([Math]::Round((($larguraUtil + $espArte + 0.01) / ($wDeitado + $espArte)), 4))
+        if ($colsDeitado -ge 1 -and $artePrincipal.QtdRestante -le $colsDeitado) {
+          $usarW = $wDeitado
+          $usarH = $hDeitado
+          $usarRot = (-not $artePrincipal.Rot)
+        }
+      }
+
       $novaPrat = [PSCustomObject]@{
-        Altura = $artePrincipal.H
+        Altura = $usarH
         LarguraOcupada = 0.0
         Itens = New-Object 'System.Collections.Generic.List[PSCustomObject]'
       }
 
-      # 1. Preenche a prateleira com pecas da arte principal respeitando o espaco para tesoura
+      # 1. Preenche a prateleira com pecas da arte principal respeitando o espaco da coluna
       while ($artePrincipal.QtdRestante -gt 0) {
-        $itemX = if ($novaPrat.LarguraOcupada -eq 0.0) { 0.0 } else { $novaPrat.LarguraOcupada + $espaco }
+        $itemX = if ($novaPrat.LarguraOcupada -eq 0.0) { 0.0 } else { $novaPrat.LarguraOcupada + $espArte }
         $disp = $larguraUtil - $itemX
-        if (($disp + 0.01) -ge $artePrincipal.W) {
+        if (($disp + 0.02) -ge $usarW) {
           $novaPrat.Itens.Add([PSCustomObject]@{
             ArteId = $artePrincipal.Id
             OrigShape = $artePrincipal.Shape
-            W = $artePrincipal.W
-            H = $artePrincipal.H
-            Rot = $artePrincipal.Rot
+            W = $usarW
+            H = $usarH
+            Rot = $usarRot
             Escala = $artePrincipal.Escala
             SubX = $itemX
             SubY = 0.0
             IsSubItem = $false
           })
-          $novaPrat.LarguraOcupada = $itemX + $artePrincipal.W
+          $novaPrat.LarguraOcupada = $itemX + $usarW
           $artePrincipal.QtdRestante--
           $totalPecasColocadas++
         } else {
@@ -659,38 +722,54 @@ function ExecutarPacking {
         }
       }
 
-      # 2. SUB-PACKING: Preenchimento de vãos restantes com artes menores da mesma folha
+      # 2. SUB-PACKING: Preenchimento de vãos restantes com artes menores da mesma folha (testando normal e girada)
       $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
       $minVao = if ($rbCm.Checked) { 2.0 } else { 20.0 }
-      if ($dispVao -gt ($espaco + $minVao)) {
+      if ($dispVao -gt ($espArte + $minVao)) {
         foreach ($arteMenor in ($artesOrdenadas | Where-Object { $_.Id -ne $artePrincipal.Id -and $_.QtdRestante -gt 0 })) {
-          $wMenor = $arteMenor.W
-          $hMenor = $arteMenor.H
-
-          $vaoW = $dispVao - $espaco
+          $espSub = if ($arteMenor.EspacoColuna -gt 0) { [Math]::Min($espaco, [double]$arteMenor.EspacoColuna) } else { $espaco }
+          $vaoW = $dispVao - $espSub
           $vaoH = $novaPrat.Altura
 
-          $colsVao = [int][Math]::Floor([Math]::Round((($vaoW + $espaco + 0.01) / ($wMenor + $espaco)), 4))
-          $rowsVao = [int][Math]::Floor([Math]::Round((($vaoH + $espaco + 0.01) / ($hMenor + $espaco)), 4))
+          # Testa a orientacao atual e (se otimizarGiro ativo) a orientacao girada para ver qual encaixa mais pecas no vao
+          $melhorSubW = $arteMenor.W
+          $melhorSubH = $arteMenor.H
+          $melhorSubRot = $arteMenor.Rot
+          $melhorColsVao = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
+          $melhorRowsVao = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
+          $melhorCabem = [Math]::Max(0, ($melhorColsVao * $melhorRowsVao))
 
-          if ($colsVao -ge 1 -and $rowsVao -ge 1) {
-            $maxCaberVao = [int]($colsVao * $rowsVao)
-            $colocarQtd = [Math]::Min($maxCaberVao, $arteMenor.QtdRestante)
+          if ($otimizarGiro) {
+            $colsRot = [int][Math]::Floor([Math]::Round((($vaoW + $espSub + 0.01) / ($arteMenor.H + $espSub)), 4))
+            $rowsRot = [int][Math]::Floor([Math]::Round((($vaoH + $espSub + 0.01) / ($arteMenor.W + $espSub)), 4))
+            $cabemRot = [Math]::Max(0, ($colsRot * $rowsRot))
+            if ($cabemRot -gt $melhorCabem) {
+              $melhorCabem = $cabemRot
+              $melhorColsVao = $colsRot
+              $melhorRowsVao = $rowsRot
+              $melhorSubW = $arteMenor.H
+              $melhorSubH = $arteMenor.W
+              $melhorSubRot = (-not $arteMenor.Rot)
+            }
+          }
+
+          if ($melhorColsVao -ge 1 -and $melhorRowsVao -ge 1) {
+            $colocarQtd = [Math]::Min([int]$melhorCabem, $arteMenor.QtdRestante)
 
             $colIdx = 0
             $rowIdx = 0
-            $inicioX = $novaPrat.LarguraOcupada + $espaco
+            $inicioX = $novaPrat.LarguraOcupada + $espSub
 
             for ($p = 0; $p -lt $colocarQtd; $p++) {
-              $itemX = $inicioX + ($colIdx * ($wMenor + $espaco))
-              $itemY = $rowIdx * ($hMenor + $espaco)
+              $itemX = $inicioX + ($colIdx * ($melhorSubW + $espSub))
+              $itemY = $rowIdx * ($melhorSubH + $espSub)
 
               $novaPrat.Itens.Add([PSCustomObject]@{
                 ArteId = $arteMenor.Id
                 OrigShape = $arteMenor.Shape
-                W = $wMenor
-                H = $hMenor
-                Rot = $arteMenor.Rot
+                W = $melhorSubW
+                H = $melhorSubH
+                Rot = $melhorSubRot
                 Escala = $arteMenor.Escala
                 SubX = $itemX
                 SubY = $itemY
@@ -700,14 +779,15 @@ function ExecutarPacking {
               $totalPecasColocadas++
 
               $colIdx++
-              if ($colIdx -ge $colsVao) {
+              if ($colIdx -ge $melhorColsVao) {
                 $colIdx = 0
                 $rowIdx++
               }
             }
 
-            $larguraGradeInserida = ($colsVao * $wMenor) + (($colsVao - 1) * $espaco)
-            $novaPrat.LarguraOcupada += ($espaco + $larguraGradeInserida)
+            $colsEfetivasUsadas = [Math]::Min($melhorColsVao, $colocarQtd)
+            $larguraGradeInserida = ($colsEfetivasUsadas * $melhorSubW) + (($colsEfetivasUsadas - 1) * $espSub)
+            $novaPrat.LarguraOcupada += ($espSub + $larguraGradeInserida)
             $dispVao = $larguraUtil - $novaPrat.LarguraOcupada
           }
         }
