@@ -28,6 +28,16 @@ import vtracer
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
 # =========================================================================
 
+def _is_same_dark_ink(c1, c2):
+    """Dois tons escuros e neutros (ex.: preto puro e preto 'sujo' de JPEG) = mesma tinta."""
+    c1 = np.asarray(c1, dtype=int)
+    c2 = np.asarray(c2, dtype=int)
+    chroma1 = int(c1.max() - c1.min())
+    chroma2 = int(c2.max() - c2.min())
+    return (chroma1 < 25 and chroma2 < 25 and max(c1.max(), c2.max()) < 110
+            and abs(int(c1.mean()) - int(c2.mean())) < 70)
+
+
 def extract_exact_palette_and_segment(img_bgr, k_colors="auto", unify_colors=True):
     """
     Extrai as cores EXATAS das regiões planas (sem misturar com pixels de anti-aliasing)
@@ -72,7 +82,8 @@ def extract_exact_palette_and_segment(img_bgr, k_colors="auto", unify_colors=Tru
             elif np.all(mode_color > 225):
                 mode_color = np.array([255, 255, 255])
 
-        if not any(np.sum((mode_color - ex) ** 2) < (dist_thresh ** 2) for ex in palette):
+        if not any(np.sum((mode_color - ex) ** 2) < (dist_thresh ** 2) for ex in palette) \
+                and not (unify_colors and any(_is_same_dark_ink(mode_color, ex) for ex in palette)):
             palette.append(mode_color)
             if len(palette) >= max_k:
                 break
@@ -431,15 +442,109 @@ def smart_contour_to_svg(cnt, corner_threshold=38):
     )
 
     if is_cad_geometric:
-        return _contour_to_svg_path_cad(cnt, corner_threshold=corner_threshold)
-    else:
-        return fit_cubic_bezier_chain(
-            pts,
-            corner_angle_deg=max(36.0, float(corner_threshold)),
-            rdp_eps=1.1,
-            sigma=1.2,
-            allow_hv_snap=True
-        )
+        cad_d = _contour_to_svg_path_cad(cnt, corner_threshold=corner_threshold)
+        # Verificação de fidelidade: a reconstrução CAD só é aceita se seguir o contorno real.
+        # Letras arredondadas (e, o, a, r...) que "parecem" retilíneas são rejeitadas aqui.
+        if cad_d and _path_deviation(cnt, cad_d) <= CAD_MAX_DEVIATION:
+            return cad_d
+
+    bez_d = fit_cubic_bezier_chain(
+        pts,
+        corner_angle_deg=max(36.0, float(corner_threshold)),
+        rdp_eps=1.1,
+        sigma=1.2,
+        allow_hv_snap=True
+    )
+    if bez_d and _path_deviation(cnt, bez_d) <= BEZIER_MAX_DEVIATION:
+        return bez_d
+    # Último recurso: polígono denso fiel ao contorno (detalhes finos / gravuras)
+    poly_f = cv2.approxPolyDP(cnt, 0.9, True)[:, 0, :].astype(np.float64)
+    if len(poly_f) < 3:
+        return bez_d
+    return "M " + " L ".join(f"{p[0]:.2f} {p[1]:.2f}" for p in poly_f) + " Z"
+
+
+CAD_MAX_DEVIATION = 0.93
+BEZIER_MAX_DEVIATION = 1.6
+
+
+def _choose_smooth_kernel(masks, max_loss=0.08):
+    """
+    Escolhe UM filtro mediano para a imagem inteira (consistente entre as camadas de cor):
+    mede quantos pixels o mediano altera em relação ao comprimento da borda. Em logos limpos
+    ele só apara degraus (5x5); em hachuras/traços finos/gravuras ele apagaria detalhes,
+    então usa 3x3 ou nenhum filtro.
+    """
+    kernel3 = np.ones((3, 3), np.uint8)
+    for k in (5, 3):
+        worst = 0.0
+        for m in masks:
+            edge_px = int(np.count_nonzero(cv2.morphologyEx(m, cv2.MORPH_GRADIENT, kernel3))) // 2
+            if edge_px < 200:
+                continue
+            changed = int(np.count_nonzero(cv2.medianBlur(m, k) != m))
+            worst = max(worst, changed / float(edge_px))
+        if worst <= max_loss:
+            return k
+    return 1
+
+
+def _flatten_svg_d(d, n=16):
+    """Converte um caminho SVG (M/L/C/Z absolutos) em lista de polígonos."""
+    toks = re.findall(r"[MLCZ]|-?\d*\.?\d+", d)
+    polys, cur, i, cmd, pos = [], [], 0, None, np.zeros(2)
+    tt = np.linspace(0.0, 1.0, n)[1:, None]
+    while i < len(toks):
+        t = toks[i]
+        if t in ("M", "L", "C", "Z"):
+            cmd = t
+            i += 1
+            if cmd == "Z":
+                if len(cur) >= 3:
+                    polys.append(np.array(cur))
+                cur = []
+            continue
+        if cmd == "M":
+            pos = np.array([float(toks[i]), float(toks[i + 1])])
+            i += 2
+            if len(cur) >= 3:
+                polys.append(np.array(cur))
+            cur = [pos]
+            cmd = "L"
+        elif cmd == "L":
+            pos = np.array([float(toks[i]), float(toks[i + 1])])
+            i += 2
+            cur.append(pos)
+        elif cmd == "C":
+            v = [float(x) for x in toks[i:i + 6]]
+            i += 6
+            p1, p2, p3 = np.array(v[0:2]), np.array(v[2:4]), np.array(v[4:6])
+            seg = ((1 - tt) ** 3) * pos + 3 * ((1 - tt) ** 2) * tt * p1 + 3 * (1 - tt) * tt * tt * p2 + (tt ** 3) * p3
+            cur.extend(list(seg))
+            pos = p3
+        else:
+            i += 1
+    if len(cur) >= 3:
+        polys.append(np.array(cur))
+    return polys
+
+
+def _path_deviation(cnt, d):
+    """Desvio médio (px) entre o caminho gerado e o contorno real = área XOR / perímetro."""
+    x, y, w, h = cv2.boundingRect(cnt)
+    pad = 8
+    off = np.array([x - pad, y - pad], dtype=np.float64)
+    W, H = w + 2 * pad, h + 2 * pad
+    ref = np.zeros((H, W), np.uint8)
+    cv2.drawContours(ref, [cnt - off.astype(np.int32)], -1, 1, thickness=-1)
+    gen = np.zeros((H, W), np.uint8)
+    polys = [np.round((p - off) * 16).astype(np.int32) for p in _flatten_svg_d(d)]
+    if not polys:
+        return 1e9
+    cv2.fillPoly(gen, polys, 1, lineType=cv2.LINE_8, shift=4)
+    xor_area = float(np.count_nonzero(ref != gen))
+    perim = max(1.0, cv2.arcLength(cnt, True))
+    return xor_area / perim
 
 
 def execute_vectorization(
@@ -502,9 +607,26 @@ def execute_vectorization(
     min_x, min_y = w, h
     max_x, max_y = 0, 0
 
+    color_masks = []
     for c in unique_colors:
         mask = np.all(seg_img == c, axis=2).astype(np.uint8) * 255
-        mask = cv2.medianBlur(mask, 5)
+        if remove_bg and np.all(c == bg_color):
+            num, labels = cv2.connectedComponents(mask)
+            border_labels = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+            border_labels.discard(0)
+            if border_labels:
+                ext_bg = np.isin(labels, list(border_labels))
+                if ext_bg.mean() > 0.05:
+                    mask[ext_bg] = 0
+        color_masks.append((c, mask))
+
+    smooth_k = _choose_smooth_kernel([m for _, m in color_masks])
+
+    for c, mask in color_masks:
+        if np.count_nonzero(mask) < min_area:
+            continue
+        if smooth_k > 1:
+            mask = cv2.medianBlur(mask, smooth_k)
         cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
         if hier is None:
             continue
@@ -520,9 +642,6 @@ def execute_vectorization(
                 if area < min_area:
                     continue
                 x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
-                touches_border = (x_b <= 2 or y_b <= 2 or (x_b + w_b) >= (w - 2) or (y_b + h_b) >= (h - 2))
-                if remove_bg and touches_border and np.all(c == bg_color) and area > (h * w * 0.15):
-                    continue
 
                 svg_d = smart_contour_to_svg(cnt, corner_threshold=corner_threshold)
                 if svg_d:
