@@ -607,17 +607,30 @@ def execute_vectorization(
     min_x, min_y = w, h
     max_x, max_y = 0, 0
 
+    # Detecta se é desenho monocromático de 2 cores (ex: preto no papel branco)
+    non_white_colors = [c for c in unique_colors if not np.all(c > 220)]
+    max_non_white_chroma = max([int(c.max() - c.min()) for c in non_white_colors]) if non_white_colors else 0
+    is_pure_monochrome = (len(unique_colors) == 2 and max_non_white_chroma == 0)
+
     color_masks = []
     for c in unique_colors:
         mask = np.all(seg_img == c, axis=2).astype(np.uint8) * 255
         if remove_bg and np.all(c == bg_color):
-            num, labels = cv2.connectedComponents(mask)
-            border_labels = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
-            border_labels.discard(0)
-            if border_labels:
-                ext_bg = np.isin(labels, list(border_labels))
-                if ext_bg.mean() > 0.05:
-                    mask[ext_bg] = 0
+            if is_pure_monochrome:
+                # Em desenho monocromático (ex: leão / gravura preto e branco),
+                # o branco é 100% fundo/papel! Os espaços brancos internos (olhos, bochecha, coroa)
+                # devem ser vazados (transparentes), não preenchidos com tinta branca.
+                mask[:] = 0
+            else:
+                # Em artes coloridas/escudos (ex: SPFC, Flamengo, Mulheres),
+                # removemos apenas o fundo externo conectado à borda, preservando detalhes brancos internos.
+                num, labels = cv2.connectedComponents(mask)
+                border_labels = set(labels[0, :]) | set(labels[-1, :]) | set(labels[:, 0]) | set(labels[:, -1])
+                border_labels.discard(0)
+                if border_labels:
+                    ext_bg = np.isin(labels, list(border_labels))
+                    if ext_bg.mean() > 0.05:
+                        mask[ext_bg] = 0
         color_masks.append((c, mask))
 
     smooth_k = _choose_smooth_kernel([m for _, m in color_masks])
@@ -627,30 +640,68 @@ def execute_vectorization(
             continue
         if smooth_k > 1:
             mask = cv2.medianBlur(mask, smooth_k)
-        cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        if hier is None:
-            continue
-        hier = hier[0]
-        for idx, cnt in enumerate(cnts):
-            depth = 0
-            p_idx = hier[idx][3]
-            while p_idx != -1:
-                depth += 1
-                p_idx = hier[p_idx][3]
-            if depth % 2 == 0:
-                area = cv2.contourArea(cnt)
+
+        if is_pure_monochrome:
+            # Em arte monocromática, usamos RETR_CCOMP com fill-rule='evenodd':
+            # As ilhas de fundo/papel dentro dos traços pretos tornam-se furos transparentes reais!
+            cnts, hier = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
+            if hier is None:
+                continue
+            hier = hier[0]
+            outer_indices = [i for i, h in enumerate(hier) if h[3] == -1]
+            for idx in outer_indices:
+                area = cv2.contourArea(cnts[idx])
                 if area < min_area:
                     continue
-                x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+                x_b, y_b, w_b, h_b = cv2.boundingRect(cnts[idx])
+                d_outer = smart_contour_to_svg(cnts[idx], corner_threshold=corner_threshold)
+                if not d_outer:
+                    continue
+                child = hier[idx][2]
+                d_holes = []
+                while child != -1:
+                    if cv2.contourArea(cnts[child]) >= 8:
+                        dh = smart_contour_to_svg(cnts[child], corner_threshold=corner_threshold)
+                        if dh:
+                            d_holes.append(dh)
+                    child = hier[child][0]
 
-                svg_d = smart_contour_to_svg(cnt, corner_threshold=corner_threshold)
-                if svg_d:
-                    hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
-                    all_shapes.append((area, hex_col, svg_d))
-                    min_x = min(min_x, x_b)
-                    min_y = min(min_y, y_b)
-                    max_x = max(max_x, x_b + w_b)
-                    max_y = max(max_y, y_b + h_b)
+                hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
+                if d_holes:
+                    combined_d = d_outer + " " + " ".join(d_holes)
+                    all_shapes.append((area, hex_col, combined_d, True))
+                else:
+                    all_shapes.append((area, hex_col, d_outer, False))
+
+                min_x = min(min_x, x_b)
+                min_y = min(min_y, y_b)
+                max_x = max(max_x, x_b + w_b)
+                max_y = max(max_y, y_b + h_b)
+        else:
+            cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            if hier is None:
+                continue
+            hier = hier[0]
+            for idx, cnt in enumerate(cnts):
+                depth = 0
+                p_idx = hier[idx][3]
+                while p_idx != -1:
+                    depth += 1
+                    p_idx = hier[p_idx][3]
+                if depth % 2 == 0:
+                    area = cv2.contourArea(cnt)
+                    if area < min_area:
+                        continue
+                    x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
+
+                    svg_d = smart_contour_to_svg(cnt, corner_threshold=corner_threshold)
+                    if svg_d:
+                        hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
+                        all_shapes.append((area, hex_col, svg_d, False))
+                        min_x = min(min_x, x_b)
+                        min_y = min(min_y, y_b)
+                        max_x = max(max_x, x_b + w_b)
+                        max_y = max(max_y, y_b + h_b)
 
     all_shapes.sort(key=lambda x: x[0], reverse=True)
 
@@ -658,8 +709,17 @@ def execute_vectorization(
         f'<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
     ]
-    for _, hex_col, svg_d in all_shapes:
-        svg_lines.append(f'  <path fill="{hex_col}" d="{svg_d}" />')
+    for shape in all_shapes:
+        if len(shape) == 4:
+            _, hex_col, svg_d, is_evenodd = shape
+        else:
+            _, hex_col, svg_d = shape[:3]
+            is_evenodd = False
+
+        if is_evenodd:
+            svg_lines.append(f'  <path fill="{hex_col}" fill-rule="evenodd" d="{svg_d}" />')
+        else:
+            svg_lines.append(f'  <path fill="{hex_col}" d="{svg_d}" />')
     svg_lines.append("</svg>")
 
     with open(output_svg, "w", encoding="utf-8") as f:
