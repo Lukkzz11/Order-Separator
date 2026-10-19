@@ -32,8 +32,8 @@ def detect_image_mode(img_bgr):
     """
     Classifica automaticamente a complexidade da imagem em um dos 3 motores especializados:
     - 'line_art'      : Ilustrações detalhadas P&B/monocromáticas, gravuras, mangá, traços finos (ex: Leão)
-    - 'photo_complex' : Fotos, retratos, degradês, pinturas ou imagens pixeladas/baixa resolução (ex: Retrato 100x100)
-    - 'flat_logo'     : Logos, ícones, escudos e tipografia com cores sólidas chapadas (ex: Logo E/S/NE)
+    - 'photo_complex' : Fotos, retratos, degradês contínuos de pele/paisagem ou imagens pixeladas (ex: Retrato 100x100)
+    - 'flat_logo'     : Logos, escudos, ícones e tipografia com cores sólidas chapadas (ex: Escudo Flamengo, Logo E/S/NE)
     """
     h, w = img_bgr.shape[:2]
     scale = min(1.0, 400.0 / max(h, w))
@@ -42,14 +42,20 @@ def detect_image_mode(img_bgr):
     sh, sw = small.shape[:2]
     core_crop = small[sh // 8 : max(sh // 8 + 1, 7 * sh // 8), sw // 8 : max(sw // 8 + 1, 7 * sw // 8)]
 
+    # Analisa a proporção de regiões planas puras (gradiente <= 7)
+    kernel3 = np.ones((3, 3), np.uint8)
+    grad = np.max(cv2.morphologyEx(small, cv2.MORPH_GRADIENT, kernel3), axis=2)
+    flat_ratio = float(np.mean(grad <= 7))
+
     img_f = small.astype(np.float32)
     chroma = np.max(img_f, axis=2) - np.min(img_f, axis=2)
-    strong_color_ratio = float(np.mean(chroma > 42.0))
+    strong_color_ratio = float(np.mean(chroma > 38.0))
 
     gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 60, 160)
     edge_density = float(np.mean(edges > 0))
 
+    # 1. Quase sem cores vivas (P&B / gravura / silk)
     if strong_color_ratio < 0.0025:
         _, bw = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY_INV)
         cnts, _ = cv2.findContours(bw, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -58,8 +64,13 @@ def detect_image_mode(img_bgr):
             return "line_art"
         return "flat_logo"
 
+    # 2. Se a imagem tem alta taxa de áreas planas (flat_ratio >= 0.70), é claramente um Logo / Escudo / Vetor plano!
+    if flat_ratio >= 0.70:
+        return "flat_logo"
+
+    # 3. Para imagens com poucas áreas planas (< 0.70), verifica a distribuição de cores
     cf = core_crop.reshape(-1, 3)
-    non_white = cf[np.max(cf, axis=1) < 242]
+    non_white = cf[np.max(cf, axis=1) < 240]
     if len(non_white) < 50:
         non_white = cf
     bins = (non_white // 24) * 24
@@ -68,7 +79,7 @@ def detect_image_mode(img_bgr):
     cum_ratios = np.cumsum(counts_sorted) / max(1, np.sum(counts_sorted))
     bins_90 = int(np.searchsorted(cum_ratios, 0.90)) + 1
 
-    if bins_90 >= 6:
+    if bins_90 >= 7 and flat_ratio < 0.65:
         return "photo_complex"
     return "flat_logo"
 
@@ -715,7 +726,7 @@ def execute_vectorization(
         return output_svg, (1.0, 1.0)
 
     # =====================================================================
-    # MODO 3: LOGOS / ÍCONES / ESCUDOS E TIPOGRAFIA DE CORES SÓLIDAS
+    # MODO 3: LOGOS / ESCUDOS / ÍCONES E TIPOGRAFIA DE CORES SÓLIDAS
     # =====================================================================
     h, w = img.shape[:2]
     if upscale_small and (w < 1200 or h < 1200):
@@ -728,56 +739,62 @@ def execute_vectorization(
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, bw = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         seg_img = cv2.cvtColor(bw, cv2.COLOR_GRAY2BGR)
+        unique_colors = [np.array([0, 0, 0], dtype=np.uint8)]
     else:
         seg_img, _ = extract_exact_palette_and_segment(img, k_colors=k_colors, unify_colors=unify_colors)
+        unique_colors = np.unique(seg_img.reshape(-1, 3), axis=0)
 
-    unique_colors = np.unique(seg_img.reshape(-1, 3), axis=0)
+    # Identifica a cor de fundo (canto [0,0])
     bg_color = seg_img[0, 0].copy()
 
-    min_area = max(15, int(filter_speckle) * 3)
+    # Ordena as cores por área decrescente (cores de fundo/base primeiro, detalhes menores por cima)
+    color_order = []
+    for c in unique_colors:
+        area_c = int(np.sum(np.all(seg_img == c, axis=2)))
+        color_order.append((area_c, c))
+    color_order.sort(key=lambda x: x[0], reverse=True)
+
+    min_area = max(12, int(filter_speckle) * 2)
     all_shapes = []
     min_x, min_y = w, h
     max_x, max_y = 0, 0
 
-    for c in unique_colors:
+    for area_total, c in color_order:
         mask = np.all(seg_img == c, axis=2).astype(np.uint8) * 255
-        mask = cv2.medianBlur(mask, 5)
-        cnts, hier = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        if hier is None:
+        
+        # Se for a cor de fundo e remove_bg estiver ativo, ignora apenas a camada externa
+        if remove_bg and np.all(c == bg_color) and area_total > (h * w * 0.12):
             continue
-        hier = hier[0]
-        for idx, cnt in enumerate(cnts):
-            depth = 0
-            p_idx = hier[idx][3]
-            while p_idx != -1:
-                depth += 1
-                p_idx = hier[p_idx][3]
-            if depth % 2 == 0:
-                area = cv2.contourArea(cnt)
-                if area < min_area:
-                    continue
-                x_b, y_b, w_b, h_b = cv2.boundingRect(cnt)
-                touches_border = (x_b <= 2 or y_b <= 2 or (x_b + w_b) >= (w - 2) or (y_b + h_b) >= (h - 2))
-                if remove_bg and touches_border and np.all(c == bg_color) and area > (h * w * 0.15):
-                    continue
 
-                svg_d = _contour_to_svg_path(cnt, corner_threshold=corner_threshold)
-                if svg_d:
-                    hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
-                    all_shapes.append((area, hex_col, svg_d))
-                    min_x = min(min_x, x_b)
-                    min_y = min(min_y, y_b)
-                    max_x = max(max_x, x_b + w_b)
-                    max_y = max(max_y, y_b + h_b)
+        # Suavização Gaussiana SDF sub-pixel leve para contornos sedosos sem serrilhado
+        mask_smooth = cv2.GaussianBlur(mask, (3, 3), 0.8)
+        _, mask_smooth = cv2.threshold(mask_smooth, 127, 255, cv2.THRESH_BINARY)
 
-    all_shapes.sort(key=lambda x: x[0], reverse=True)
+        hex_col = "#{:02X}{:02X}{:02X}".format(int(c[2]), int(c[1]), int(c[0]))
+        paths, (bx0, by0, bx1, by1) = trace_mask_compound_svg(
+            mask_smooth,
+            rdp_eps=1.1,
+            corner_angle_deg=max(36.0, float(corner_threshold)),
+            sigma=1.2,
+            min_area=min_area,
+            allow_hv_snap=True,
+        )
+
+        for a_p, d_str, _ in paths:
+            all_shapes.append((a_p, hex_col, d_str))
+
+        if bx1 > bx0 and by1 > by0:
+            min_x = min(min_x, bx0)
+            min_y = min(min_y, by0)
+            max_x = max(max_x, bx1)
+            max_y = max(max_y, by1)
 
     svg_lines = [
         f'<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{w}" height="{h}" viewBox="0 0 {w} {h}">',
     ]
     for _, hex_col, svg_d in all_shapes:
-        svg_lines.append(f'  <path fill="{hex_col}" d="{svg_d}" />')
+        svg_lines.append(f'  <path fill="{hex_col}" fill-rule="evenodd" d="{svg_d}" />')
     svg_lines.append("</svg>")
 
     with open(output_svg, "w", encoding="utf-8") as f:
