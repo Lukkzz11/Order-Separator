@@ -1,0 +1,1082 @@
+"""
+Order Separator - Removedor de Fundo Profissional para CorelDRAW
+Motor Inteligente de Remoção de Fundo com IA Local (U2-Net / ONNX),
+Fundo Branco de Prancheta, Chroma Key com Despill e Recorte Alpha Suave.
+100% Offline, Gratuito, Sem Limites e Sem Falsos Positivos de Antivírus.
+"""
+
+import sys
+import os
+import re
+import math
+import tempfile
+import threading
+import io
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog, colorchooser
+from PIL import Image, ImageTk, ImageOps, ImageFilter, ImageGrab
+import numpy as np
+import cv2
+
+# Importação condicional do rembg
+try:
+    import rembg
+    HAS_REMBG = True
+except ImportError:
+    HAS_REMBG = False
+
+# Sessão U2-Net global mantida em memória para resposta instantânea
+GLOBAL_REMBG_SESSION = None
+
+def get_rembg_session():
+    global GLOBAL_REMBG_SESSION
+    if GLOBAL_REMBG_SESSION is None and HAS_REMBG:
+        try:
+            GLOBAL_REMBG_SESSION = rembg.new_session("u2net")
+        except Exception:
+            try:
+                GLOBAL_REMBG_SESSION = rembg.new_session("u2netp")
+            except Exception:
+                GLOBAL_REMBG_SESSION = None
+    return GLOBAL_REMBG_SESSION
+
+
+# =========================================================================
+# MOTORES DE PROCESSAMENTO DE IMAGEM E REMOÇÃO DE FUNDO
+# =========================================================================
+
+def create_checkerboard_pattern(width, height, check_size=12, color1=(220, 224, 230), color2=(255, 255, 255)):
+    """Cria uma imagem de padrão xadrez para representar transparência visualmente."""
+    bg = Image.new("RGB", (width, height), color2)
+    draw_img = np.array(bg)
+    for y in range(0, height, check_size):
+        for x in range(0, width, check_size):
+            if ((x // check_size) + (y // check_size)) % 2 == 0:
+                draw_img[y:min(y + check_size, height), x:min(x + check_size, width)] = color1
+    return Image.fromarray(draw_img)
+
+
+def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0):
+    """
+    Remove o fundo branco externo (canvas/bounding box de prancheta)
+    através de floodfill conectado exclusivamente pelas bordas externas da imagem.
+    PRESERVA 100% DOS BRANCOS INTERNOS (olhos, dentes, camisas, faixas brancas).
+    """
+    img_rgb = pil_img.convert("RGB")
+    arr = np.array(img_rgb)
+    h, w = arr.shape[:2]
+
+    # Imagem em tons de cinza e mapa de brancura
+    # Tolera tons levemente acinzentados ou amarelados de compressão JPEG
+    r = arr[:, :, 0].astype(int)
+    g = arr[:, :, 1].astype(int)
+    b = arr[:, :, 2].astype(int)
+    max_c = np.maximum(np.maximum(r, g), b)
+    min_c = np.minimum(np.minimum(r, g), b)
+    chroma = max_c - min_c
+    lum = (r + g + b) // 3
+
+    # Pixels candidatos a branco (alta luminosidade e baixo croma neutro)
+    white_thresh = max(200, 255 - int(tolerance * 1.4))
+    is_white_candidate = (lum >= white_thresh) & (chroma <= max(14, int(tolerance * 0.7)))
+
+    # Máscara para o floodFill do OpenCV (deve ser h+2 x w+2)
+    mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    # Apenas os pixels que NÃO são brancos bloqueiam a inundação
+    mask[1:h + 1, 1:w + 1] = np.where(is_white_candidate, 0, 1).astype(np.uint8)
+
+    # Inundação partindo de todos os pontos das 4 bordas da imagem
+    sample_points = []
+    # Bordas superior e inferior
+    for x in range(0, w, max(1, w // 40)):
+        sample_points.append((x, 0))
+        sample_points.append((x, h - 1))
+    # Bordas esquerda e direita
+    for y in range(0, h, max(1, h // 40)):
+        sample_points.append((0, y))
+        sample_points.append((w - 1, y))
+
+    # Executa floodfill conectado a partir das bordas
+    flood_mask = np.zeros((h + 2, w + 2), dtype=np.uint8)
+    for pt_x, pt_y in sample_points:
+        if is_white_candidate[pt_y, pt_x] and flood_mask[pt_y + 1, pt_x + 1] == 0:
+            cv2.floodFill(
+                is_white_candidate.astype(np.uint8),
+                flood_mask,
+                (pt_x, pt_y),
+                255,
+                flags=4 | (255 << 8) | cv2.FLOODFILL_MASK_ONLY
+            )
+
+    external_bg_mask = flood_mask[1:h + 1, 1:w + 1]
+
+    # Alpha: 0 onde é fundo externo, 255 onde é primeiro plano
+    alpha = np.where(external_bg_mask == 255, 0, 255).astype(np.uint8)
+
+    # Suavização de borda (Anti-aliasing)
+    if edge_feather > 0.2:
+        k_size = int(math.ceil(edge_feather * 2)) | 1
+        alpha_blurred = cv2.GaussianBlur(alpha, (k_size, k_size), edge_feather)
+        # Mantém corte nítido com transição suave
+        alpha = cv2.addWeighted(alpha, 0.4, alpha_blurred, 0.6, 0)
+
+    # Mescla com o canal alfa existente se houver
+    if pil_img.mode == "RGBA":
+        orig_alpha = np.array(pil_img.split()[-1])
+        alpha = np.minimum(alpha, orig_alpha)
+
+    # Reconstrói a imagem RGBA
+    res_arr = np.dstack((arr, alpha))
+    return Image.fromarray(res_arr, mode="RGBA")
+
+
+def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2, despill=True):
+    """
+    Remove fundo de cor sólida (Verde, Azul ou Cor Escolhida) com:
+    - Distância perceptual ponderada de cor
+    - Despill avançado de hardware (remove reflexos e halos verdes/azuis da pele, pelos e roupas)
+    - Borda suave anti-aliased
+    """
+    img_rgb = pil_img.convert("RGB")
+    arr = np.array(img_rgb, dtype=np.float32)
+    h, w = arr.shape[:2]
+
+    kr, kg, kb = [float(c) for c in key_color[:3]]
+
+    r = arr[:, :, 0]
+    g = arr[:, :, 1]
+    b = arr[:, :, 2]
+
+    # Distância Euclidiana Ponderada
+    dr = r - kr
+    dg = g - kg
+    db = b - kb
+    dist = np.sqrt(dr * dr + dg * dg + db * db)
+
+    # Mapeamento do canal Alfa com transição suave
+    tol_low = max(5.0, float(tolerance) * 0.75)
+    tol_high = max(tol_low + 5.0, float(tolerance) * 1.25)
+
+    alpha_f = np.clip((dist - tol_low) / (tol_high - tol_low), 0.0, 1.0)
+    alpha = (alpha_f * 255.0).astype(np.uint8)
+
+    # Suavização de borda
+    if feather > 0.2:
+        k_size = int(math.ceil(feather * 2)) | 1
+        alpha = cv2.GaussianBlur(alpha, (k_size, k_size), feather)
+
+    # Filtro Despill (elimina o vazamento/reflexo da cor de fundo nas bordas do objeto)
+    arr_out = arr.copy()
+    if despill:
+        # Se a cor chave for predominantemente verde
+        if kg > kr and kg > kb:
+            limit = np.maximum(r, b)
+            arr_out[:, :, 1] = np.where((g > limit) & (alpha > 0), limit, g)
+        # Se a cor chave for predominantemente azul
+        elif kb > kr and kb > kg:
+            limit = np.maximum(r, g)
+            arr_out[:, :, 2] = np.where((b > limit) & (alpha > 0), limit, b)
+        # Se for outra cor (vermelho/amarelo), amortece a saturação nas bordas semi-transparentes
+        else:
+            edge_mask = (alpha > 10) & (alpha < 240)
+            gray = 0.299 * r + 0.587 * g + 0.114 * b
+            blend = (alpha[edge_mask].astype(np.float32) / 255.0)[:, np.newaxis]
+            for ch in range(3):
+                arr_out[edge_mask, ch] = arr_out[edge_mask, ch] * blend[:, 0] + gray[edge_mask] * (1.0 - blend[:, 0])
+
+    arr_out = np.clip(arr_out, 0, 255).astype(np.uint8)
+
+    if pil_img.mode == "RGBA":
+        orig_alpha = np.array(pil_img.split()[-1])
+        alpha = np.minimum(alpha, orig_alpha)
+
+    res_arr = np.dstack((arr_out, alpha))
+    return Image.fromarray(res_arr, mode="RGBA")
+
+
+def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0):
+    """
+    Remove o fundo usando Inteligência Artificial Semântica (U2-Net ONNX).
+    Funciona para pessoas, mascotes, produtos, veículos, cenários complexos (rua, praia, estúdio).
+    Executa localmente sem depender de internet nem pagar APIs.
+    """
+    if not HAS_REMBG:
+        raise RuntimeError("Biblioteca 'rembg' não está instalada no ambiente Python.")
+
+    session = get_rembg_session()
+
+    # Executa inferência da rede neural U2-Net
+    out_img = rembg.remove(
+        pil_img,
+        session=session,
+        alpha_matting=alpha_matting,
+        alpha_matting_foreground_threshold=240,
+        alpha_matting_background_threshold=10,
+        alpha_matting_erode_size=10,
+        post_process_mask=post_process
+    )
+
+    if not isinstance(out_img, Image.Image):
+        out_img = Image.fromarray(out_img)
+
+    out_img = out_img.convert("RGBA")
+
+    # Suavização opcional adicional nas bordas
+    if edge_smooth > 0.2:
+        r, g, b, a = out_img.split()
+        a_np = np.array(a)
+        k_size = int(math.ceil(edge_smooth * 2)) | 1
+        a_smooth = cv2.GaussianBlur(a_np, (k_size, k_size), edge_smooth)
+        out_img = Image.merge("RGBA", (r, g, b, Image.fromarray(a_smooth)))
+
+    return out_img
+
+
+def auto_trim_transparent(pil_img):
+    """
+    Apara as margens transparentes vazias ao redor do objeto,
+    retornando (imagem_cortada, ratio_w, ratio_h).
+    """
+    bbox = pil_img.getbbox()
+    if not bbox:
+        return pil_img, 1.0, 1.0
+
+    orig_w, orig_h = pil_img.size
+    cropped = pil_img.crop(bbox)
+    crop_w, crop_h = cropped.size
+
+    ratio_w = crop_w / max(1.0, orig_w)
+    ratio_h = crop_h / max(1.0, orig_h)
+    return cropped, ratio_w, ratio_h
+
+
+# =========================================================================
+# INTERFACE GRÁFICA PROFISSIONAL (DARK THEME)
+# =========================================================================
+
+class RemovedorFundoApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Order Separator - Removedor de Fundo Profissional")
+        self.root.geometry("860x820")
+        self.root.minsize(800, 750)
+        self.root.configure(bg="#0B0F19")
+
+        # Ícone do aplicativo
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "icon.ico")
+        if os.path.exists(icon_path):
+            try:
+                self.root.iconbitmap(icon_path)
+            except Exception:
+                pass
+
+        # Estado da Imagem
+        self.current_img_path = None
+        self.pil_original = None
+        self.pil_processed = None
+        self.orig_w = 0.0
+        self.orig_h = 0.0
+        self.orig_x = 0.0
+        self.orig_y = 0.0
+        self.content_ratio_w = 1.0
+        self.content_ratio_h = 1.0
+
+        # Cor customizada para Chroma Key
+        self.custom_chroma_color = (0, 255, 0) # Verde padrão
+
+        # Construir UI
+        self.setup_ui()
+
+        # Pré-carregar sessão U2-Net em segundo plano para abertura super rápida
+        threading.Thread(target=get_rembg_session, daemon=True).start()
+
+    def setup_ui(self):
+        main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=14)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # 1. Cabeçalho com Título e Ações de Entrada
+        hdr_box = tk.Frame(main_frame, bg="#0B0F19")
+        hdr_box.pack(fill=tk.X, pady=(0, 10))
+
+        title_frame = tk.Frame(hdr_box, bg="#0B0F19")
+        title_frame.pack(side=tk.LEFT)
+
+        lbl_title = tk.Label(
+            title_frame,
+            text="Removedor de Fundo IA",
+            font=("Segoe UI", 16, "bold"),
+            fg="#10B981", # Emerald
+            bg="#0B0F19"
+        )
+        lbl_title.pack(anchor="w")
+
+        lbl_sub = tk.Label(
+            title_frame,
+            text="Recorte inteligente com IA, Fundo Branco de Prancheta e Chroma Key p/ DTF & Estamparia",
+            font=("Segoe UI", 8),
+            fg="#94A3B8",
+            bg="#0B0F19"
+        )
+        lbl_sub.pack(anchor="w")
+
+        # Botões de Ação de Entrada Rápidos
+        btn_box = tk.Frame(hdr_box, bg="#0B0F19")
+        btn_box.pack(side=tk.RIGHT)
+
+        btn_corel = tk.Button(
+            btn_box,
+            text="📸 Capturar Seleção Corel",
+            font=("Segoe UI", 9, "bold"),
+            bg="#059669", # Emerald escuro
+            fg="#FFFFFF",
+            activebackground="#047857",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=6,
+            command=self.capturar_corel
+        )
+        btn_corel.pack(side=tk.LEFT, padx=3)
+
+        btn_file = tk.Button(
+            btn_box,
+            text="📂 Abrir Imagem",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1E293B",
+            fg="#E2E8F0",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=6,
+            command=self.escolher_arquivo
+        )
+        btn_file.pack(side=tk.LEFT, padx=3)
+
+        btn_paste = tk.Button(
+            btn_box,
+            text="📋 Colar",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1E293B",
+            fg="#E2E8F0",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=8,
+            pady=6,
+            command=self.colar_clipboard
+        )
+        btn_paste.pack(side=tk.LEFT, padx=3)
+
+        # 2. Painel Central de Visualização (Antes e Depois com Xadrez de Transparência)
+        preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=10)
+        preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Cabeçalho do Preview com Informações
+        info_bar = tk.Frame(preview_container, bg="#0F172A")
+        info_bar.pack(fill=tk.X, pady=(0, 8))
+
+        self.lbl_img_info = tk.Label(
+            info_bar,
+            text="Nenhuma imagem carregada. Selecione um objeto no CorelDRAW e clique em Capturar, ou abra uma imagem.",
+            font=("Segoe UI", 9, "bold"),
+            fg="#818CF8",
+            bg="#0F172A",
+            anchor="w"
+        )
+        self.lbl_img_info.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.lbl_zoom_hint = tk.Label(
+            info_bar,
+            text="Visualização com Xadrez de Transparência Real",
+            font=("Segoe UI", 8),
+            fg="#64748B",
+            bg="#0F172A"
+        )
+        self.lbl_zoom_hint.pack(side=tk.RIGHT)
+
+        # Divisão Dupla: Esquerda (Original) / Direita (Sem Fundo)
+        cards_frame = tk.Frame(preview_container, bg="#0F172A")
+        cards_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Card Esquerdo: Imagem Original
+        card_orig = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_orig.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+
+        lbl_hdr_orig = tk.Label(card_orig, text="Original", font=("Segoe UI", 8, "bold"), fg="#94A3B8", bg="#141B2D", pady=4)
+        lbl_hdr_orig.pack(fill=tk.X)
+
+        self.canvas_orig = tk.Canvas(card_orig, bg="#020617", bd=0, highlightthickness=0)
+        self.canvas_orig.pack(fill=tk.BOTH, expand=True)
+
+        # Card Direito: Imagem Recortada Transparente
+        card_proc = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_proc.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+
+        lbl_hdr_proc = tk.Label(card_proc, text="Sem Fundo (Transparente)", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#141B2D", pady=4)
+        lbl_hdr_proc.pack(fill=tk.X)
+
+        self.canvas_proc = tk.Canvas(card_proc, bg="#020617", bd=0, highlightthickness=0)
+        self.canvas_proc.pack(fill=tk.BOTH, expand=True)
+
+        # 3. Seletor de Modo de Remoção (Abas / Botões de Modos)
+        lbl_mode_title = tk.Label(main_frame, text="Modo de Remoção Inteligente:", font=("Segoe UI", 9, "bold"), fg="#CBD5E1", bg="#0B0F19")
+        lbl_mode_title.pack(anchor="w", pady=(0, 4))
+
+        modes_box = tk.Frame(main_frame, bg="#0B0F19")
+        modes_box.pack(fill=tk.X, pady=(0, 10))
+
+        self.mode_var = tk.StringVar(value="ia_geral")
+        self.mode_btns = {}
+        modes = [
+            ("ia_geral", "🤖 IA Semântica Geral\n(Pessoas, Carros, Fotos, Cenários)"),
+            ("fundo_branco", "📄 Fundo Branco de Prancheta\n(Logos, Desenhos, Mantém Branco Interno)"),
+            ("chroma_key", "🟩 Chroma Key / Cor Sólida\n(Fundo Verde, Azul com Despill)"),
+            ("alpha_suave", "✂️ Recorte Alpha Suave\n(Cabelos, Pelos e Transparências)")
+        ]
+        for m_id, m_label in modes:
+            btn = tk.Button(
+                modes_box,
+                text=m_label,
+                font=("Segoe UI", 8, "bold"),
+                bd=0,
+                cursor="hand2",
+                padx=6,
+                pady=6,
+                justify="center",
+                command=lambda mid=m_id: self.select_mode(mid)
+            )
+            btn.pack(side=tk.LEFT, expand=True, fill=tk.BOTH, padx=2)
+            self.mode_btns[m_id] = btn
+
+        # 4. Painel de Controles e Parâmetros
+        self.pnl_params = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=12, pady=10)
+        self.pnl_params.pack(fill=tk.X, pady=(0, 10))
+
+        # Container dinâmico dos controles
+        self.setup_mode_controls()
+        self.update_mode_buttons()
+
+        # 5. Barra de Status
+        self.lbl_status = tk.Label(
+            main_frame,
+            text="Pronto. Carregue uma imagem para remover o fundo com 1 clique.",
+            font=("Segoe UI", 8),
+            fg="#94A3B8",
+            bg="#0B0F19",
+            anchor="center"
+        )
+        self.lbl_status.pack(fill=tk.X, pady=(2, 6))
+
+        # 6. Rodapé de Ações Principais
+        bottom_box = tk.Frame(main_frame, bg="#0B0F19")
+        bottom_box.pack(fill=tk.X)
+
+        self.btn_remover_corel = tk.Button(
+            bottom_box,
+            text="🚀 REMOVER FUNDO E ENVIAR AO CORELDRAW",
+            font=("Segoe UI", 11, "bold"),
+            bg="#10B981", # Emerald
+            fg="#FFFFFF",
+            activebackground="#059669",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            pady=12,
+            command=self.iniciar_remocao_corel
+        )
+        self.btn_remover_corel.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 5))
+
+        self.btn_salvar = tk.Button(
+            bottom_box,
+            text="💾 Salvar PNG",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1E293B",
+            fg="#E2E8F0",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=14,
+            pady=12,
+            command=self.salvar_png
+        )
+        self.btn_salvar.pack(side=tk.LEFT, padx=3)
+
+        self.btn_copiar = tk.Button(
+            bottom_box,
+            text="📋 Copiar PNG",
+            font=("Segoe UI", 9, "bold"),
+            bg="#1E293B",
+            fg="#E2E8F0",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=14,
+            pady=12,
+            command=self.copiar_png_clipboard
+        )
+        self.btn_copiar.pack(side=tk.LEFT, padx=(3, 0))
+
+        # Atalhos
+        self.root.bind("<Escape>", lambda e: self.root.destroy())
+        self.root.bind("<Control-v>", lambda e: self.colar_clipboard())
+        self.root.bind("<Control-V>", lambda e: self.colar_clipboard())
+
+    def setup_mode_controls(self):
+        # Limpa controles anteriores
+        for widget in self.pnl_params.winfo_children():
+            widget.destroy()
+
+        mode = self.mode_var.get()
+
+        # Checkboxes comuns a todos os modos
+        row_common = tk.Frame(self.pnl_params, bg="#0F172A")
+        row_common.pack(fill=tk.X, pady=(0, 8))
+
+        if not hasattr(self, 'var_autotrim'):
+            self.var_autotrim = tk.BooleanVar(value=True)
+        cb_trim = tk.Checkbutton(
+            row_common,
+            text="Aparar Bordas Vazias (Auto-Trim transparente p/ DTF)",
+            variable=self.var_autotrim,
+            font=("Segoe UI", 8),
+            fg="#34D399",
+            bg="#0F172A",
+            selectcolor="#1E293B",
+            activebackground="#0F172A",
+            activeforeground="#34D399"
+        )
+        cb_trim.pack(side=tk.LEFT, padx=(0, 15))
+
+        if not hasattr(self, 'var_feather'):
+            self.var_feather = tk.DoubleVar(value=1.0)
+
+        lbl_feat = tk.Label(row_common, text="Suavização de Borda (px):", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A")
+        lbl_feat.pack(side=tk.LEFT, padx=(10, 4))
+        sp_feat = tk.Spinbox(row_common, from_=0.0, to=5.0, increment=0.5, format="%.1f", textvariable=self.var_feather, width=6, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
+        sp_feat.pack(side=tk.LEFT)
+
+        # Divisor
+        tk.Frame(self.pnl_params, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 8))
+
+        # Controles Específicos por Modo
+        if mode == "ia_geral":
+            lbl_desc = tk.Label(
+                self.pnl_params,
+                text="A IA U2-Net analisa a cena inteira com rede neural profunda e extrai perfeitamente o assunto principal, eliminando fotos de ruas, estúdios, produtos e pessoas.",
+                font=("Segoe UI", 8),
+                fg="#94A3B8",
+                bg="#0F172A",
+                wraplength=760,
+                justify="left"
+            )
+            lbl_desc.pack(anchor="w", pady=(0, 4))
+
+            if not hasattr(self, 'var_post_process'):
+                self.var_post_process = tk.BooleanVar(value=True)
+            cb_post = tk.Checkbutton(
+                self.pnl_params,
+                text="Pós-processamento morfológico de máscara (fecha micro-furos internos e elimina ruído isolado)",
+                variable=self.var_post_process,
+                font=("Segoe UI", 8),
+                fg="#818CF8",
+                bg="#0F172A",
+                selectcolor="#1E293B",
+                activebackground="#0F172A",
+                activeforeground="#818CF8"
+            )
+            cb_post.pack(anchor="w")
+
+        elif mode == "fundo_branco":
+            row_wb = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_wb.pack(fill=tk.X, pady=(0, 4))
+
+            tk.Label(row_wb, text="Tolerância do Branco (1 a 60):", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#0F172A").pack(side=tk.LEFT)
+            if not hasattr(self, 'var_white_tol'):
+                self.var_white_tol = tk.IntVar(value=28)
+            scale_tol = tk.Scale(row_wb, from_=1, to=60, orient=tk.HORIZONTAL, variable=self.var_white_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=240, troughcolor="#1E293B")
+            scale_tol.pack(side=tk.LEFT, padx=10)
+
+            lbl_wb_desc = tk.Label(
+                self.pnl_params,
+                text="Inunda exclusivamente a partir das bordas externas da imagem. Preserva 100% dos brancos do interior do escudo/arte.",
+                font=("Segoe UI", 8),
+                fg="#94A3B8",
+                bg="#0F172A"
+            )
+            lbl_wb_desc.pack(anchor="w")
+
+        elif mode == "chroma_key":
+            row_ck = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_ck.pack(fill=tk.X, pady=(0, 4))
+
+            tk.Label(row_ck, text="Cor do Fundo:", font=("Segoe UI", 8, "bold"), fg="#10B981", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+
+            btn_green = tk.Button(row_ck, text="Verde Chroma", font=("Segoe UI", 8, "bold"), bg="#10B981", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((0, 255, 0)))
+            btn_green.pack(side=tk.LEFT, padx=2)
+
+            btn_blue = tk.Button(row_ck, text="Azul Chroma", font=("Segoe UI", 8, "bold"), bg="#3B82F6", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((0, 0, 255)))
+            btn_blue.pack(side=tk.LEFT, padx=2)
+
+            self.btn_custom_color = tk.Button(row_ck, text="🎨 Escolher Cor", font=("Segoe UI", 8, "bold"), bg="#1E293B", fg="#FFFFFF", bd=1, relief="solid", padx=8, pady=2, cursor="hand2", command=self.escolher_cor_chroma)
+            self.btn_custom_color.pack(side=tk.LEFT, padx=6)
+
+            tk.Label(row_ck, text="Tolerância:", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT, padx=(10, 4))
+            if not hasattr(self, 'var_chroma_tol'):
+                self.var_chroma_tol = tk.IntVar(value=48)
+            scale_ck = tk.Scale(row_ck, from_=10, to=100, orient=tk.HORIZONTAL, variable=self.var_chroma_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=180, troughcolor="#1E293B")
+            scale_ck.pack(side=tk.LEFT, padx=6)
+
+            if not hasattr(self, 'var_despill'):
+                self.var_despill = tk.BooleanVar(value=True)
+            cb_despill = tk.Checkbutton(
+                self.pnl_params,
+                text="Filtro Despill de Borda Ativo (remove reflexo e vazamento verde/azul na pele, cabelo e roupas)",
+                variable=self.var_despill,
+                font=("Segoe UI", 8),
+                fg="#34D399",
+                bg="#0F172A",
+                selectcolor="#1E293B",
+                activebackground="#0F172A",
+                activeforeground="#34D399"
+            )
+            cb_despill.pack(anchor="w", pady=(4, 0))
+
+        elif mode == "alpha_suave":
+            lbl_desc = tk.Label(
+                self.pnl_params,
+                text="Modo Alpha Matting de alta sensibilidade com recorte suave de fibras, cabelos, fios soltos, pelos de animais e transparências de vidro.",
+                font=("Segoe UI", 8),
+                fg="#94A3B8",
+                bg="#0F172A"
+            )
+            lbl_desc.pack(anchor="w")
+
+    def select_mode(self, mode_id):
+        self.mode_var.set(mode_id)
+        self.update_mode_buttons()
+        self.setup_mode_controls()
+
+        # Se já temos uma imagem carregada, reprocessa o preview automaticamente
+        if self.pil_original is not None:
+            self.iniciar_preview_async()
+
+    def update_mode_buttons(self):
+        curr = self.mode_var.get()
+        for mid, btn in self.mode_btns.items():
+            if mid == curr:
+                btn.configure(bg="#10B981", fg="#FFFFFF") # Emerald Ativo
+            else:
+                btn.configure(bg="#1E293B", fg="#94A3B8")
+
+    def set_chroma_color(self, rgb):
+        self.custom_chroma_color = rgb
+        hex_col = f"#{rgb[0]:02x}{rgb[1]:02x}{rgb[2]:02x}"
+        self.btn_custom_color.configure(bg=hex_col, fg="#FFFFFF" if sum(rgb) < 380 else "#000000")
+        if self.pil_original is not None:
+            self.iniciar_preview_async()
+
+    def escolher_cor_chroma(self):
+        color = colorchooser.askcolor(title="Escolha a cor do fundo a remover")
+        if color and color[0]:
+            rgb = tuple(int(c) for c in color[0])
+            self.set_chroma_color(rgb)
+
+    def carregar_imagem(self, pil_img, desc=""):
+        try:
+            self.pil_original = pil_img.copy()
+            w, h = self.pil_original.size
+            self.lbl_img_info.configure(text=f"{desc} ({w} x {h} px)")
+            self.lbl_status.configure(text="Imagem carregada! Processando recorte...", fg="#F59E0B")
+            self.atualizar_canvas_original()
+            self.iniciar_preview_async()
+        except Exception as e:
+            messagebox.showerror("Erro ao carregar imagem", str(e))
+
+    def atualizar_canvas_original(self):
+        if not self.pil_original:
+            return
+        cw = max(50, self.canvas_orig.winfo_width())
+        ch = max(50, self.canvas_orig.winfo_height())
+        if cw <= 50 or ch <= 50:
+            cw, ch = 350, 350
+
+        # Redimensiona preservando proporção
+        thumb = self.pil_original.copy()
+        thumb.thumbnail((cw - 10, ch - 10), Image.Resampling.LANCZOS)
+        tw, th = thumb.size
+
+        # Padrão xadrez por baixo se tiver canal alfa
+        if thumb.mode == "RGBA":
+            bg = create_checkerboard_pattern(tw, th)
+            bg.paste(thumb, (0, 0), thumb)
+            thumb = bg
+
+        self.tk_orig = ImageTk.PhotoImage(thumb)
+        self.canvas_orig.delete("all")
+        self.canvas_orig.create_image(cw // 2, ch // 2, image=self.tk_orig, anchor="center")
+
+    def atualizar_canvas_processado(self):
+        if not self.pil_processed:
+            return
+        cw = max(50, self.canvas_proc.winfo_width())
+        ch = max(50, self.canvas_proc.winfo_height())
+        if cw <= 50 or ch <= 50:
+            cw, ch = 350, 350
+
+        thumb = self.pil_processed.copy()
+        thumb.thumbnail((cw - 10, ch - 10), Image.Resampling.LANCZOS)
+        tw, th = thumb.size
+
+        # Fundo xadrez nítido para comprovar transparência
+        bg = create_checkerboard_pattern(tw, th)
+        bg.paste(thumb, (0, 0), thumb)
+
+        self.tk_proc = ImageTk.PhotoImage(bg)
+        self.canvas_proc.delete("all")
+        self.canvas_proc.create_image(cw // 2, ch // 2, image=self.tk_proc, anchor="center")
+
+    def iniciar_preview_async(self):
+        threading.Thread(target=self._processar_preview_worker, daemon=True).start()
+
+    def _processar_preview_worker(self):
+        if not self.pil_original:
+            return
+        try:
+            mode = self.mode_var.get()
+            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 1.0
+
+            # Para visualização rápida na tela, processa versão otimizada se for gigantesca
+            orig = self.pil_original
+            max_dim = max(orig.size)
+            scale_preview = 1.0
+            if max_dim > 1600:
+                scale_preview = 1600.0 / max_dim
+                pw = int(orig.size[0] * scale_preview)
+                ph = int(orig.size[1] * scale_preview)
+                proc_input = orig.resize((pw, ph), Image.Resampling.LANCZOS)
+            else:
+                proc_input = orig.copy()
+
+            if mode == "ia_geral":
+                post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
+                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather)
+            elif mode == "fundo_branco":
+                tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
+                res = remove_white_background_floodfill(proc_input, tolerance=tol, edge_feather=feather)
+            elif mode == "chroma_key":
+                tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
+                despill = self.var_despill.get() if hasattr(self, 'var_despill') else True
+                res = remove_chroma_key(proc_input, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill)
+            elif mode == "alpha_suave":
+                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather)
+            else:
+                res = proc_input.convert("RGBA")
+
+            self.pil_processed = res
+            self.root.after(0, self._finalizar_preview_ui)
+        except Exception as e:
+            err = str(e)
+            self.root.after(0, lambda: self.lbl_status.configure(text=f"Erro no processamento: {err}", fg="#EF4444"))
+
+    def _finalizar_preview_ui(self):
+        self.atualizar_canvas_processado()
+        self.lbl_status.configure(text="Fundo removido com sucesso! Pronto para enviar ao CorelDRAW.", fg="#34D399")
+
+    def escolher_arquivo(self):
+        f = filedialog.askopenfilename(
+            title="Selecione uma imagem para remover o fundo",
+            filetypes=[("Imagens", "*.png *.jpg *.jpeg *.webp *.bmp *.tif *.tiff"), ("Todos", "*.*")]
+        )
+        if f:
+            self.current_img_path = f
+            self.orig_w = 0.0
+            self.orig_h = 0.0
+            img = Image.open(f)
+            self.carregar_imagem(img, desc=os.path.basename(f))
+
+    def colar_clipboard(self):
+        try:
+            img = ImageGrab.grabclipboard()
+            if isinstance(img, Image.Image):
+                self.current_img_path = None
+                self.orig_w = 0.0
+                self.orig_h = 0.0
+                self.carregar_imagem(img, desc="Imagem da Área de Transferência")
+            else:
+                messagebox.showinfo("Aviso", "Nenhuma imagem encontrada na área de transferência.")
+        except Exception as e:
+            messagebox.showerror("Erro ao colar", str(e))
+
+    def capturar_corel(self):
+        """
+        Extrai a seleção ativa diretamente do CorelDRAW via COM ExportEx (cdrPNG).
+        SEM USAR ÁREA DE TRANSFERÊNCIA (zero falsos positivos em antivírus).
+        """
+        try:
+            import win32com.client
+            try:
+                corel = win32com.client.GetActiveObject("CorelDRAW.Application.24")
+            except Exception:
+                corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
+
+            if not corel.ActiveDocument:
+                messagebox.showwarning("Aviso", "Abra um documento no CorelDRAW primeiro!")
+                return
+
+            doc = corel.ActiveDocument
+            sel = None
+            try:
+                sel = corel.ActiveSelection
+            except Exception:
+                pass
+            if not sel or sel.Shapes.Count == 0:
+                try:
+                    sel = doc.Selection()
+                except Exception:
+                    pass
+
+            if not sel or sel.Shapes.Count == 0:
+                messagebox.showwarning("Aviso", "Selecione uma imagem bitmap ou desenho no CorelDRAW!")
+                return
+
+            try:
+                self.orig_w = float(sel.SizeWidth)
+                self.orig_h = float(sel.SizeHeight)
+                self.orig_x = float(sel.LeftX)
+                self.orig_y = float(sel.BottomY)
+            except Exception:
+                try:
+                    sh = sel.Shapes(1)
+                    self.orig_w = float(sh.SizeWidth)
+                    self.orig_h = float(sh.SizeHeight)
+                    self.orig_x = float(sh.LeftX)
+                    self.orig_y = float(sh.BottomY)
+                except Exception:
+                    self.orig_w = 0.0
+
+            # Exporta apenas a seleção (cdrSelection=2, cdrPNG=802)
+            temp_dir = tempfile.gettempdir()
+            temp_png = os.path.join(temp_dir, f"corel_rembg_{os.getpid()}_{np.random.randint(1000, 9999)}.png")
+
+            opt = corel.CreateStructExportOptions()
+            opt.SizeX = 1800
+            opt.SizeY = 1800
+            opt.MaintainAspect = True
+            opt.Transparent = True
+            pal = corel.CreateStructPaletteOptions()
+
+            exp = doc.ExportEx(temp_png, 802, 2, opt, pal)
+            if exp:
+                exp.Finish()
+
+            if not os.path.exists(temp_png):
+                raise ValueError("O CorelDRAW não gerou o arquivo temporário da seleção.")
+
+            self.current_img_path = temp_png
+            img = Image.open(temp_png)
+            self.carregar_imagem(img, desc="Objeto Selecionado do CorelDRAW")
+        except Exception as e:
+            messagebox.showerror("Erro ao capturar do CorelDRAW", f"Não foi possível capturar a seleção:\n{e}")
+
+    def iniciar_remocao_corel(self):
+        if not self.pil_original:
+            messagebox.showwarning("Aviso", "Carregue ou capture uma imagem antes de enviar ao CorelDRAW!")
+            return
+
+        self.btn_remover_corel.configure(state="disabled", text="Processando Alta Resolução...", bg="#059669")
+        self.lbl_status.configure(text="Removendo fundo em resolução máxima e preparando para o CorelDRAW...", fg="#F59E0B")
+
+        threading.Thread(target=self._processar_alta_resolucao_corel_worker, daemon=True).start()
+
+    def _processar_alta_resolucao_corel_worker(self):
+        try:
+            mode = self.mode_var.get()
+            feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 1.0
+            full_img = self.pil_original
+
+            # Executa remoção na resolução total original (sem perda de qualidade)
+            if mode == "ia_geral":
+                post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
+                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather)
+            elif mode == "fundo_branco":
+                tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
+                res = remove_white_background_floodfill(full_img, tolerance=tol, edge_feather=feather)
+            elif mode == "chroma_key":
+                tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
+                despill = self.var_despill.get() if hasattr(self, 'var_despill') else True
+                res = remove_chroma_key(full_img, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill)
+            elif mode == "alpha_suave":
+                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather)
+            else:
+                res = full_img.convert("RGBA")
+
+            # Auto-Trim opcional
+            do_trim = self.var_autotrim.get() if hasattr(self, 'var_autotrim') else True
+            if do_trim:
+                res, rw, rh = auto_trim_transparent(res)
+                self.content_ratio_w = rw
+                self.content_ratio_h = rh
+            else:
+                self.content_ratio_w = 1.0
+                self.content_ratio_h = 1.0
+
+            # Salva em arquivo temporário PNG
+            temp_dir = tempfile.gettempdir()
+            out_png = os.path.join(temp_dir, f"rembg_corel_{np.random.randint(1000, 9999)}.png")
+            res.save(out_png, format="PNG")
+
+            self.root.after(0, lambda: self._finalizar_importacao_corel(out_png))
+        except Exception as e:
+            err = str(e)
+            self.root.after(0, lambda: self._erro_finalizacao(err))
+
+    def _finalizar_importacao_corel(self, output_png):
+        try:
+            self.lbl_status.configure(text="Importando imagem transparente para o CorelDRAW...", fg="#818CF8")
+            self.root.update_idletasks()
+
+            import win32com.client
+            try:
+                corel = win32com.client.GetActiveObject("CorelDRAW.Application.24")
+            except Exception:
+                corel = win32com.client.gencache.EnsureDispatch("CorelDRAW.Application.24")
+            corel.Visible = True
+
+            if not corel.ActiveDocument:
+                doc = corel.CreateDocument()
+            else:
+                doc = corel.ActiveDocument
+
+            doc.BeginCommandGroup("Remover Fundo IA")
+            try:
+                layer = doc.ActiveLayer
+                opt = corel.CreateStructImportOptions()
+                imp = layer.ImportEx(output_png, 0, opt)
+                if imp:
+                    imp.Finish()
+
+                sel = None
+                try:
+                    sel = corel.ActiveSelection
+                except Exception:
+                    pass
+                if not sel:
+                    try:
+                        sel = doc.Selection()
+                    except Exception:
+                        pass
+
+                if sel and sel.Shapes.Count > 0:
+                    shape = sel.Shapes(1) if sel.Shapes.Count == 1 else sel.Group()
+                    natural_w = float(shape.SizeWidth)
+                    natural_h = float(shape.SizeHeight)
+
+                    if natural_w > 0 and natural_h > 0 and self.orig_w > 0 and self.orig_h > 0:
+                        aspect = natural_w / natural_h
+                        if hasattr(self, 'content_ratio_h') and self.content_ratio_h > 0:
+                            target_h = float(self.orig_h) * float(self.content_ratio_h)
+                            target_w = target_h * aspect
+                        else:
+                            target_h = float(self.orig_h)
+                            target_w = target_h * aspect
+
+                        shape.SetSize(target_w, target_h)
+                        shape.LeftX = float(self.orig_x + self.orig_w + (self.orig_w * 0.05))
+                        shape.CenterY = float(self.orig_y + (self.orig_h / 2.0))
+                    else:
+                        shape.CenterX = doc.ActivePage.CenterX
+                        shape.CenterY = doc.ActivePage.CenterY
+            finally:
+                doc.EndCommandGroup()
+                corel.Refresh()
+
+            self.btn_remover_corel.configure(state="normal", text="🚀 REMOVER FUNDO E ENVIAR AO CORELDRAW", bg="#10B981")
+            self.lbl_status.configure(text="Concluído com sucesso! Imagem importada no CorelDRAW.", fg="#34D399")
+            messagebox.showinfo(
+                "Remoção Concluída!",
+                "A imagem com fundo transparente foi importada ao lado do original no CorelDRAW!\n\n"
+                "Escala 1:1 preservada com proporção e acabamento limpo para DTF e Estamparia."
+            )
+        except Exception as e:
+            self._erro_finalizacao(str(e))
+
+    def _erro_finalizacao(self, err):
+        self.btn_remover_corel.configure(state="normal", text="🚀 REMOVER FUNDO E ENVIAR AO CORELDRAW", bg="#10B981")
+        self.lbl_status.configure(text="Erro ao processar imagem.", fg="#EF4444")
+        messagebox.showerror("Erro", f"Ocorreu um erro:\n\n{err}")
+
+    def salvar_png(self):
+        if not self.pil_processed:
+            messagebox.showwarning("Aviso", "Nenhuma imagem com fundo removido para salvar.")
+            return
+
+        f = filedialog.asksaveasfilename(
+            title="Salvar PNG com fundo transparente",
+            defaultextension=".png",
+            filetypes=[("PNG Transparente", "*.png")]
+        )
+        if f:
+            try:
+                self.pil_processed.save(f, format="PNG")
+                messagebox.showinfo("Sucesso", f"Imagem salva com sucesso em:\n{f}")
+            except Exception as e:
+                messagebox.showerror("Erro ao salvar", str(e))
+
+    def copiar_png_clipboard(self):
+        if not self.pil_processed:
+            messagebox.showwarning("Aviso", "Nenhuma imagem com fundo removido para copiar.")
+            return
+
+        try:
+            import win32clipboard
+            png_format = win32clipboard.RegisterClipboardFormat("PNG")
+            buf = io.BytesIO()
+            self.pil_processed.save(buf, format="PNG")
+            data = buf.getvalue()
+
+            win32clipboard.OpenClipboard()
+            win32clipboard.EmptyClipboard()
+            win32clipboard.SetClipboardData(png_format, data)
+            win32clipboard.CloseClipboard()
+
+            self.lbl_status.configure(text="PNG transparente copiado para a área de transferência! (Pressione Ctrl+V em qualquer programa)", fg="#34D399")
+            messagebox.showinfo("Copiado!", "Imagem PNG transparente copiada com sucesso!\nVocê já pode colar (Ctrl+V) no CorelDRAW, Photoshop ou WhatsApp.")
+        except Exception as e:
+            messagebox.showerror("Erro ao copiar", str(e))
+
+
+def main():
+    try:
+        import subprocess
+        pid_file = os.path.join(tempfile.gettempdir(), "order_separator_removedor.pid")
+        my_pid = os.getpid()
+        if os.path.exists(pid_file):
+            try:
+                with open(pid_file, "r") as f:
+                    old_pid = int(f.read().strip())
+                if old_pid != my_pid:
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", str(old_pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        creationflags=0x08000000
+                    )
+            except Exception:
+                pass
+        with open(pid_file, "w") as f:
+            f.write(str(my_pid))
+    except Exception:
+        pass
+
+    root = tk.Tk()
+    app = RemovedorFundoApp(root)
+    root.mainloop()
+
+if __name__ == "__main__":
+    main()

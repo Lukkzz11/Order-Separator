@@ -37,22 +37,22 @@ $lblHeader.Text = "Montador de Folha / Bobina"
 $lblHeader.Font = $fontTitle
 $lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
 $lblHeader.Location = New-Object System.Drawing.Point(20, 10)
-$lblHeader.Size = New-Object System.Drawing.Size(320, 24)
+$lblHeader.Size = New-Object System.Drawing.Size(225, 24)
 $form.Controls.Add($lblHeader)
 
 $lblSub = New-Object System.Windows.Forms.Label
-$lblSub.Text = "Encaixe inteligente com economia e espaco para tesoura"
+$lblSub.Text = "Encaixe inteligente com economia e espaco"
 $lblSub.Font = $fontStats
 $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
 $lblSub.Location = New-Object System.Drawing.Point(20, 34)
-$lblSub.Size = New-Object System.Drawing.Size(320, 18)
+$lblSub.Size = New-Object System.Drawing.Size(225, 18)
 $form.Controls.Add($lblSub)
 
 $btnAbrirVetorizador = New-Object System.Windows.Forms.Button
 $btnAbrirVetorizador.Text = "Vetorizador IA"
-$btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$btnAbrirVetorizador.Location = New-Object System.Drawing.Point(350, 12)
-$btnAbrirVetorizador.Size = New-Object System.Drawing.Size(135, 36)
+$btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+$btnAbrirVetorizador.Location = New-Object System.Drawing.Point(250, 12)
+$btnAbrirVetorizador.Size = New-Object System.Drawing.Size(115, 36)
 $btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229)
 $btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::White
 $btnAbrirVetorizador.FlatStyle = "Flat"
@@ -61,10 +61,30 @@ $btnAbrirVetorizador.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnAbrirVetorizador.Add_Click({
   $pyScript = Join-Path $PSScriptRoot "vetorizador_app.py"
   if (Test-Path $pyScript) {
-    Start-Process "pythonw.exe" -ArgumentList "`"$pyScript`""
+    $pyExec = if (Test-Path "C:\Python314\pythonw.exe") { "C:\Python314\pythonw.exe" } else { "pythonw.exe" }
+    Start-Process $pyExec -ArgumentList "`"$pyScript`""
   }
 })
 $form.Controls.Add($btnAbrirVetorizador)
+
+$btnAbrirRemovedor = New-Object System.Windows.Forms.Button
+$btnAbrirRemovedor.Text = "Removedor IA"
+$btnAbrirRemovedor.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
+$btnAbrirRemovedor.Location = New-Object System.Drawing.Point(372, 12)
+$btnAbrirRemovedor.Size = New-Object System.Drawing.Size(115, 36)
+$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129)
+$btnAbrirRemovedor.ForeColor = [System.Drawing.Color]::White
+$btnAbrirRemovedor.FlatStyle = "Flat"
+$btnAbrirRemovedor.FlatAppearance.BorderSize = 0
+$btnAbrirRemovedor.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnAbrirRemovedor.Add_Click({
+  $pyScript = Join-Path $PSScriptRoot "removedor_fundo_app.py"
+  if (Test-Path $pyScript) {
+    $pyExec = if (Test-Path "C:\Python314\pythonw.exe") { "C:\Python314\pythonw.exe" } else { "pythonw.exe" }
+    Start-Process $pyExec -ArgumentList "`"$pyScript`""
+  }
+})
+$form.Controls.Add($btnAbrirRemovedor)
 
 # --- PEDIDOS CADASTRADOS ---
 $lblPedido = New-Object System.Windows.Forms.Label
