@@ -237,6 +237,23 @@ export default function App() {
     }
   };
 
+  // Abrir Removedor de Fundo IA CorelDRAW
+  const abrirRemovedorCorel = async () => {
+    if (!window.electronAPI || !window.electronAPI.abrirRemovedorCorel) {
+      avisar('erro', 'Removedor de Fundo CorelDRAW indisponível.');
+      return;
+    }
+    avisar('sucesso', 'Abrindo janela do Removedor de Fundo IA no CorelDRAW...');
+    try {
+      const res = await window.electronAPI.abrirRemovedorCorel();
+      if (!res.sucesso) {
+        avisar('erro', `Falha ao abrir removedor: ${res.erro}`);
+      }
+    } catch (e) {
+      avisar('erro', 'Erro ao abrir removedor: ' + e.message);
+    }
+  };
+
   // Funções de Checklist de Separação
   const abrirSeparacao = (pedido) => {
     setModalSeparacao(pedido);
@@ -804,6 +821,21 @@ export default function App() {
                   Curvas
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={abrirRemovedorCorel}
+                title="Abrir Removedor de Fundo IA (U2-Net / Chroma Key / Prancheta Branca) no CorelDRAW"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 text-emerald-300 border border-emerald-600/30 hover:border-emerald-500/50 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Scissors className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <span>Removedor IA</span>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                  Fundo
+                </span>
+              </button>
             </div>
           </nav>
         </div>
@@ -865,6 +897,14 @@ export default function App() {
                   >
                     <Sparkles className="w-4 h-4 text-indigo-400" />
                     Vetorizador IA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirRemovedorCorel}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Scissors className="w-4 h-4 text-emerald-400" />
+                    Removedor IA
                   </button>
                   <button
                     onClick={prepararNovoPedido}

@@ -14,5 +14,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   carimbarNoCorel: (pedido) => ipcRenderer.invoke('corel:carimbarPedido', pedido),
   abrirMontadorCorel: () => ipcRenderer.invoke('corel:abrirMontador'),
   abrirVetorizadorCorel: () => ipcRenderer.invoke('corel:abrirVetorizador'),
+  abrirRemovedorCorel: () => ipcRenderer.invoke('corel:abrirRemovedor'),
   criarPastaPedido: (pedido) => ipcRenderer.invoke('pastas:criarPastaPedido', pedido)
 });
