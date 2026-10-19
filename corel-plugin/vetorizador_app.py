@@ -39,16 +39,13 @@ def color_distance_sq(c1, c2):
     return (c1[0]-c2[0])**2 + (c1[1]-c2[1])**2 + (c1[2]-c2[2])**2
 
 
-def auto_detect_palette_k(img_bgr, max_k=8):
-    """Detecta automaticamente o número ideal de cores sólidas via Elbow Method."""
+def auto_detect_palette_k(flat_pixels, max_k=6):
+    """Detecta automaticamente o número ideal de cores sólidas via Elbow Method em regiões planas (sem anti-aliasing)."""
     try:
-        small = cv2.resize(img_bgr, (120, 120), interpolation=cv2.INTER_AREA)
-        pixels = small.reshape(-1, 3).astype(np.float32)
-        
         inertias = []
         for k in range(1, max_k + 1):
             crit = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 15, 1.0)
-            comp, _, _ = cv2.kmeans(pixels, k, None, crit, 3, cv2.KMEANS_PP_CENTERS)
+            comp, _, _ = cv2.kmeans(flat_pixels, k, None, crit, 3, cv2.KMEANS_PP_CENTERS)
             inertias.append(comp)
         
         drops = [inertias[i-1] - inertias[i] for i in range(1, len(inertias))]
@@ -56,13 +53,13 @@ def auto_detect_palette_k(img_bgr, max_k=8):
         
         chosen_k = 2
         for i, drop in enumerate(drops):
-            if (drop / total_drop) < 0.035 and i >= 2:
+            if (drop / total_drop) < 0.05 and i >= 1:
                 chosen_k = i + 1
                 break
             chosen_k = i + 2
         return max(2, min(chosen_k, max_k))
     except Exception:
-        return 4
+        return 3
 
 
 def postprocess_svg(svg_path, remove_bg=True, unify_colors=True):
@@ -137,9 +134,9 @@ def execute_vectorization(
     filter_speckle=6,
     color_precision=8,
     layer_difference=16,
-    corner_threshold=42,
-    length_threshold=2.8,
-    splice_threshold=40,
+    corner_threshold=60,
+    length_threshold=4.0,
+    splice_threshold=50,
     path_precision=2,
     k_colors="auto",
     upscale_small=True,
@@ -149,12 +146,15 @@ def execute_vectorization(
 ):
     """
     Motor Profissional de Vetorização Dual-Spline em Rust (VTracer):
-    - Reconstrução matemática com splines Bézier suaves e vértices nítidos
-    - Super-resolução Lanczos para imagens pequenas
-    - Quantização inteligente de paleta pura (elimina 100% dos anéis cinzas e halos)
-    - Camadas DTF sobrepostas sem frestas brancas
+    - Extração de paleta sólida pura a partir de regiões planas (Sobel Gradient)
+    - Elimina 100% de anéis cinzas, halos e anti-aliasing
+    - Super-resolução Lanczos 3x com filtro mediano anti-serrilhado
+    - Vértices e quinas vivas (corner_threshold=60) preservando geometria original
+    - Retorna proporção real do conteúdo (content_ratio_w, content_ratio_h) para ajuste 1:1 no Corel
     """
     temp_png = input_path + "._proc.png"
+    content_ratio_w = 1.0
+    content_ratio_h = 1.0
     try:
         img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
         if img is None:
@@ -169,48 +169,72 @@ def execute_vectorization(
         elif len(img.shape) == 2:
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-        h, w = img.shape[:2]
+        orig_h, orig_w = img.shape[:2]
 
-        # 1. Super-resolução Lanczos 2x a 4x para imagens pequenas ou de baixa resolução
-        if upscale_small and (w < 1600 or h < 1600):
-            scale = max(2, min(4, int(1800 / max(w, h))))
+        # 1. Mede a caixa real do conteúdo interno (sem a borda branca da prancheta)
+        diff = np.abs(img.astype(int) - 255)
+        non_bg = np.any(diff > 35, axis=2)
+        coords = np.argwhere(non_bg)
+        if len(coords) > 0:
+            y0, x0 = coords.min(axis=0)
+            y1, x1 = coords.max(axis=0)
+            content_w = max(1, x1 - x0)
+            content_h = max(1, y1 - y0)
+            content_ratio_w = float(content_w) / float(orig_w)
+            content_ratio_h = float(content_h) / float(orig_h)
+
+        # 2. Super-resolução Lanczos 2x a 3x para imagens pequenas ou de baixa resolução
+        if upscale_small and (orig_w < 1800 or orig_h < 1800):
+            scale = max(2, min(4, int(2000 / max(orig_w, orig_h))))
             if scale > 1:
-                img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)
+                img = cv2.resize(img, (orig_w * scale, orig_h * scale), interpolation=cv2.INTER_LANCZOS4)
 
-        # 2. Modo binário (Silk Screen / Fotolito Puro)
+        # 3. Modo binário (Silk Screen / Fotolito Puro)
         if colormode == 'binary':
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             gray = cv2.GaussianBlur(gray, (3, 3), 0)
             _, bin_img = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             cv2.imwrite(temp_png, bin_img)
         else:
-            # Filtro bilateral edge-preserving que elimina ruído de compressão JPEG mantendo quinas vivas
-            img_filtered = cv2.bilateralFilter(img, d=7, sigmaColor=35, sigmaSpace=35)
+            # 4. Isolamento de Regiões Planas via Gradiente de Sobel:
+            # Permite extrair a verdadeira paleta de tintas sem ser contaminada por pixels cinzas de anti-aliasing
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            grad_x = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
+            grad_y = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)
+            grad_mag = np.sqrt(grad_x**2 + grad_y**2)
+            flat_mask = grad_mag < 25
+            if np.sum(flat_mask) < (img.shape[0] * img.shape[1] * 0.1):
+                flat_mask = np.ones((img.shape[0], img.shape[1]), dtype=bool)
 
-            # Para logos, escudos e DTF, quantiza em paleta sólida pura
+            flat_pixels = img[flat_mask].astype(np.float32)
+
             if preset != "alta_definicao" and k_colors is not None and k_colors != "all":
-                final_k = auto_detect_palette_k(img_filtered) if k_colors == "auto" else int(k_colors)
+                final_k = auto_detect_palette_k(flat_pixels) if k_colors == "auto" else int(k_colors)
                 if final_k and final_k >= 2:
-                    pixels = img_filtered.reshape((-1, 3)).astype(np.float32)
                     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 25, 0.5)
-                    _, labels, centers = cv2.kmeans(pixels, final_k, None, criteria, 8, cv2.KMEANS_PP_CENTERS)
+                    _, _, centers = cv2.kmeans(flat_pixels, final_k, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
                     centers = np.uint8(centers)
 
-                    # Purificação de preto e branco
+                    # Purificação rigorosa de preto e branco
                     for i in range(len(centers)):
-                        if np.all(centers[i] < 42):
+                        if np.all(centers[i] < 38):
                             centers[i] = [0, 0, 0]
                         elif np.all(centers[i] > 220):
                             centers[i] = [255, 255, 255]
 
-                    img_quantized = centers[labels.flatten()].reshape(img_filtered.shape)
-                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-                    img_quantized = cv2.morphologyEx(img_quantized, cv2.MORPH_CLOSE, kernel)
+                    # Mapeia todos os pixels (inclusive bordas) para a tinta sólida mais próxima
+                    all_pixels = img.reshape((-1, 3)).astype(np.float32)
+                    dists = [np.sum((all_pixels - c)**2, axis=1) for c in centers.astype(np.float32)]
+                    closest_indices = np.argmin(dists, axis=0)
+                    img_quantized = centers[closest_indices].reshape(img.shape)
+
+                    # Filtro mediano 3x3 para eliminar degraus de pixels nas quinas
+                    img_quantized = cv2.medianBlur(img_quantized, 3)
                     cv2.imwrite(temp_png, img_quantized)
                 else:
-                    cv2.imwrite(temp_png, img_filtered)
+                    cv2.imwrite(temp_png, img)
             else:
-                cv2.imwrite(temp_png, img_filtered)
+                cv2.imwrite(temp_png, img)
 
         vtracer.convert_image_to_svg_py(
             str(temp_png),
@@ -229,7 +253,7 @@ def execute_vectorization(
         )
 
         postprocess_svg(output_svg, remove_bg=remove_bg, unify_colors=unify_colors)
-        return output_svg
+        return output_svg, content_ratio_w, content_ratio_h
     finally:
         if os.path.exists(temp_png):
             try:
@@ -404,7 +428,7 @@ class VetorizadorApp:
         tk.Label(row_c, text="Rigidez de Cantos Vivos (20 a 90 graus):", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT)
         self.sp_corner = tk.Spinbox(row_c, from_=20, to=90, width=8, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
         self.sp_corner.delete(0, "end")
-        self.sp_corner.insert(0, "38")
+        self.sp_corner.insert(0, "60")
         self.sp_corner.pack(side=tk.RIGHT)
 
         # Linha: Anti-Ruído
@@ -464,7 +488,7 @@ class VetorizadorApp:
 
         if preset_id == "logo":
             self.sp_speckle.delete(0, "end"); self.sp_speckle.insert(0, "6")
-            self.sp_corner.delete(0, "end"); self.sp_corner.insert(0, "38")
+            self.sp_corner.delete(0, "end"); self.sp_corner.insert(0, "60")
             self.var_stacked.set(True)
             self.cb_colors.current(0) # auto
         elif preset_id == "dtf":
@@ -624,7 +648,7 @@ class VetorizadorApp:
             temp_dir = tempfile.gettempdir()
             output_svg = os.path.join(temp_dir, f"vetor_estamparia_{np.random.randint(1000, 9999)}.svg")
 
-            execute_vectorization(
+            output_svg, cr_w, cr_h = execute_vectorization(
                 input_path=self.current_img_path,
                 output_svg=output_svg,
                 colormode=color_mode,
@@ -637,6 +661,8 @@ class VetorizadorApp:
                 unify_colors=harmonize,
                 preset=preset
             )
+            self.content_ratio_w = cr_w
+            self.content_ratio_h = cr_h
 
             self.root.after(0, lambda: self._finalizar_importacao_corel(output_svg))
         except Exception as e:
@@ -687,14 +713,18 @@ class VetorizadorApp:
                     if natural_w > 0 and natural_h > 0 and self.orig_w > 0 and self.orig_h > 0:
                         aspect = natural_w / natural_h
 
-                        # Proporção sempre 100% travada e geométrica: NUNCA estica nem deforma
-                        target_h = float(self.orig_h)
-                        target_w = target_h * aspect
-
-                        # Se a largura ultrapassar a caixa da arte original, escala pela largura
-                        if target_w > float(self.orig_w * 1.05):
-                            target_w = float(self.orig_w)
-                            target_h = target_w / aspect
+                        # Se removeu o fundo branco/card da prancheta, preserva a escala 1:1 real do escudo
+                        if self.var_remove_bg.get() and hasattr(self, 'content_ratio_w') and self.content_ratio_w > 0:
+                            target_w = float(self.orig_w) * float(self.content_ratio_w)
+                            target_h = float(self.orig_h) * float(self.content_ratio_h)
+                            if abs((target_w / target_h) - aspect) > 0.02:
+                                target_w = target_h * aspect
+                        else:
+                            target_h = float(self.orig_h)
+                            target_w = target_h * aspect
+                            if target_w > float(self.orig_w * 1.05):
+                                target_w = float(self.orig_w)
+                                target_h = target_w / aspect
 
                         grp.SetSize(target_w, target_h)
                         grp.LeftX = float(self.orig_x + self.orig_w + (self.orig_w * 0.05))
