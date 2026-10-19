@@ -542,6 +542,35 @@ def _contour_to_svg_path(cnt, corner_threshold=38):
     return " ".join(d_cmds)
 
 
+def auto_crop_canvas_borders(img_bgr, pad=12):
+    """
+    Detecta e recorta automaticamente margens vazias de prancheta/tela capturadas junto da arte,
+    garantindo que o vetorizador processe apenas o desenho real sem distorções de escala ou cores de tela.
+    """
+    h, w = img_bgr.shape[:2]
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 30, 100)
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+    cnts, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    boxes = []
+    for c in cnts:
+        area = cv2.contourArea(c)
+        if area > 350:
+            x, y, bw, bh = cv2.boundingRect(c)
+            if bw < w * 0.96 or bh < h * 0.96:
+                boxes.append((x, y, bw, bh, area))
+    if boxes:
+        x0 = min(b[0] for b in boxes)
+        y0 = min(b[1] for b in boxes)
+        x1 = max(b[0] + b[2] for b in boxes)
+        y1 = max(b[1] + b[3] for b in boxes)
+        crop_w = x1 - x0
+        crop_h = y1 - y0
+        if crop_w < w * 0.92 or crop_h < h * 0.92:
+            return img_bgr[max(0, y0 - pad) : min(h, y1 + pad), max(0, x0 - pad) : min(w, x1 + pad)]
+    return img_bgr
+
+
 def execute_vectorization(
     input_path,
     output_svg,
@@ -563,7 +592,7 @@ def execute_vectorization(
     Motor de Vetorização Inteligente Tri-Modal (Auto-Adaptativo):
     1. 'line_art'      -> Ilustrações detalhadas P&B/gravuras (ex: Leão): contraste adaptativo + limpeza de marca d'água + furos compostos RETR_CCOMP
     2. 'photo_complex' -> Fotos/retratos/baixa resolução (ex: Retrato 100x100): despixelização de grade + Super-Resolução Bilateral/Mean-Shift + K-Means LAB
-    3. 'flat_logo'     -> Logos/ícones/tipografia (ex: Logo E/S/NE): paleta exata por Croma + reconstrução geométrica CAD/Bézier
+    3. 'flat_logo'     -> Logos/ícones/tipografia (ex: Logo E/S/NE, Escudo Flamengo): paleta exata por Croma + curvas Bézier puras
     """
     img = cv2.imread(input_path, cv2.IMREAD_UNCHANGED)
     if img is None:
@@ -577,6 +606,9 @@ def execute_vectorization(
         img = (bgr.astype(np.float32) * alpha_factor + white_bg.astype(np.float32) * (1.0 - alpha_factor)).astype(np.uint8)
     elif len(img.shape) == 2:
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    # Remove automaticamente molduras e margens de tela/prancheta para focar 100% no desenho real
+    img = auto_crop_canvas_borders(img)
 
     mode = detect_image_mode(img)
     if colormode == "binary" and mode == "photo_complex":
@@ -762,9 +794,18 @@ def execute_vectorization(
     for area_total, c in color_order:
         mask = np.all(seg_img == c, axis=2).astype(np.uint8) * 255
         
-        # Se for a cor de fundo e remove_bg estiver ativo, ignora apenas a camada externa
+        # Se for a cor de fundo e remove_bg estiver ativo:
+        # Remove APENAS os componentes que tocam a borda externa da imagem!
+        # Isso PRESERVA 100% de letras brancas ou detalhes internos da mesma cor do fundo!
         if remove_bg and np.all(c == bg_color) and area_total > (h * w * 0.12):
-            continue
+            h_m, w_m = mask.shape[:2]
+            num_cc, labels = cv2.connectedComponents(mask, connectivity=8)
+            border_labels = set(labels[0, :]) | set(labels[h_m - 1, :]) | set(labels[:, 0]) | set(labels[:, w_m - 1])
+            border_labels.discard(0)
+            for bl in border_labels:
+                mask[labels == bl] = 0
+            if not np.any(mask):
+                continue
 
         # Suavização Gaussiana SDF sub-pixel leve para contornos sedosos sem serrilhado
         mask_smooth = cv2.GaussianBlur(mask, (3, 3), 0.8)
