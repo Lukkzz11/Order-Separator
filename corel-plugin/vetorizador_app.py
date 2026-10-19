@@ -542,12 +542,26 @@ class VetorizadorApp:
                 return
 
             doc = corel.ActiveDocument
-            sel = doc.ActiveSelection
-            if sel.Shapes.Count == 0:
+            sel = None
+            try:
+                sel = corel.ActiveSelection
+            except Exception:
+                pass
+            if not sel or sel.Shapes.Count == 0:
+                try:
+                    sel = doc.Selection()
+                except Exception:
+                    pass
+
+            if not sel or sel.Shapes.Count == 0:
                 messagebox.showwarning("Aviso", "Selecione uma imagem bitmap ou desenho no CorelDRAW!")
                 return
 
-            shape = sel.Shapes(1)
+            try:
+                shape = sel.Shapes(1)
+            except Exception:
+                shape = sel.Shapes[0]
+
             try:
                 self.orig_w = float(shape.SizeWidth)
                 self.orig_h = float(shape.SizeHeight)
@@ -643,8 +657,18 @@ class VetorizadorApp:
                 if imp:
                     imp.Finish()
 
-                sel = corel.ActiveSelection
-                if sel.Shapes.Count > 0:
+                sel = None
+                try:
+                    sel = corel.ActiveSelection
+                except Exception:
+                    pass
+                if not sel:
+                    try:
+                        sel = doc.Selection()
+                    except Exception:
+                        pass
+
+                if sel and sel.Shapes.Count > 0:
                     grp = sel.Group()
                     if self.orig_w > 0:
                         grp.SetSize(self.orig_w, self.orig_h)
