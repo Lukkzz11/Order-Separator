@@ -651,6 +651,45 @@ ipcMain.handle('corel:abrirRemovedor', async () => {
   return { sucesso: false, erro: 'Script do removedor de fundo não foi encontrado nos caminhos do sistema.' };
 });
 
+// 11.3 Abrir Upscaler IA Ultra HD 4x / 8x (Real-ESRGAN / DirectML RTX)
+ipcMain.handle('corel:abrirUpscaler', async () => {
+  const { execFile } = require('child_process');
+
+  const caminhosPython = [
+    process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'upscaler_ai_app.py') : null,
+    path.join(__dirname, '..', 'corel-plugin', 'upscaler_ai_app.py'),
+    path.join(app.getAppPath(), 'corel-plugin', 'upscaler_ai_app.py'),
+    path.join(path.dirname(app.getPath('exe')), 'resources', 'corel-plugin', 'upscaler_ai_app.py'),
+    'E:\\estamparia-manager\\corel-plugin\\upscaler_ai_app.py'
+  ].filter(Boolean);
+
+  let pyEncontrado = null;
+  for (const c of caminhosPython) {
+    if (fs.existsSync(c)) {
+      pyEncontrado = c;
+      break;
+    }
+  }
+
+  if (pyEncontrado) {
+    const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
+      ? 'C:\\Python314\\pythonw.exe' 
+      : 'pythonw.exe';
+
+    execFile(pythonExe, [pyEncontrado], (err) => {
+      if (err) {
+        const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
+        execFile(fallbackPy, [pyEncontrado], (err2) => {
+          if (err2) console.error('Erro na execução do upscaler de imagem python:', err2);
+        });
+      }
+    });
+    return { sucesso: true, caminho: pyEncontrado };
+  }
+
+  return { sucesso: false, erro: 'Script do upscaler de imagem não foi encontrado nos caminhos do sistema.' };
+});
+
 // 12. Criar Subpasta do Pedido no Explorer e Organizar Arquivos
 ipcMain.handle('pastas:criarPastaPedido', async (event, pedido) => {
   if (!pedido || !pedido.clientePasta) {

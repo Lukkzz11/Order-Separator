@@ -35,7 +35,8 @@ import {
   CheckSquare,
   FolderPlus,
   Grid,
-  Sparkles
+  Sparkles,
+  Maximize2
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -251,6 +252,23 @@ export default function App() {
       }
     } catch (e) {
       avisar('erro', 'Erro ao abrir removedor: ' + e.message);
+    }
+  };
+
+  // Abrir Upscaler IA Ultra HD CorelDRAW
+  const abrirUpscalerCorel = async () => {
+    if (!window.electronAPI || !window.electronAPI.abrirUpscalerCorel) {
+      avisar('erro', 'Upscaler IA CorelDRAW indisponível.');
+      return;
+    }
+    avisar('sucesso', 'Abrindo janela do Upscaler IA Ultra HD no CorelDRAW...');
+    try {
+      const res = await window.electronAPI.abrirUpscalerCorel();
+      if (!res.sucesso) {
+        avisar('erro', `Falha ao abrir upscaler: ${res.erro}`);
+      }
+    } catch (e) {
+      avisar('erro', 'Erro ao abrir upscaler: ' + e.message);
     }
   };
 
@@ -836,6 +854,21 @@ export default function App() {
                   Fundo
                 </span>
               </button>
+
+              <button
+                type="button"
+                onClick={abrirUpscalerCorel}
+                title="Abrir Upscaler IA Ultra HD (Real-ESRGAN 4x/8x / 300 DPI) no CorelDRAW"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-sky-500/10 to-blue-500/10 hover:from-sky-500/20 hover:to-blue-500/20 text-sky-300 border border-sky-600/30 hover:border-sky-500/50 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Maximize2 className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
+                  <span>Upscaler IA</span>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded border border-sky-500/30">
+                  4x/8x
+                </span>
+              </button>
             </div>
           </nav>
         </div>
@@ -905,6 +938,14 @@ export default function App() {
                   >
                     <Scissors className="w-4 h-4 text-emerald-400" />
                     Removedor IA
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirUpscalerCorel}
+                    className="flex items-center gap-2 px-3.5 py-2.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Maximize2 className="w-4 h-4 text-sky-400" />
+                    Upscaler IA
                   </button>
                   <button
                     onClick={prepararNovoPedido}

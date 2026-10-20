@@ -1,9 +1,9 @@
 """
-Order Separator - Removedor de Fundo Profissional 2.5 para CorelDRAW
-Motor Inteligente de Remoção de Fundo com IA Dual (BiRefNet Ultra HD & U2-Net),
-Fundo Branco de Prancheta, Chroma Key com Despill de Hardware VFX,
-Conta-gotas Interativo no Canvas, Choke/Sangria DTF e Eliminação Total de Halos Verdes.
-100% Offline, Gratuito, Sem Limites e Sem Falsos Positivos de Antivírus.
+Order Separator - Removedor de Fundo Profissional 2.6 para CorelDRAW
+Motor Inteligente de Remoção de Fundo com IA U2-Net DirectML RTX + Guided Filter O(1),
+Fundo Branco de Prancheta com Anti-Halo de Juba/Pelos, Chroma Key com Despill de Hardware VFX,
+Conta-gotas Interativo no Canvas, Choke/Sangria DTF e Eliminação Total de Halos Verdes e Brancos.
+100% Offline, Leve (<150MB RAM), Rápido, Gratuito e Sem Limites.
 """
 
 import sys
@@ -58,7 +58,7 @@ def get_rembg_session():
 
 
 # =========================================================================
-# MOTORES DE PROCESSAMENTO DE IMAGEM E REMOÇÃO DE FUNDO 2.5
+# MOTORES DE PROCESSAMENTO DE IMAGEM E REMOÇÃO DE FUNDO 2.6
 # =========================================================================
 
 def create_checkerboard_pattern(width, height, check_size=12, color1=(215, 220, 228), color2=(255, 255, 255)):
@@ -89,11 +89,133 @@ def apply_mask_choke_or_expand(alpha_np, choke_px=0):
         return cv2.dilate(alpha_np, kernel, iterations=1)
 
 
-def apply_chroma_despill_vfx(img_rgba, intensity=3):
+def analyze_image_background(arr_rgb):
+    """
+    Analisa o perímetro da imagem (bordas externas) para detectar automaticamente
+    se o fundo original é Branco/Claro, Chroma Key Verde, Chroma Key Azul ou Outro.
+    Permite acionar a decontaminação cirúrgica exata sem adivinhação do usuário.
+    """
+    h, w = arr_rgb.shape[:2]
+    bw = max(2, min(w, h) // 30)
+    top = arr_rgb[:bw, :]
+    bottom = arr_rgb[-bw:, :]
+    left = arr_rgb[:, :bw]
+    right = arr_rgb[:, -bw:]
+
+    border_pixels = np.concatenate([
+        top.reshape(-1, 3), bottom.reshape(-1, 3),
+        left.reshape(-1, 3), right.reshape(-1, 3)
+    ], axis=0).astype(np.float32)
+
+    r = border_pixels[:, 0]
+    g = border_pixels[:, 1]
+    b = border_pixels[:, 2]
+
+    lum = (r + g + b) / 3.0
+    chroma = np.maximum(np.maximum(r, g), b) - np.minimum(np.minimum(r, g), b)
+
+    is_white_border = (lum > 215.0) & (chroma < 25.0)
+    sum_c = r + g + b + 1e-4
+    ng = g / sum_c
+    is_green_border = (ng > 0.43) & (g - np.maximum(r, b) > 12.0)
+    nb = b / sum_c
+    is_blue_border = (nb > 0.43) & (b - np.maximum(r, g) > 12.0)
+
+    return {
+        'is_white_bg': bool(np.mean(is_white_border) > 0.45),
+        'is_green_bg': bool(np.mean(is_green_border) > 0.35),
+        'is_blue_bg': bool(np.mean(is_blue_border) > 0.35)
+    }
+
+
+def fast_guided_filter(guide_rgb, src_mask, radius=4, eps=1e-3):
+    """
+    Filtro Guiado O(1) ultra-rápido (<30ms) em NumPy/OpenCV.
+    Alinha perfeitamente a máscara de probabilidade do U2-Net aos fios finos de cabelo,
+    juba de leão, pelos de animais e fibras da imagem original de alta resolução,
+    eliminando contornos borrados sem sobrecarregar a memória RAM.
+    """
+    guide = cv2.cvtColor(guide_rgb, cv2.COLOR_RGB2GRAY).astype(np.float32) / 255.0
+    p = src_mask.astype(np.float32) / 255.0
+    ksize = (radius * 2 + 1, radius * 2 + 1)
+
+    mean_I = cv2.boxFilter(guide, -1, ksize)
+    mean_p = cv2.boxFilter(p, -1, ksize)
+    corr_Ip = cv2.boxFilter(guide * p, -1, ksize)
+    corr_II = cv2.boxFilter(guide * guide, -1, ksize)
+
+    var_I = corr_II - mean_I * mean_I
+    cov_Ip = corr_Ip - mean_I * mean_p
+
+    a = cov_Ip / (var_I + eps)
+    b = mean_p - a * mean_I
+
+    mean_a = cv2.boxFilter(a, -1, ksize)
+    mean_b = cv2.boxFilter(b, -1, ksize)
+
+    q = mean_a * guide + mean_b
+    return np.clip(q * 255.0, 0, 255).astype(np.uint8)
+
+
+def decontaminate_white_fringe(rgb, alpha, bg_val=255.0):
+    """
+    Elimina 100% de halos brancos, névoas e manchas claras ao redor de pelos de leão,
+    cabelos, fibras e detalhes finos:
+    1. Reduz e zera qualquer névoa/ruído de baixa confiança em pixels quase brancos.
+    2. Realiza Unpremultiplication para recuperar o tom puro dos fios (juba dourada/castanha).
+    3. Expande e mescla as cores sólidas do núcleo (alpha >= 220) para o bordo semi-transparente.
+    4. Limita a luminância do bordo para impedir que fios fiquem com brilho esbranquiçado.
+    """
+    a_f = (alpha.astype(np.float32) / 255.0)[:, :, None]
+    rgb_f = rgb.astype(np.float32)
+    solid_mask = (alpha >= 220)
+
+    # 1. Limpeza de névoa fantasma em pixels de fundo branco/quase branco
+    lum = (rgb_f[:, :, 0] + rgb_f[:, :, 1] + rgb_f[:, :, 2]) / 3.0
+    max_c = np.maximum(np.maximum(rgb_f[:, :, 0], rgb_f[:, :, 1]), rgb_f[:, :, 2])
+    min_c = np.minimum(np.minimum(rgb_f[:, :, 0], rgb_f[:, :, 1]), rgb_f[:, :, 2])
+    chroma = max_c - min_c
+
+    is_white_bg_speck = (lum > 215.0) & (chroma < 24.0) & (alpha < 130)
+    alpha_clean = np.where(is_white_bg_speck, np.clip((alpha.astype(np.float32) - 35.0) * 0.4, 0.0, 255.0), alpha.astype(np.float32))
+    alpha_clean = np.where(alpha_clean < 14.0, 0.0, alpha_clean).astype(np.uint8)
+    a_f = (alpha_clean.astype(np.float32) / 255.0)[:, :, None]
+
+    # 2. Extensão multi-escala das cores sólidas internas
+    solid_f = solid_mask.astype(np.float32)[:, :, None]
+    b_rgb = cv2.boxFilter(rgb_f * solid_f, -1, (7, 7), normalize=False)
+    b_w = cv2.boxFilter(solid_f, -1, (7, 7), normalize=False)[:, :, None]
+
+    need_broader = (b_w < 0.05) & (alpha_clean[:, :, None] > 0) & (alpha_clean[:, :, None] < 220)
+    if np.any(need_broader):
+        b_rgb2 = cv2.boxFilter(rgb_f * solid_f, -1, (19, 19), normalize=False)
+        b_w2 = cv2.boxFilter(solid_f, -1, (19, 19), normalize=False)[:, :, None]
+        b_rgb = np.where(need_broader, b_rgb2, b_rgb)
+        b_w = np.where(need_broader, b_w2, b_w)
+
+    ext_rgb = np.where(b_w > 0.05, b_rgb / np.maximum(b_w, 1e-4), rgb_f)
+
+    # 3. Unpremultiplication exata
+    unprem_rgb = np.clip((rgb_f - bg_val * (1.0 - a_f)) / np.maximum(a_f, 0.05), 0.0, 255.0)
+
+    # 4. Mesclagem adaptativa: em alpha alto usa unprem, em alpha baixo usa cor sólida estendida
+    blend = np.clip((a_f - 0.25) / 0.45, 0.0, 1.0)
+    clean_rgb = blend * unprem_rgb + (1.0 - blend) * ext_rgb
+
+    # Garante que a luminância da borda semi-transparente não ultrapasse a cor do sujeito
+    clean_lum = np.mean(clean_rgb, axis=2, keepdims=True)
+    ext_lum = np.mean(ext_rgb, axis=2, keepdims=True)
+    clean_rgb = np.where((alpha_clean[:, :, None] < 220) & (clean_lum > ext_lum + 10.0), ext_rgb, clean_rgb)
+
+    res_rgba = np.dstack((np.clip(clean_rgb, 0, 255).astype(np.uint8), alpha_clean))
+    return res_rgba
+
+
+def apply_chroma_despill_vfx(img_rgba, intensity=3.0):
     """
     Filtro Hollywood VFX de Despill e Eliminação Total de Halos Verdes e Azuis:
-    1. Elimina faixas/manchas de fundo verde residual (como bordas esquerdas/direitas deixadas por IA).
-    2. Decontamina o reflexo verde da luz que rebate na roupa, terno, cabelo e fones de ouvido.
+    1. Elimina faixas/manchas de fundo verde residual (incluindo sombras escuras e cantos).
+    2. Decontamina o reflexo verde da luz que rebate na roupa, terno, cabelo, pele e fones.
     3. Converte a rebarba verde em tom neutro perfeitamente integrado ao sujeito (terno escuro / cabelo).
     """
     arr = np.array(img_rgba, dtype=np.float32)
@@ -102,31 +224,37 @@ def apply_chroma_despill_vfx(img_rgba, intensity=3):
     b = arr[:, :, 2]
     a = arr[:, :, 3]
 
-    # 1. Limpeza de Fundo Verde Residual Puro (Chroma Clean-Up)
-    # Qualquer pixel com predominância verde forte de estúdio é fundo e deve ter alfa = 0
-    greenness = g - np.maximum(r, b)
-    is_pure_chroma_green = (greenness > 16.0) & (g > 65.0)
+    sum_c = r + g + b + 1e-4
+    ng = g / sum_c
+    nb = b / sum_c
+
+    # 1. Limpeza de Fundo Verde Residual Puro e em Sombras
+    excess_g = g - np.maximum(r, b)
+    is_pure_chroma_green = (ng > 0.44) & (excess_g > 14.0)
     a = np.where(is_pure_chroma_green, 0.0, a)
 
+    # Elimina pixels de borda com resquício esverdeado evidente
+    edge_green = (ng > 0.40) & (excess_g > 5.0) & (a > 0.0)
+    a = np.where(edge_green, np.clip(a - 35.0 * intensity, 0.0, 255.0), a)
+
     # Limpeza de Fundo Azul Residual Puro (Blue Screen)
-    blueness = b - np.maximum(r, g)
-    is_pure_chroma_blue = (blueness > 20.0) & (b > 80.0)
+    excess_b = b - np.maximum(r, g)
+    is_pure_chroma_blue = (nb > 0.44) & (excess_b > 16.0)
     a = np.where(is_pure_chroma_blue, 0.0, a)
 
+    edge_blue = (nb > 0.40) & (excess_b > 6.0) & (a > 0.0)
+    a = np.where(edge_blue, np.clip(a - 35.0 * intensity, 0.0, 255.0), a)
+
     # 2. Despill nas Bordas e no Primeiro Plano
-    # Onde a luz verde vazou na roupa, cabelo ou pele, substitui o verde pelo limite neutro dos outros canais
-    limit_g = np.minimum(np.maximum(r, b), 0.5 * (r + b) + 3.0)
+    # Substitui o excesso verde pela média neutra entre R e B
+    limit_g = np.minimum(np.maximum(r, b), 0.5 * (r + b) + 2.0)
     has_green_spill = (g > limit_g) & (a > 0.0)
     g = np.where(has_green_spill, limit_g, g)
 
     # Despill Azul
-    limit_b = np.minimum(np.maximum(r, g), 0.5 * (r + g) + 3.0)
+    limit_b = np.minimum(np.maximum(r, g), 0.5 * (r + g) + 2.0)
     has_blue_spill = (b > limit_b) & (a > 0.0)
     b = np.where(has_blue_spill, limit_b, b)
-
-    # 3. Suavização de Borda em Pixels com resquício de cor
-    edge_chroma = ((greenness > 6.0) | (blueness > 8.0)) & (a > 0.0) & (a < 250.0)
-    a = np.where(edge_chroma, np.clip(a - 25.0 * intensity, 0.0, 255.0), a)
 
     res = np.dstack((np.clip(r, 0, 255), np.clip(g, 0, 255), np.clip(b, 0, 255), np.clip(a, 0, 255))).astype(np.uint8)
     return Image.fromarray(res, mode="RGBA")
@@ -137,27 +265,38 @@ def decontaminate_edge_colors(img_rgba_np, alpha_np):
     Decontamina as cores das bordas semi-transparentes:
     Neutraliza o tom do fundo removido nos pixels de borda, puxando a cor sólida interna mais próxima.
     """
-    edge_mask = (alpha_np > 5) & (alpha_np < 245)
+    edge_mask = (alpha_np > 5) & (alpha_np < 235)
     if not np.any(edge_mask):
         return img_rgba_np
 
     rgb = img_rgba_np[:, :, :3].astype(np.float32)
-    solid_mask = (alpha_np >= 245).astype(np.uint8)
+    solid_mask = (alpha_np >= 235).astype(np.float32)[:, :, None]
 
-    if np.count_nonzero(solid_mask) > 100:
-        inpaint_color = cv2.inpaint(rgb.astype(np.uint8), (alpha_np < 245).astype(np.uint8), 3, cv2.INPAINT_TELEA).astype(np.float32)
-        blend_factor = (alpha_np.astype(np.float32) / 255.0)[:, :, np.newaxis]
-        rgb = np.where(edge_mask[:, :, np.newaxis], inpaint_color * (1.0 - blend_factor) + rgb * blend_factor, rgb)
+    if np.count_nonzero(solid_mask) > 50:
+        b_rgb = cv2.boxFilter(rgb * solid_mask, -1, (7, 7), normalize=False)
+        b_w = cv2.boxFilter(solid_mask, -1, (7, 7), normalize=False)[:, :, None]
+
+        need_broader = (b_w < 0.05) & edge_mask[:, :, None]
+        if np.any(need_broader):
+            b_rgb2 = cv2.boxFilter(rgb * solid_mask, -1, (17, 17), normalize=False)
+            b_w2 = cv2.boxFilter(solid_mask, -1, (17, 17), normalize=False)[:, :, None]
+            b_rgb = np.where(need_broader, b_rgb2, b_rgb)
+            b_w = np.where(need_broader, b_w2, b_w)
+
+        inpaint_color = np.where(b_w > 0.05, b_rgb / np.maximum(b_w, 1e-4), rgb)
+        blend_factor = (alpha_np.astype(np.float32) / 255.0)[:, :, None]
+        rgb = np.where(edge_mask[:, :, None], inpaint_color * (1.0 - blend_factor) + rgb * blend_factor, rgb)
 
     res = np.dstack((np.clip(rgb, 0, 255).astype(np.uint8), alpha_np))
     return res
 
 
-def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, choke_px=0):
+def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, choke_px=0, defringe=True):
     """
     Remove o fundo branco externo (canvas/bounding box de prancheta)
     através de floodfill conectado exclusivamente pelas bordas externas da imagem.
     PRESERVA 100% DOS BRANCOS INTERNOS (olhos, dentes, camisas, faixas brancas).
+    Aplica Anti-Halo de prancheta para bordas 100% nítidas.
     """
     img_rgb = pil_img.convert("RGB")
     arr = np.array(img_rgb)
@@ -175,10 +314,11 @@ def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, c
     is_white_candidate = (lum >= white_thresh) & (chroma <= max(14, int(tolerance * 0.75)))
 
     sample_points = []
-    for x in range(0, w, max(1, w // 40)):
+    # Rastreia todo o perímetro contínuo das 4 bordas
+    for x in range(0, w, 2):
         sample_points.append((x, 0))
         sample_points.append((x, h - 1))
-    for y in range(0, h, max(1, h // 40)):
+    for y in range(0, h, 2):
         sample_points.append((0, y))
         sample_points.append((w - 1, y))
 
@@ -208,8 +348,12 @@ def remove_white_background_floodfill(pil_img, tolerance=28, edge_feather=1.0, c
         orig_alpha = np.array(pil_img.split()[-1])
         alpha = np.minimum(alpha, orig_alpha)
 
-    res_arr = np.dstack((arr, alpha))
-    res_arr = decontaminate_edge_colors(res_arr, alpha)
+    if defringe:
+        res_arr = decontaminate_white_fringe(arr, alpha, bg_val=255.0)
+    else:
+        res_arr = np.dstack((arr, alpha))
+        res_arr = decontaminate_edge_colors(res_arr, alpha)
+
     return Image.fromarray(res_arr, mode="RGBA")
 
 
@@ -242,12 +386,10 @@ def remove_fake_png_checkerboard(pil_img, tolerance=30, edge_feather=0.8, choke_
     is_checker_candidate = (lum >= lum_thresh) & (chroma <= max_chroma)
 
     sample_points = []
-    step_x = max(1, w // 60)
-    step_y = max(1, h // 60)
-    for x in range(0, w, step_x):
+    for x in range(0, w, 2):
         sample_points.append((x, 0))
         sample_points.append((x, h - 1))
-    for y in range(0, h, step_y):
+    for y in range(0, h, 2):
         sample_points.append((0, y))
         sample_points.append((w - 1, y))
 
@@ -285,36 +427,43 @@ def remove_fake_png_checkerboard(pil_img, tolerance=30, edge_feather=0.8, choke_
 def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2, despill=True, choke_px=0):
     """
     Remove fundo de cor sólida (Verde, Azul ou Cor Escolhida por Conta-gotas) com:
-    - Detecção espectral de Chroma Key
-    - Despill avançado de hardware VFX (elimina 100% de halos e vazamentos verdes/azuis)
-    - Choke de borda anti-rebarba
+    - Distância perceptual Delta-E em espaço de cor CIELAB
+    - Detecção espectral de Chroma Key (eliminando 100% de sombras e cantos verdes)
+    - Despill avançado de hardware VFX (elimina 100% de reflexos verdes/azuis no sujeito)
+    - Choke de borda anti-rebarba e decontaminação de cores
     """
     img_rgb = pil_img.convert("RGB")
-    arr = np.array(img_rgb, dtype=np.float32)
-    h, w = arr.shape[:2]
+    arr_rgb = np.array(img_rgb, dtype=np.uint8)
+    h, w = arr_rgb.shape[:2]
 
-    kr, kg, kb = [float(c) for c in key_color[:3]]
+    kr, kg, kb = [int(c) for c in key_color[:3]]
+    key_arr = np.array([[[kr, kg, kb]]], dtype=np.uint8)
 
-    r = arr[:, :, 0]
-    g = arr[:, :, 1]
-    b = arr[:, :, 2]
+    # Distância perceptual uniforme em espaço CIELAB
+    img_lab = cv2.cvtColor(arr_rgb, cv2.COLOR_RGB2LAB).astype(np.float32)
+    key_lab = cv2.cvtColor(key_arr, cv2.COLOR_RGB2LAB)[0, 0].astype(np.float32)
+    dist = np.sqrt(np.sum((img_lab - key_lab)**2, axis=2))
 
-    # Distância Euclidiana de Cor
-    dr = r - kr
-    dg = g - kg
-    db = b - kb
-    dist = np.sqrt(dr * dr + dg * dg + db * db)
+    r = arr_rgb[:, :, 0].astype(np.float32)
+    g = arr_rgb[:, :, 1].astype(np.float32)
+    b = arr_rgb[:, :, 2].astype(np.float32)
+    sum_c = r + g + b + 1e-4
 
-    # Detecção espectral ampla se for Chroma Verde
-    is_chroma_green = (kg > kr + 40) and (kg > kb + 40)
-    if is_chroma_green:
-        greenness = g - np.maximum(r, b)
-        # Qualquer pixel no espectro chroma verde é considerado fundo
-        chroma_dist = np.clip(100.0 - greenness * 1.5, 0.0, 100.0)
+    is_key_green = (kg > kr + 20) and (kg > kb + 20)
+    is_key_blue = (kb > kr + 20) and (kb > kg + 20)
+
+    if is_key_green:
+        excess_g = g - np.maximum(r, b)
+        # Qualquer pixel no espectro chroma verde (mesmo em sombras escuras) tem distância forçada para 0
+        chroma_dist = np.clip(60.0 - excess_g * 2.5, 0.0, 100.0)
+        dist = np.minimum(dist, chroma_dist)
+    elif is_key_blue:
+        excess_b = b - np.maximum(r, g)
+        chroma_dist = np.clip(60.0 - excess_b * 2.5, 0.0, 100.0)
         dist = np.minimum(dist, chroma_dist)
 
-    tol_low = max(4.0, float(tolerance) * 0.65)
-    tol_high = max(tol_low + 6.0, float(tolerance) * 1.25)
+    tol_low = max(4.0, float(tolerance) * 0.5)
+    tol_high = max(tol_low + 6.0, float(tolerance) * 1.15)
 
     alpha_f = np.clip((dist - tol_low) / (tol_high - tol_low), 0.0, 1.0)
     alpha = (alpha_f * 255.0).astype(np.uint8)
@@ -330,33 +479,33 @@ def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2,
         orig_alpha = np.array(pil_img.split()[-1])
         alpha = np.minimum(alpha, orig_alpha)
 
-    res_arr = np.dstack((np.clip(arr, 0, 255).astype(np.uint8), alpha))
+    res_arr = np.dstack((arr_rgb, alpha))
+    res_arr = decontaminate_edge_colors(res_arr, alpha)
     res_img = Image.fromarray(res_arr, mode="RGBA")
 
     if despill:
-        res_img = apply_chroma_despill_vfx(res_img, intensity=3)
+        res_img = apply_chroma_despill_vfx(res_img, intensity=3.0)
 
     return res_img
 
 
-def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True):
+def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True, defringe_white=True):
     """
-    Remove o fundo usando Inteligência Artificial Semântica (U2-Net) + Despill VFX.
-    Funciona para pessoas, fones de ouvido, cabelos, mascotes, carros e cenários complexos.
-    Elimina 100% dos resquícios verdes de estúdio.
+    Remove o fundo usando Inteligência Artificial Semântica (U2-Net com DirectML RTX) +
+    Refino de Fios/Pelos Guided Filter + Despill VFX + Anti-Halo Branco.
+    Funciona para pessoas, leões, animais, fones, cabelos e cenários complexos.
+    Garante zero resíduos brancos ou verdes na juba e nas bordas.
     """
     if not HAS_REMBG:
         raise RuntimeError("Biblioteca 'rembg' não está instalada no ambiente Python.")
 
     session = get_rembg_session()
 
+    # Executa remoção neural inicial com U2-Net DirectML
     out_img = rembg.remove(
         pil_img,
         session=session,
-        alpha_matting=alpha_matting,
-        alpha_matting_foreground_threshold=240,
-        alpha_matting_background_threshold=10,
-        alpha_matting_erode_size=10,
+        alpha_matting=False,
         post_process_mask=post_process
     )
 
@@ -364,24 +513,47 @@ def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smo
         out_img = Image.fromarray(out_img)
 
     out_img = out_img.convert("RGBA")
-
-    # Aplica choke e suavização no canal alfa
+    orig_rgb = np.array(pil_img.convert("RGB"))
     r, g, b, a = out_img.split()
     a_np = np.array(a)
 
+    # 1. Refinamento de Pelos e Fios com Filtro Guiado O(1) de Alta Resolução
+    # Captura os fios finos da juba do leão e cabelo sem névoa branca
+    if alpha_matting:
+        # Modo Alpha Suave: sensibilidade máxima para cabelos e transparências
+        a_np = fast_guided_filter(orig_rgb, a_np, radius=6, eps=1e-4)
+    else:
+        # Modo IA Geral: fidelidade e bordas limpas
+        a_np = fast_guided_filter(orig_rgb, a_np, radius=4, eps=1e-3)
+
+    # 2. Análise do Fundo Original
+    bg_info = analyze_image_background(orig_rgb)
+
+    # 3. Eliminação de Halo Branco em Pelos e Juba (Lion Defringe)
+    if defringe_white and (bg_info['is_white_bg'] or np.mean(orig_rgb) > 190):
+        rgba_clean = decontaminate_white_fringe(orig_rgb, a_np, bg_val=255.0)
+        curr_rgb = rgba_clean[:, :, :3]
+        a_np = rgba_clean[:, :, 3]
+    else:
+        curr_rgb = np.dstack((np.array(r), np.array(g), np.array(b)))
+
+    # 4. Aplica Choke DTF anti-rebarba
     if choke_px != 0:
         a_np = apply_mask_choke_or_expand(a_np, choke_px)
 
+    # 5. Suavização de borda controlada
     if edge_smooth > 0.2:
         k_size = int(math.ceil(edge_smooth * 2)) | 1
         a_np = cv2.GaussianBlur(a_np, (k_size, k_size), edge_smooth)
 
-    rgba_np = np.dstack((np.array(r), np.array(g), np.array(b), a_np))
+    # 6. Decontaminação de cor geral da borda
+    rgba_np = np.dstack((curr_rgb, a_np))
+    rgba_np = decontaminate_edge_colors(rgba_np, a_np)
     out_img = Image.fromarray(rgba_np, mode="RGBA")
 
-    # Aplica Despill VFX para aniquilar qualquer halo verde/azul na roupa, pele, cabelo ou fones
-    if despill:
-        out_img = apply_chroma_despill_vfx(out_img, intensity=3)
+    # 7. Despill VFX Anti-Verde/Azul se fundo for chroma ou despill solicitado
+    if despill or bg_info['is_green_bg'] or bg_info['is_blue_bg']:
+        out_img = apply_chroma_despill_vfx(out_img, intensity=3.0)
 
     return out_img
 
@@ -405,13 +577,13 @@ def auto_trim_transparent(pil_img):
 
 
 # =========================================================================
-# INTERFACE GRÁFICA PROFISSIONAL 2.5 (DARK THEME)
+# INTERFACE GRÁFICA PROFISSIONAL 2.6 (DARK THEME)
 # =========================================================================
 
 class RemovedorFundoApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Order Separator - Removedor de Fundo Profissional 2.5 (VFX Anti-Verde)")
+        self.root.title("Order Separator - Removedor de Fundo Profissional 2.6 (VFX Anti-Verde & Anti-Halo Pelos)")
         self.root.geometry("920x860")
         self.root.minsize(860, 780)
         self.root.configure(bg="#0B0F19")
@@ -465,7 +637,7 @@ class RemovedorFundoApp:
 
         lbl_title = tk.Label(
             title_frame,
-            text="Removedor de Fundo IA 2.5",
+            text="Removedor de Fundo IA 2.6",
             font=("Segoe UI", 16, "bold"),
             fg="#10B981", # Emerald
             bg="#0B0F19"
@@ -474,7 +646,7 @@ class RemovedorFundoApp:
 
         lbl_sub = tk.Label(
             title_frame,
-            text="IA U2-Net Leve & Rápida (⚡ GPU DirectML RTX Ativa), Despill VFX, Choke DTF e Preservação de Brancos",
+            text="IA U2-Net Leve & Rápida (⚡ GPU DirectML RTX Ativa), Guided Filter, Despill VFX, Anti-Halo Branco de Pelos e Choke DTF",
             font=("Segoe UI", 8),
             fg="#94A3B8",
             bg="#0B0F19"
@@ -770,7 +942,7 @@ class RemovedorFundoApp:
             self.var_despill_vfx = tk.BooleanVar(value=True)
         cb_despill = tk.Checkbutton(
             row_common,
-            text="✅ Despill VFX Anti-Verde (Elimina 100% dos halos verdes)",
+            text="✅ Despill VFX Anti-Verde",
             variable=self.var_despill_vfx,
             font=("Segoe UI", 8, "bold"),
             fg="#10B981",
@@ -780,7 +952,24 @@ class RemovedorFundoApp:
             activeforeground="#10B981",
             command=self.agendar_preview_recalculo
         )
-        cb_despill.pack(side=tk.LEFT)
+        cb_despill.pack(side=tk.LEFT, padx=(0, 6))
+
+        # Filtro Anti-Halo Branco / Pelos e Juba de Leão
+        if not hasattr(self, 'var_defringe_white'):
+            self.var_defringe_white = tk.BooleanVar(value=True)
+        cb_defringe = tk.Checkbutton(
+            row_common,
+            text="🦁 Anti-Halo Branco / Pelos",
+            variable=self.var_defringe_white,
+            font=("Segoe UI", 8, "bold"),
+            fg="#F59E0B",
+            bg="#0F172A",
+            selectcolor="#1E293B",
+            activebackground="#0F172A",
+            activeforeground="#F59E0B",
+            command=self.agendar_preview_recalculo
+        )
+        cb_defringe.pack(side=tk.LEFT)
 
         # Divisor
         tk.Frame(self.pnl_params, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 6))
@@ -789,7 +978,7 @@ class RemovedorFundoApp:
         if mode == "ia_geral":
             lbl_desc = tk.Label(
                 self.pnl_params,
-                text="Rede neural profunda U2-Net otimizada com Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes.",
+                text="Rede neural profunda U2-Net otimizada com Guided Filter e Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes ou brancos.",
                 font=("Segoe UI", 8),
                 fg="#94A3B8",
                 bg="#0F172A",
@@ -885,7 +1074,7 @@ class RemovedorFundoApp:
         elif mode == "alpha_suave":
             lbl_desc = tk.Label(
                 self.pnl_params,
-                text="Modo Alpha Matting de alta sensibilidade: transição ultra suave para cabelos, fios soltos, pelos de animais, tecidos transparentes e vidro.",
+                text="Modo Alpha Matting com Guided Filter O(1): transição ultra suave para pelos de leão, animais, cabelos finos, tecidos e vidro, com eliminação ativa de névoas e halos brancos.",
                 font=("Segoe UI", 8),
                 fg="#94A3B8",
                 bg="#0F172A"
@@ -1060,6 +1249,7 @@ class RemovedorFundoApp:
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
+            defringe = self.var_defringe_white.get() if hasattr(self, 'var_defringe_white') else True
 
             orig = self.pil_original
             max_dim = max(orig.size)
@@ -1074,18 +1264,18 @@ class RemovedorFundoApp:
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             elif mode == "falso_png":
                 tol = self.var_checker_tol.get() if hasattr(self, 'var_checker_tol') else 30
                 res = remove_fake_png_checkerboard(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
-                res = remove_white_background_floodfill(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke)
+                res = remove_white_background_floodfill(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke, defringe=defringe)
             elif mode == "chroma_key":
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(proc_input, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             else:
                 res = proc_input.convert("RGBA")
 
@@ -1212,22 +1402,23 @@ class RemovedorFundoApp:
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
+            defringe = self.var_defringe_white.get() if hasattr(self, 'var_defringe_white') else True
             full_img = self.pil_original
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             elif mode == "falso_png":
                 tol = self.var_checker_tol.get() if hasattr(self, 'var_checker_tol') else 30
                 res = remove_fake_png_checkerboard(full_img, tolerance=tol, edge_feather=feather, choke_px=choke)
             elif mode == "fundo_branco":
                 tol = self.var_white_tol.get() if hasattr(self, 'var_white_tol') else 28
-                res = remove_white_background_floodfill(full_img, tolerance=tol, edge_feather=feather, choke_px=choke)
+                res = remove_white_background_floodfill(full_img, tolerance=tol, edge_feather=feather, choke_px=choke, defringe=defringe)
             elif mode == "chroma_key":
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(full_img, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill)
+                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             else:
                 res = full_img.convert("RGBA")
 

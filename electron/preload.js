@@ -15,5 +15,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   abrirMontadorCorel: () => ipcRenderer.invoke('corel:abrirMontador'),
   abrirVetorizadorCorel: () => ipcRenderer.invoke('corel:abrirVetorizador'),
   abrirRemovedorCorel: () => ipcRenderer.invoke('corel:abrirRemovedor'),
+  abrirUpscalerCorel: () => ipcRenderer.invoke('corel:abrirUpscaler'),
   criarPastaPedido: (pedido) => ipcRenderer.invoke('pastas:criarPastaPedido', pedido)
 });
