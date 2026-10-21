@@ -621,8 +621,16 @@ class RemovedorFundoApp:
         # Pré-carregar sessão U2-Net leve em segundo plano
         threading.Thread(target=get_rembg_session, daemon=True).start()
 
-        # Auto-detectar se há seleção ativa no CorelDRAW ao iniciar
-        self.root.after(800, self.verificar_selecao_inicial_corel)
+        # Suporte a carregamento direto via argumento CLI (ex: vindo do Upscaler ou Corel)
+        if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+            try:
+                img = Image.open(sys.argv[1])
+                self.root.after(200, lambda: self.carregar_imagem(img, desc=os.path.basename(sys.argv[1])))
+            except Exception:
+                self.root.after(800, self.verificar_selecao_inicial_corel)
+        else:
+            # Auto-detectar se há seleção ativa no CorelDRAW ao iniciar
+            self.root.after(800, self.verificar_selecao_inicial_corel)
 
     def setup_ui(self):
         main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
@@ -827,8 +835,8 @@ class RemovedorFundoApp:
 
         self.btn_remover_corel = tk.Button(
             bottom_box,
-            text="🚀 REMOVER FUNDO E ENVIAR AO CORELDRAW",
-            font=("Segoe UI", 11, "bold"),
+            text="🚀 ENVIAR AO CORELDRAW",
+            font=("Segoe UI", 10, "bold"),
             bg="#10B981", # Emerald
             fg="#FFFFFF",
             activebackground="#059669",
@@ -838,44 +846,108 @@ class RemovedorFundoApp:
             pady=12,
             command=self.iniciar_remocao_corel
         )
-        self.btn_remover_corel.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 6))
+        self.btn_remover_corel.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 4))
+
+        self.btn_upscaler = tk.Button(
+            bottom_box,
+            text="⚡ Upscale 4x IA",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#0284C7",
+            fg="#FFFFFF",
+            activebackground="#0369A1",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=12,
+            command=self.abrir_no_upscaler
+        )
+        self.btn_upscaler.pack(side=tk.LEFT, padx=2)
+
+        self.btn_vetorizar = tk.Button(
+            bottom_box,
+            text="📐 Vetorizar IA",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#312E81",
+            fg="#C7D2FE",
+            activebackground="#3730A3",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=12,
+            command=self.abrir_no_vetorizador
+        )
+        self.btn_vetorizar.pack(side=tk.LEFT, padx=2)
 
         self.btn_salvar = tk.Button(
             bottom_box,
             text="💾 Salvar PNG",
-            font=("Segoe UI", 9, "bold"),
+            font=("Segoe UI", 8.5, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
-            padx=14,
+            padx=10,
             pady=12,
             command=self.salvar_png
         )
-        self.btn_salvar.pack(side=tk.LEFT, padx=3)
+        self.btn_salvar.pack(side=tk.LEFT, padx=2)
 
         self.btn_copiar = tk.Button(
             bottom_box,
-            text="📋 Copiar PNG",
-            font=("Segoe UI", 9, "bold"),
+            text="📋 Copiar",
+            font=("Segoe UI", 8.5, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
-            padx=14,
+            padx=10,
             pady=12,
             command=self.copiar_png_clipboard
         )
-        self.btn_copiar.pack(side=tk.LEFT, padx=(3, 0))
+        self.btn_copiar.pack(side=tk.LEFT, padx=(2, 0))
 
         # Atalhos
         self.root.bind("<Escape>", lambda e: self.root.destroy())
         self.root.bind("<Control-v>", lambda e: self.colar_clipboard())
         self.root.bind("<Control-V>", lambda e: self.colar_clipboard())
+
+    def abrir_no_upscaler(self):
+        target = self.pil_processed if self.pil_processed is not None else self.pil_original
+        if target is None:
+            messagebox.showwarning("Aviso", "Carregue ou processe uma imagem primeiro!")
+            return
+        try:
+            tmp = os.path.join(tempfile.gettempdir(), f"os_cutout_for_upscaler_{int(time.time())}.png")
+            target.save(tmp, format="PNG")
+            py = "C:\\Python314\\pythonw.exe" if os.path.exists("C:\\Python314\\pythonw.exe") else "pythonw.exe"
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "upscaler_ai_app.py")
+            import subprocess
+            subprocess.Popen([py, script, tmp], creationflags=0x08000000)
+            self.lbl_status.configure(text="Recorte enviado para o Upscaler IA Ultra HD!", fg="#38BDF8")
+        except Exception as e:
+            messagebox.showerror("Erro ao abrir no Upscaler", str(e))
+
+    def abrir_no_vetorizador(self):
+        target = self.pil_processed if self.pil_processed is not None else self.pil_original
+        if target is None:
+            messagebox.showwarning("Aviso", "Carregue ou processe uma imagem primeiro!")
+            return
+        try:
+            tmp = os.path.join(tempfile.gettempdir(), f"os_cutout_for_vetorizador_{int(time.time())}.png")
+            target.save(tmp, format="PNG")
+            py = "C:\\Python314\\pythonw.exe" if os.path.exists("C:\\Python314\\pythonw.exe") else "pythonw.exe"
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vetorizador_app.py")
+            import subprocess
+            subprocess.Popen([py, script, tmp], creationflags=0x08000000)
+            self.lbl_status.configure(text="Recorte enviado para o Vetorizador IA!", fg="#818CF8")
+        except Exception as e:
+            messagebox.showerror("Erro ao abrir no Vetorizador", str(e))
 
     def set_preview_bg(self, mode):
         self.preview_bg_mode = mode

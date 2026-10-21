@@ -24,6 +24,13 @@ import numpy as np
 import cv2
 import vtracer
 
+# Tenta carregar o motor de super-resolução neural DirectML do Upscaler IA
+try:
+    from upscaler_ai_app import upscale_image_realesrgan
+    HAS_REAL_ESRGAN = True
+except Exception:
+    HAS_REAL_ESRGAN = False
+
 # =========================================================================
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
 # =========================================================================
@@ -561,6 +568,7 @@ def execute_vectorization(
     path_precision=2,
     k_colors="auto",
     upscale_small=True,
+    upscale_ai=True,
     remove_bg=True,
     unify_colors=True,
     preset="logo"
@@ -586,7 +594,20 @@ def execute_vectorization(
         img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
     h, w = img.shape[:2]
-    if upscale_small and (w < 1200 or h < 1200):
+
+    # Super-resolução neural prévia para eliminar ruído JPEG / WhatsApp e bordas serrilhadas
+    ai_applied = False
+    if upscale_ai and HAS_REAL_ESRGAN and (w < 2000 or h < 2000):
+        try:
+            pil_rgb = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            pil_up = upscale_image_realesrgan(pil_rgb, scale=4, tile_size=512, tile_pad=16, sharpen=True)
+            img = cv2.cvtColor(np.array(pil_up), cv2.COLOR_RGB2BGR)
+            h, w = img.shape[:2]
+            ai_applied = True
+        except Exception:
+            ai_applied = False
+
+    if not ai_applied and upscale_small and (w < 1200 or h < 1200):
         scale = max(2, min(4, int(1600 / max(w, h))))
         if scale > 1:
             img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LANCZOS4)
@@ -763,6 +784,10 @@ class VetorizadorApp:
         self.setup_styles()
         self.build_ui()
 
+        # Suporte a carregamento direto via argumento CLI
+        if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+            self.root.after(200, lambda: self.carregar_imagem_no_preview(sys.argv[1]))
+
     def setup_styles(self):
         self.style = ttk.Style()
         self.style.theme_use('clam')
@@ -920,8 +945,12 @@ class VetorizadorApp:
         cb_bg = tk.Checkbutton(pnl_ctrl, text="Remover Fundo Branco / Bounding Box (Deixar desenho transparente)", variable=self.var_remove_bg, font=("Segoe UI", 8), fg="#F59E0B", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#F59E0B")
         cb_bg.pack(anchor="w", pady=1)
 
+        self.var_ai_upscale = tk.BooleanVar(value=True)
+        cb_ai = tk.Checkbutton(pnl_ctrl, text="⚡ Super-Resolução Neural IA Real-ESRGAN (Reconstrói traços e elimina ruído)", variable=self.var_ai_upscale, font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#38BDF8")
+        cb_ai.pack(anchor="w", pady=1)
+
         self.var_upscale = tk.BooleanVar(value=True)
-        cb_up = tk.Checkbutton(pnl_ctrl, text="Super-Resolução Lanczos (elimina serrilhado em imagens pequenas)", variable=self.var_upscale, font=("Segoe UI", 8), fg="#34D399", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#34D399")
+        cb_up = tk.Checkbutton(pnl_ctrl, text="Super-Resolução Lanczos de fallback (elimina serrilhado em imagens pequenas)", variable=self.var_upscale, font=("Segoe UI", 8), fg="#34D399", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#34D399")
         cb_up.pack(anchor="w", pady=1)
 
         self.var_stacked = tk.BooleanVar(value=True)
@@ -1114,6 +1143,7 @@ class VetorizadorApp:
             speckle = int(self.sp_speckle.get())
             corner = int(self.sp_corner.get())
             remove_bg = self.var_remove_bg.get()
+            ai_upscale = self.var_ai_upscale.get() if hasattr(self, 'var_ai_upscale') else True
             upscale = self.var_upscale.get()
             harmonize = self.var_harmonize.get()
 
@@ -1129,6 +1159,7 @@ class VetorizadorApp:
                 corner_threshold=corner,
                 k_colors=colors_arg,
                 upscale_small=upscale,
+                upscale_ai=ai_upscale,
                 remove_bg=remove_bg,
                 unify_colors=harmonize,
                 preset=preset

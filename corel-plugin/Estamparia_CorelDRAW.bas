@@ -223,13 +223,55 @@ Public Sub SalvarArteNaPastaDoCliente()
 End Sub
 
 ' ==============================================================================
-' 3. ABRIR JANELINHA DO MONTADOR DE FOLHA (GANG SHEET)
+' 3. ABRIR FERRAMENTAS INTELIGENTES (MONTADOR, REMOVEDOR, UPSCALER, VETORIZADOR)
 ' ==============================================================================
+
+Private Function ObterPythonw() As String
+    Dim fso As Object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If fso.FileExists("C:\Python314\pythonw.exe") Then
+        ObterPythonw = "C:\Python314\pythonw.exe"
+    Else
+        ObterPythonw = "pythonw.exe"
+    End If
+    Set fso = Nothing
+End Function
+
 Public Sub AbrirMontadorDeFolha()
     Dim wsh As Object
     Set wsh = CreateObject("WScript.Shell")
     Dim cmd As String
     cmd = "powershell.exe -ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File ""E:\estamparia-manager\corel-plugin\montador_folha.ps1"""
+    wsh.Run cmd, 0, False
+    Set wsh = Nothing
+End Sub
+
+Public Sub AbrirRemovedorIA()
+    Dim wsh As Object
+    Set wsh = CreateObject("WScript.Shell")
+    Dim py As String, cmd As String
+    py = ObterPythonw()
+    cmd = """" & py & """ ""E:\estamparia-manager\corel-plugin\removedor_fundo_app.py"""
+    wsh.Run cmd, 0, False
+    Set wsh = Nothing
+End Sub
+
+Public Sub AbrirUpscalerIA()
+    Dim wsh As Object
+    Set wsh = CreateObject("WScript.Shell")
+    Dim py As String, cmd As String
+    py = ObterPythonw()
+    cmd = """" & py & """ ""E:\estamparia-manager\corel-plugin\upscaler_ai_app.py"""
+    wsh.Run cmd, 0, False
+    Set wsh = Nothing
+End Sub
+
+Public Sub AbrirVetorizadorIA()
+    Dim wsh As Object
+    Set wsh = CreateObject("WScript.Shell")
+    Dim py As String, cmd As String
+    py = ObterPythonw()
+    cmd = """" & py & """ ""E:\estamparia-manager\corel-plugin\vetorizador_app.py"""
     wsh.Run cmd, 0, False
     Set wsh = Nothing
 End Sub

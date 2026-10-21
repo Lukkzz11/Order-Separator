@@ -110,8 +110,25 @@ def upscale_image_realesrgan(pil_img, scale=4, tile_size=512, tile_pad=16, sharp
                 out_y0, out_y1 = actual_y0 * 4, y1 * 4
                 out_x0, out_x1 = actual_x0 * 4, x1 * 4
 
-                out_arr[out_y0:out_y1, out_x0:out_x1] += out_tile
-                weight_arr[out_y0:out_y1, out_x0:out_x1] += 1.0
+                # Janela de ponderação trapezoidal suave para mesclagem sem linhas de emenda
+                th_out, tw_out = out_tile.shape[:2]
+                pad_scaled = tile_pad * 4
+                mask_x = np.ones(tw_out, dtype=np.float32)
+                mask_y = np.ones(th_out, dtype=np.float32)
+                if pad_scaled > 0:
+                    ramp = np.linspace(0.02, 1.0, pad_scaled, dtype=np.float32)
+                    if actual_x0 > 0 and pad_scaled <= tw_out:
+                        mask_x[:pad_scaled] = ramp
+                    if x1 < w and pad_scaled <= tw_out:
+                        mask_x[-pad_scaled:] = ramp[::-1]
+                    if actual_y0 > 0 and pad_scaled <= th_out:
+                        mask_y[:pad_scaled] = ramp
+                    if y1 < h and pad_scaled <= th_out:
+                        mask_y[-pad_scaled:] = ramp[::-1]
+                weight_tile = (mask_y[:, None] * mask_x[None, :])[:, :, None]
+
+                out_arr[out_y0:out_y1, out_x0:out_x1] += out_tile * weight_tile
+                weight_arr[out_y0:out_y1, out_x0:out_x1] += weight_tile
 
                 done_tiles += 1
                 if progress_cb:
@@ -175,7 +192,16 @@ class UpscalerAIApp:
         threading.Thread(target=get_upscaler_session, daemon=True).start()
 
         self.setup_ui()
-        self.root.after(800, self.verificar_selecao_inicial_corel)
+
+        # Suporte a carregamento direto via argumento CLI (ex: vindo do Removedor ou Corel)
+        if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
+            try:
+                img = Image.open(sys.argv[1])
+                self.root.after(200, lambda: self.carregar_imagem(img, desc=os.path.basename(sys.argv[1])))
+            except Exception:
+                self.root.after(800, self.verificar_selecao_inicial_corel)
+        else:
+            self.root.after(800, self.verificar_selecao_inicial_corel)
 
     def setup_ui(self):
         main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
@@ -380,8 +406,8 @@ class UpscalerAIApp:
 
         self.btn_enviar_corel = tk.Button(
             bottom_box,
-            text="🚀 ENVIAR IMAGEM ULTRA HD AO CORELDRAW",
-            font=("Segoe UI", 11, "bold"),
+            text="🚀 ENVIAR AO CORELDRAW",
+            font=("Segoe UI", 10, "bold"),
             bg="#0284C7",
             fg="#FFFFFF",
             activebackground="#0369A1",
@@ -391,44 +417,108 @@ class UpscalerAIApp:
             pady=12,
             command=self.enviar_coreldraw
         )
-        self.btn_enviar_corel.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 6))
+        self.btn_enviar_corel.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 4))
+
+        self.btn_abrir_removedor = tk.Button(
+            bottom_box,
+            text="✂️ Removedor IA",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#065F46",
+            fg="#6EE7B7",
+            activebackground="#047857",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=12,
+            command=self.abrir_no_removedor
+        )
+        self.btn_abrir_removedor.pack(side=tk.LEFT, padx=2)
+
+        self.btn_abrir_vetorizador = tk.Button(
+            bottom_box,
+            text="📐 Vetorizador IA",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#312E81",
+            fg="#C7D2FE",
+            activebackground="#3730A3",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=10,
+            pady=12,
+            command=self.abrir_no_vetorizador
+        )
+        self.btn_abrir_vetorizador.pack(side=tk.LEFT, padx=2)
 
         self.btn_salvar = tk.Button(
             bottom_box,
-            text="💾 Salvar PNG 300 DPI",
-            font=("Segoe UI", 9, "bold"),
+            text="💾 Salvar PNG",
+            font=("Segoe UI", 8.5, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
-            padx=14,
+            padx=10,
             pady=12,
             command=self.salvar_png
         )
-        self.btn_salvar.pack(side=tk.LEFT, padx=3)
+        self.btn_salvar.pack(side=tk.LEFT, padx=2)
 
         self.btn_copiar = tk.Button(
             bottom_box,
-            text="📋 Copiar PNG",
-            font=("Segoe UI", 9, "bold"),
+            text="📋 Copiar",
+            font=("Segoe UI", 8.5, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
-            padx=14,
+            padx=10,
             pady=12,
             command=self.copiar_png_clipboard
         )
-        self.btn_copiar.pack(side=tk.LEFT, padx=(3, 0))
+        self.btn_copiar.pack(side=tk.LEFT, padx=(2, 0))
 
         # Atalhos de Teclado
         self.root.bind("<Escape>", lambda e: self.root.destroy())
         self.root.bind("<Control-v>", lambda e: self.colar_clipboard())
         self.root.bind("<Control-V>", lambda e: self.colar_clipboard())
+
+    def abrir_no_removedor(self):
+        target = self.pil_upscaled if self.pil_upscaled is not None else self.pil_original
+        if target is None:
+            messagebox.showwarning("Aviso", "Carregue ou aumente a imagem primeiro!")
+            return
+        try:
+            tmp = os.path.join(tempfile.gettempdir(), f"os_upscaled_for_removedor_{int(time.time())}.png")
+            target.save(tmp, format="PNG")
+            py = "C:\\Python314\\pythonw.exe" if os.path.exists("C:\\Python314\\pythonw.exe") else "pythonw.exe"
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "removedor_fundo_app.py")
+            import subprocess
+            subprocess.Popen([py, script, tmp], creationflags=0x08000000)
+            self.lbl_status.configure(text="Imagem enviada ao Removedor de Fundo IA!", fg="#34D399")
+        except Exception as e:
+            messagebox.showerror("Erro ao abrir no Removedor", str(e))
+
+    def abrir_no_vetorizador(self):
+        target = self.pil_upscaled if self.pil_upscaled is not None else self.pil_original
+        if target is None:
+            messagebox.showwarning("Aviso", "Carregue ou aumente a imagem primeiro!")
+            return
+        try:
+            tmp = os.path.join(tempfile.gettempdir(), f"os_upscaled_for_vetorizador_{int(time.time())}.png")
+            target.save(tmp, format="PNG")
+            py = "C:\\Python314\\pythonw.exe" if os.path.exists("C:\\Python314\\pythonw.exe") else "pythonw.exe"
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vetorizador_app.py")
+            import subprocess
+            subprocess.Popen([py, script, tmp], creationflags=0x08000000)
+            self.lbl_status.configure(text="Imagem enviada ao Vetorizador IA!", fg="#818CF8")
+        except Exception as e:
+            messagebox.showerror("Erro ao abrir no Vetorizador", str(e))
 
     def verificar_selecao_inicial_corel(self):
         if self.pil_original is not None:

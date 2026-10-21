@@ -10,7 +10,7 @@ Add-Type -AssemblyName System.Drawing
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Order Separator - Montador de Folha Otimizado"
-$form.Size = New-Object System.Drawing.Size(520, 780)
+$form.Size = New-Object System.Drawing.Size(550, 780)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
@@ -36,43 +36,44 @@ $lblHeader = New-Object System.Windows.Forms.Label
 $lblHeader.Text = "Montador de Folha / Bobina"
 $lblHeader.Font = $fontTitle
 $lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
-$lblHeader.Location = New-Object System.Drawing.Point(20, 10)
-$lblHeader.Size = New-Object System.Drawing.Size(225, 24)
+$lblHeader.Location = New-Object System.Drawing.Point(16, 10)
+$lblHeader.Size = New-Object System.Drawing.Size(205, 24)
 $form.Controls.Add($lblHeader)
 
 $lblSub = New-Object System.Windows.Forms.Label
-$lblSub.Text = "Encaixe inteligente com economia e espaco"
+$lblSub.Text = "Encaixe inteligente com economia"
 $lblSub.Font = $fontStats
 $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
-$lblSub.Location = New-Object System.Drawing.Point(20, 34)
-$lblSub.Size = New-Object System.Drawing.Size(225, 18)
+$lblSub.Location = New-Object System.Drawing.Point(16, 34)
+$lblSub.Size = New-Object System.Drawing.Size(205, 18)
 $form.Controls.Add($lblSub)
 
-$btnAbrirVetorizador = New-Object System.Windows.Forms.Button
-$btnAbrirVetorizador.Text = "Vetorizador IA"
-$btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
-$btnAbrirVetorizador.Location = New-Object System.Drawing.Point(250, 12)
-$btnAbrirVetorizador.Size = New-Object System.Drawing.Size(115, 36)
-$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229)
-$btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::White
-$btnAbrirVetorizador.FlatStyle = "Flat"
-$btnAbrirVetorizador.FlatAppearance.BorderSize = 0
-$btnAbrirVetorizador.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnAbrirVetorizador.Add_Click({
-  $pyScript = Join-Path $PSScriptRoot "vetorizador_app.py"
+# Botões de Acesso Rápido às IAs (Upscaler, Removedor, Vetorizador)
+$btnAbrirUpscaler = New-Object System.Windows.Forms.Button
+$btnAbrirUpscaler.Text = "Upscaler IA"
+$btnAbrirUpscaler.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
+$btnAbrirUpscaler.Location = New-Object System.Drawing.Point(225, 12)
+$btnAbrirUpscaler.Size = New-Object System.Drawing.Size(98, 36)
+$btnAbrirUpscaler.BackColor = [System.Drawing.Color]::FromArgb(2, 132, 199) # Sky Blue
+$btnAbrirUpscaler.ForeColor = [System.Drawing.Color]::White
+$btnAbrirUpscaler.FlatStyle = "Flat"
+$btnAbrirUpscaler.FlatAppearance.BorderSize = 0
+$btnAbrirUpscaler.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnAbrirUpscaler.Add_Click({
+  $pyScript = Join-Path $PSScriptRoot "upscaler_ai_app.py"
   if (Test-Path $pyScript) {
     $pyExec = if (Test-Path "C:\Python314\pythonw.exe") { "C:\Python314\pythonw.exe" } else { "pythonw.exe" }
     Start-Process $pyExec -ArgumentList "`"$pyScript`""
   }
 })
-$form.Controls.Add($btnAbrirVetorizador)
+$form.Controls.Add($btnAbrirUpscaler)
 
 $btnAbrirRemovedor = New-Object System.Windows.Forms.Button
 $btnAbrirRemovedor.Text = "Removedor IA"
-$btnAbrirRemovedor.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
-$btnAbrirRemovedor.Location = New-Object System.Drawing.Point(372, 12)
-$btnAbrirRemovedor.Size = New-Object System.Drawing.Size(115, 36)
-$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129)
+$btnAbrirRemovedor.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
+$btnAbrirRemovedor.Location = New-Object System.Drawing.Point(328, 12)
+$btnAbrirRemovedor.Size = New-Object System.Drawing.Size(102, 36)
+$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129) # Emerald
 $btnAbrirRemovedor.ForeColor = [System.Drawing.Color]::White
 $btnAbrirRemovedor.FlatStyle = "Flat"
 $btnAbrirRemovedor.FlatAppearance.BorderSize = 0
@@ -85,6 +86,25 @@ $btnAbrirRemovedor.Add_Click({
   }
 })
 $form.Controls.Add($btnAbrirRemovedor)
+
+$btnAbrirVetorizador = New-Object System.Windows.Forms.Button
+$btnAbrirVetorizador.Text = "Vetorizador IA"
+$btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
+$btnAbrirVetorizador.Location = New-Object System.Drawing.Point(435, 12)
+$btnAbrirVetorizador.Size = New-Object System.Drawing.Size(102, 36)
+$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo
+$btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::White
+$btnAbrirVetorizador.FlatStyle = "Flat"
+$btnAbrirVetorizador.FlatAppearance.BorderSize = 0
+$btnAbrirVetorizador.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnAbrirVetorizador.Add_Click({
+  $pyScript = Join-Path $PSScriptRoot "vetorizador_app.py"
+  if (Test-Path $pyScript) {
+    $pyExec = if (Test-Path "C:\Python314\pythonw.exe") { "C:\Python314\pythonw.exe" } else { "pythonw.exe" }
+    Start-Process $pyExec -ArgumentList "`"$pyScript`""
+  }
+})
+$form.Controls.Add($btnAbrirVetorizador)
 
 # --- PEDIDOS CADASTRADOS ---
 $lblPedido = New-Object System.Windows.Forms.Label
