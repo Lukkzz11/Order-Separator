@@ -18,6 +18,8 @@ from tkinter import ttk, messagebox, filedialog, colorchooser
 from PIL import Image, ImageTk, ImageOps, ImageFilter, ImageGrab
 import numpy as np
 import cv2
+import json
+import time
 
 # Importação condicional do rembg
 try:
@@ -26,35 +28,166 @@ try:
 except ImportError:
     HAS_REMBG = False
 
-# Sessão U2-Net global mantida em memória com aceleração DirectML por hardware (GPU NVIDIA RTX)
-GLOBAL_REMBG_SESSION = None
+# Sessões ONNX mantidas em cache para inferência instantânea na GPU DirectML (NVIDIA RTX)
+GLOBAL_REMBG_SESSIONS = {}
 ACTIVE_HARDWARE_INFO = "Detectando..."
 
-def get_rembg_session():
-    global GLOBAL_REMBG_SESSION, ACTIVE_HARDWARE_INFO
+SUPPORTED_AI_MODELS = {
+    "u2net": {
+        "id": "u2net",
+        "nome": "⚡ U2-Net Geral (Ultrarrápido 20ms - Padrão)",
+        "badge": "Recomendado para Uso Geral"
+    },
+    "isnet-general-use": {
+        "id": "isnet-general-use",
+        "nome": "🦁 IS-Net DIS (Ultra Precisão / Pelos, Juba & Fios)",
+        "badge": "Pelos, Cabelos e Fibras Finas"
+    },
+    "isnet-anime": {
+        "id": "isnet-anime",
+        "nome": "🎨 IS-Net 2D (Logos, Desenhos, Mascotes e Vetores)",
+        "badge": "Escudos e Ilustrações"
+    },
+    "bria-rmbg": {
+        "id": "bria-rmbg",
+        "nome": "💎 BRIA RMBG 1.4 (Alta Definição / Roupas & Estamparia)",
+        "badge": "Estúdio de Moda & Roupas"
+    }
+}
+
+CURRENT_SELECTED_MODEL = "u2net"
+
+def get_rembg_session(model_name="u2net"):
+    global GLOBAL_REMBG_SESSIONS, ACTIVE_HARDWARE_INFO
     if not HAS_REMBG:
         return None
-    if GLOBAL_REMBG_SESSION is None:
-        # Prioriza DirectML (NVIDIA GeForce RTX via DirectX 12, ultra-rápido ~40ms e 100% seguro)
+    if model_name not in GLOBAL_REMBG_SESSIONS:
         try:
-            GLOBAL_REMBG_SESSION = rembg.new_session("u2net", providers=['DmlExecutionProvider', 'CPUExecutionProvider'])
-            ACTIVE_HARDWARE_INFO = "⚡ Aceleração GPU Ativa (DirectML RTX)"
+            GLOBAL_REMBG_SESSIONS[model_name] = rembg.new_session(model_name, providers=['DmlExecutionProvider', 'CPUExecutionProvider'])
+            ACTIVE_HARDWARE_INFO = f"⚡ GPU DirectML RTX ({model_name})"
         except Exception:
             try:
-                GLOBAL_REMBG_SESSION = rembg.new_session("u2net")
-                ACTIVE_HARDWARE_INFO = "CPU Multithread"
+                GLOBAL_REMBG_SESSIONS[model_name] = rembg.new_session(model_name)
+                ACTIVE_HARDWARE_INFO = f"CPU Multithread ({model_name})"
             except Exception:
-                try:
-                    GLOBAL_REMBG_SESSION = rembg.new_session("u2netp", providers=['DmlExecutionProvider', 'CPUExecutionProvider'])
-                    ACTIVE_HARDWARE_INFO = "⚡ GPU DirectML (u2netp)"
-                except Exception:
-                    try:
-                        GLOBAL_REMBG_SESSION = rembg.new_session("u2netp")
-                        ACTIVE_HARDWARE_INFO = "CPU (u2netp)"
-                    except Exception:
-                        GLOBAL_REMBG_SESSION = None
-                        ACTIVE_HARDWARE_INFO = "Indisponível"
-    return GLOBAL_REMBG_SESSION
+                if model_name != "u2net":
+                    return get_rembg_session("u2net")
+                return None
+    return GLOBAL_REMBG_SESSIONS.get(model_name)
+
+
+# =========================================================================
+# MOTOR DE CONTEXTO DE ESTAMPARIA E RAIO-X INTELIGENTE DA ARTE
+# =========================================================================
+
+FABRIC_COLORS_MAP = {
+    "PRETA": (18, 18, 20),
+    "PRETO": (18, 18, 20),
+    "BRANCA": (245, 245, 248),
+    "BRANCO": (245, 245, 248),
+    "ROXA": (88, 28, 135),
+    "ROXO": (88, 28, 135),
+    "VERMELHA": (185, 28, 28),
+    "VERMELHO": (185, 28, 28),
+    "AZUL": (29, 78, 216),
+    "AZUL MARINHO": (15, 23, 42),
+    "MARINHO": (15, 23, 42),
+    "VERDE": (21, 128, 61),
+    "AMARELA": (234, 179, 8),
+    "AMARELO": (234, 179, 8),
+    "CINZA": (100, 116, 139),
+    "MESCLA": (148, 163, 184),
+    "LARANJA": (234, 88, 12),
+    "ROSA": (219, 39, 119),
+    "BORDO": (120, 20, 40),
+    "VINHO": (120, 20, 40)
+}
+
+def load_estamparia_context():
+    """Carrega todos os pedidos e clientes para fornecer contexto de produção à IA."""
+    db_paths = [
+        os.path.join(os.environ.get('APPDATA', ''), 'estamparia-manager', 'db_estamparia.json'),
+        os.path.join(os.environ.get('APPDATA', ''), 'Order Separator', 'db_estamparia.json'),
+    ]
+    for p in db_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    db = json.load(f)
+                    return db.get('pedidos', []), db.get('clientes', [])
+            except Exception:
+                pass
+    return [], []
+
+def analyze_image_context(pil_img):
+    """
+    Analisa características da imagem para Raio-X de Estamparia:
+    - DPI e tamanho físico em centímetros @ 300 DPI
+    - Sugestão contextual do melhor modelo IA (U2-Net, IS-Net DIS, IS-Net 2D)
+    - Sugestão contextual do modo de recorte
+    - Alerta de qualidade para impressão DTF / Silk
+    """
+    w, h = pil_img.size
+    cm_w = round((w / 300.0) * 2.54, 1)
+    cm_h = round((h / 300.0) * 2.54, 1)
+
+    if cm_w <= 12:
+        classificacao = "Peito / Bolso (~10cm)"
+    elif cm_w <= 22:
+        classificacao = "Frente A4 (~20cm)"
+    elif cm_w <= 32:
+        classificacao = "Costas A3 (~30cm)"
+    else:
+        classificacao = "Bobina Total / Painel (40-58cm)"
+
+    rgb_img = pil_img.convert("RGB")
+    arr = np.array(rgb_img)
+    borda_topo = arr[:4, :, :]
+    borda_base = arr[-4:, :, :]
+    borda_esq = arr[:, :4, :]
+    borda_dir = arr[:, -4:, :]
+    borda_pixels = np.vstack([borda_topo.reshape(-1, 3), borda_base.reshape(-1, 3), borda_esq.reshape(-1, 3), borda_dir.reshape(-1, 3)])
+
+    r_mean = np.mean(borda_pixels[:, 0])
+    g_mean = np.mean(borda_pixels[:, 1])
+    b_mean = np.mean(borda_pixels[:, 2])
+
+    sugestao_modo = "ia_geral"
+    sugestao_modelo = "u2net"
+    motivo_sugestao = "IA Geral Semântica equilibrada"
+
+    if g_mean > r_mean + 28 and g_mean > b_mean + 28:
+        sugestao_modo = "chroma_key"
+        motivo_sugestao = "Fundo Verde Chroma Key detectado nas bordas externas."
+    elif r_mean > 238 and g_mean > 238 and b_mean > 238:
+        sugestao_modo = "fundo_branco"
+        motivo_sugestao = "Prancheta/fundo branco uniforme detectado nas bordas."
+    else:
+        gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
+        lap_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+        if lap_var > 350:
+            sugestao_modo = "alpha_suave"
+            sugestao_modelo = "isnet-general-use"
+            motivo_sugestao = "Fios/pelos finos detectados (IS-Net DIS + Guided Filter recomendado)."
+        else:
+            unique_colors_sample = len(np.unique(borda_pixels // 32, axis=0))
+            if unique_colors_sample <= 3:
+                sugestao_modelo = "isnet-anime"
+                motivo_sugestao = "Arte gráfica / escudo com cores planas (IS-Net 2D recomendado)."
+
+    alerta_qualidade = None
+    if w < 900 or h < 900:
+        alerta_qualidade = f"⚠️ Resolução baixa ({w}x{h} px = {cm_w}x{cm_h} cm @ 300DPI). Sugerido rodar Upscale 4x IA."
+
+    return {
+        "dim_px": f"{w} x {h} px",
+        "dim_cm": f"{cm_w} x {cm_h} cm @ 300 DPI",
+        "classificacao": classificacao,
+        "sugestao_modo": sugestao_modo,
+        "sugestao_modelo": sugestao_modelo,
+        "motivo": motivo_sugestao,
+        "alerta": alerta_qualidade
+    }
 
 
 # =========================================================================
@@ -489,9 +622,9 @@ def remove_chroma_key(pil_img, key_color=(0, 255, 0), tolerance=45, feather=1.2,
     return res_img
 
 
-def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True, defringe_white=True):
+def remove_ai_semantic(pil_img, model_name="u2net", alpha_matting=False, post_process=True, edge_smooth=1.0, choke_px=0, despill=True, defringe_white=True):
     """
-    Remove o fundo usando Inteligência Artificial Semântica (U2-Net com DirectML RTX) +
+    Remove o fundo usando Inteligência Artificial Semântica (U2-Net / IS-Net DIS / IS-Net 2D / BRIA com DirectML RTX) +
     Refino de Fios/Pelos Guided Filter + Despill VFX + Anti-Halo Branco.
     Funciona para pessoas, leões, animais, fones, cabelos e cenários complexos.
     Garante zero resíduos brancos ou verdes na juba e nas bordas.
@@ -499,9 +632,9 @@ def remove_ai_semantic(pil_img, alpha_matting=False, post_process=True, edge_smo
     if not HAS_REMBG:
         raise RuntimeError("Biblioteca 'rembg' não está instalada no ambiente Python.")
 
-    session = get_rembg_session()
+    session = get_rembg_session(model_name)
 
-    # Executa remoção neural inicial com U2-Net DirectML
+    # Executa remoção neural inicial com o modelo selecionado via DirectML
     out_img = rembg.remove(
         pil_img,
         session=session,
@@ -606,11 +739,17 @@ class RemovedorFundoApp:
         self.content_ratio_w = 1.0
         self.content_ratio_h = 1.0
 
-        # Modo de fundo do preview: 'checker' | 'black' | 'white' | 'dark'
+        # Modo de fundo do preview: 'checker' | 'black' | 'white' | 'dark' | 'order_fabric'
         self.preview_bg_mode = "checker"
 
         # Cor customizada para Chroma Key
         self.custom_chroma_color = (0, 255, 0)
+
+        # Contexto de Pedidos e Clientes de Estamparia
+        self.pedidos_carregados, self.clientes_carregados = load_estamparia_context()
+        self.pedido_selecionado = None
+        self.cor_tecido_preview = None
+        self.var_ai_model = tk.StringVar(value="u2net")
 
         # Posições de desenho nos canvases para conversão do clique do conta-gotas
         self.orig_canvas_offset = (0, 0, 1, 1)
@@ -713,6 +852,53 @@ class RemovedorFundoApp:
         )
         btn_paste.pack(side=tk.LEFT, padx=3)
 
+        # 1.1 Barra de Contexto de Pedido & Raio-X Diagnóstico de Estamparia
+        ctx_frame = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=6)
+        ctx_frame.pack(fill=tk.X, pady=(0, 6))
+
+        ctx_top = tk.Frame(ctx_frame, bg="#0F172A")
+        ctx_top.pack(fill=tk.X)
+
+        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+
+        ped_list = ["-- Nenhum Pedido Vinculado (Modo Livre) --"]
+        for p in self.pedidos_carregados:
+            ped_list.append(f"#{p.get('numeroPedido', '?')} - {p.get('clienteNome', '')} ({p.get('corTecido', 'Camisa')} - {p.get('descricaoEstampa', '')[:20]})")
+
+        self.cbo_pedidos = ttk.Combobox(ctx_top, values=ped_list, state="readonly", width=42, font=("Segoe UI", 8, "bold"))
+        self.cbo_pedidos.current(0)
+        self.cbo_pedidos.pack(side=tk.LEFT, padx=(0, 8))
+        self.cbo_pedidos.bind("<<ComboboxSelected>>", self.on_pedido_selecionado)
+
+        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#CBD5E1", bg="#0F172A")
+        self.lbl_pedido_badge.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.btn_salvar_pasta_pedido = tk.Button(
+            ctx_top,
+            text="📁 Salvar na Pasta do Pedido",
+            font=("Segoe UI", 8, "bold"),
+            bg="#312E81",
+            fg="#C7D2FE",
+            activebackground="#4338CA",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=8,
+            pady=3,
+            command=self.salvar_na_pasta_do_pedido
+        )
+        self.btn_salvar_pasta_pedido.pack(side=tk.RIGHT)
+
+        self.lbl_raio_x = tk.Label(
+            ctx_frame,
+            text="💡 Raio-X da Estampa: Carregue uma imagem para a IA analisar DPI, tamanho de estampa e sugerir o melhor modelo neural.",
+            font=("Segoe UI", 8),
+            fg="#64748B",
+            bg="#0F172A",
+            anchor="w"
+        )
+        self.lbl_raio_x.pack(fill=tk.X, pady=(4, 0))
+
         # 2. Painel Central de Visualização
         preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
         preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
@@ -747,6 +933,9 @@ class RemovedorFundoApp:
 
         self.btn_bg_drk = tk.Button(bg_toggle_box, text="👕 Camiseta", font=("Segoe UI", 7, "bold"), bg="#1E293B", fg="#CBD5E1", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("dark"))
         self.btn_bg_drk.pack(side=tk.LEFT, padx=1)
+
+        self.btn_bg_ord = tk.Button(bg_toggle_box, text="👕 Tecido Pedido", font=("Segoe UI", 7, "bold"), bg="#581C87", fg="#FFFFFF", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("order_fabric"))
+        # Inicialmente não empacotado até selecionar pedido com cor
 
         # Divisão Dupla: Esquerda (Original / Conta-gotas) / Direita (Sem Fundo)
         cards_frame = tk.Frame(preview_container, bg="#0F172A")
@@ -949,15 +1138,97 @@ class RemovedorFundoApp:
         except Exception as e:
             messagebox.showerror("Erro ao abrir no Vetorizador", str(e))
 
+    def on_pedido_selecionado(self, event=None):
+        idx = self.cbo_pedidos.current()
+        if idx <= 0:
+            self.pedido_selecionado = None
+            self.lbl_pedido_badge.configure(text="")
+            self.btn_bg_ord.pack_forget()
+            return
+
+        pedido = self.pedidos_carregados[idx - 1]
+        self.pedido_selecionado = pedido
+        cliente_nome = pedido.get('clienteNome', 'Cliente')
+        cor_tecido = (pedido.get('corTecido') or '').upper().strip()
+        desc_estampa = pedido.get('descricaoEstampa', '')
+
+        info_txt = f"Cliente: {cliente_nome} | Cor: {cor_tecido or 'Padrão'} | {pedido.get('totalPecas', '')} peças"
+        self.lbl_pedido_badge.configure(text=info_txt, fg="#A78BFA")
+
+        if cor_tecido in FABRIC_COLORS_MAP:
+            self.cor_tecido_preview = FABRIC_COLORS_MAP[cor_tecido]
+            self.btn_bg_ord.configure(text=f"👕 Tecido ({cor_tecido.title()})", state="normal")
+            self.btn_bg_ord.pack(side=tk.LEFT, padx=1)
+            is_dark = sum(self.cor_tecido_preview) < 320
+            if is_dark:
+                if hasattr(self, 'var_choke'):
+                    self.var_choke.set(-1)
+                if hasattr(self, 'var_defringe_white'):
+                    self.var_defringe_white.set(True)
+            else:
+                if hasattr(self, 'var_choke'):
+                    self.var_choke.set(0)
+                if hasattr(self, 'var_defringe_white'):
+                    self.var_defringe_white.set(False)
+            self.set_preview_bg("order_fabric")
+        else:
+            self.cor_tecido_preview = None
+            self.btn_bg_ord.pack_forget()
+
+        if self.pil_original is None and pedido.get('imagens') and len(pedido['imagens']) > 0:
+            first_img = pedido['imagens'][0]
+            img_path = first_img.get('caminhoSalvo') or first_img.get('caminho')
+            if img_path and os.path.isfile(img_path):
+                try:
+                    img = Image.open(img_path)
+                    self.carregar_imagem(img, desc=f"Pedido #{pedido.get('numeroPedido')} - {os.path.basename(img_path)}")
+                except Exception:
+                    pass
+
+    def salvar_na_pasta_do_pedido(self):
+        if not self.pedido_selecionado:
+            messagebox.showwarning("Aviso", "Selecione um pedido primeiro no seletor de contexto!")
+            return
+        if self.pil_processed is None:
+            messagebox.showwarning("Aviso", "Nenhuma imagem recortada disponível para salvar!")
+            return
+
+        cliente_id = self.pedido_selecionado.get('clienteId')
+        cliente = next((c for c in self.clientes_carregados if c.get('id') == cliente_id), None)
+        pasta_dest = ""
+        if cliente and cliente.get('pastaDiretorio') and os.path.exists(cliente['pastaDiretorio']):
+            pasta_dest = cliente['pastaDiretorio']
+        elif self.pedido_selecionado.get('clientePasta') and os.path.exists(self.pedido_selecionado['clientePasta']):
+            pasta_dest = self.pedido_selecionado['clientePasta']
+
+        if not pasta_dest:
+            messagebox.showwarning("Aviso", "O cliente deste pedido não possui uma pasta válida cadastrada no sistema.")
+            return
+
+        num_ped = self.pedido_selecionado.get('numeroPedido', '0000')
+        desc_limpa = re.sub(r'[\\/:*?"<>|]', '_', self.pedido_selecionado.get('descricaoEstampa', 'Arte')).strip()
+        nome_arquivo = f"Arte_Recorte_#{num_ped}_{desc_limpa}_{int(time.time())}.png"
+        caminho_final = os.path.join(pasta_dest, nome_arquivo)
+
+        try:
+            self.pil_processed.save(caminho_final, format="PNG")
+            messagebox.showinfo("Salvo com Sucesso!", f"Arte recortada com IA salva diretamente na pasta do cliente:\n\n{caminho_final}")
+            self.lbl_status.configure(text=f"Salvo na pasta do cliente: {nome_arquivo}", fg="#34D399")
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar", str(e))
+
     def set_preview_bg(self, mode):
         self.preview_bg_mode = mode
         btns = [
             ("checker", self.btn_bg_chk),
             ("black", self.btn_bg_blk),
             ("white", self.btn_bg_wht),
-            ("dark", self.btn_bg_drk)
+            ("dark", self.btn_bg_drk),
+            ("order_fabric", getattr(self, 'btn_bg_ord', None))
         ]
         for m, btn in btns:
+            if btn is None:
+                continue
             if m == mode:
                 btn.configure(bg="#10B981", fg="#FFFFFF")
             else:
@@ -1047,10 +1318,35 @@ class RemovedorFundoApp:
         tk.Frame(self.pnl_params, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 6))
 
         # Controles Específicos por Modo
+        if mode in ("ia_geral", "alpha_suave"):
+            row_models = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_models.pack(fill=tk.X, pady=(0, 6))
+
+            tk.Label(row_models, text="🧠 Modelo de IA Neural:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+
+            if not hasattr(self, 'var_ai_model'):
+                self.var_ai_model = tk.StringVar(value="u2net")
+
+            for m_key, m_info in SUPPORTED_AI_MODELS.items():
+                rb_m = tk.Radiobutton(
+                    row_models,
+                    text=m_info["nome"],
+                    variable=self.var_ai_model,
+                    value=m_key,
+                    font=("Segoe UI", 7.5, "bold"),
+                    fg="#38BDF8",
+                    bg="#0F172A",
+                    selectcolor="#1E293B",
+                    activebackground="#0F172A",
+                    activeforeground="#38BDF8",
+                    command=self.agendar_preview_recalculo
+                )
+                rb_m.pack(side=tk.LEFT, padx=2)
+
         if mode == "ia_geral":
             lbl_desc = tk.Label(
                 self.pnl_params,
-                text="Rede neural profunda U2-Net otimizada com Guided Filter e Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes ou brancos.",
+                text="Rede neural profunda com DirectML GPU RTX + Guided Filter e Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes ou brancos.",
                 font=("Segoe UI", 8),
                 fg="#94A3B8",
                 bg="#0F172A",
@@ -1249,6 +1545,17 @@ class RemovedorFundoApp:
             self.pil_original = pil_img.copy()
             w, h = self.pil_original.size
             self.lbl_img_info.configure(text=f"{desc} ({w} x {h} px)")
+
+            # Raio-X Contextual Inteligente da Estampa
+            try:
+                diag = analyze_image_context(pil_img)
+                diag_txt = f"🔍 Raio-X: {diag['dim_px']} ({diag['dim_cm']}) • {diag['classificacao']} • Sugestão IA: {diag['motivo']}"
+                if diag['alerta']:
+                    diag_txt += f" | {diag['alerta']}"
+                self.lbl_raio_x.configure(text=diag_txt, fg="#38BDF8")
+            except Exception:
+                pass
+
             self.lbl_status.configure(text="Imagem carregada! Processando recorte com IA e Despill VFX...", fg="#F59E0B")
             self.atualizar_canvas_original()
             self.iniciar_preview_async()
@@ -1301,6 +1608,9 @@ class RemovedorFundoApp:
             bg = Image.new("RGB", (tw, th), (255, 255, 255))
         elif mode == "dark":
             bg = Image.new("RGB", (tw, th), (24, 32, 47))
+        elif mode == "order_fabric":
+            bg_col = self.cor_tecido_preview if self.cor_tecido_preview else (88, 28, 135)
+            bg = Image.new("RGB", (tw, th), bg_col)
         else:
             bg = create_checkerboard_pattern(tw, th)
 
@@ -1318,6 +1628,7 @@ class RemovedorFundoApp:
             return
         try:
             mode = self.mode_var.get()
+            ai_model = self.var_ai_model.get() if hasattr(self, 'var_ai_model') else 'u2net'
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
@@ -1336,7 +1647,7 @@ class RemovedorFundoApp:
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(proc_input, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
+                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             elif mode == "falso_png":
                 tol = self.var_checker_tol.get() if hasattr(self, 'var_checker_tol') else 30
                 res = remove_fake_png_checkerboard(proc_input, tolerance=tol, edge_feather=feather, choke_px=choke)
@@ -1347,7 +1658,7 @@ class RemovedorFundoApp:
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(proc_input, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(proc_input, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
+                res = remove_ai_semantic(proc_input, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             else:
                 res = proc_input.convert("RGBA")
 
@@ -1471,6 +1782,7 @@ class RemovedorFundoApp:
     def _processar_alta_resolucao_corel_worker(self):
         try:
             mode = self.mode_var.get()
+            ai_model = self.var_ai_model.get() if hasattr(self, 'var_ai_model') else 'u2net'
             feather = float(self.var_feather.get()) if hasattr(self, 'var_feather') else 0.8
             choke = int(self.var_choke.get()) if hasattr(self, 'var_choke') else -1
             despill = self.var_despill_vfx.get() if hasattr(self, 'var_despill_vfx') else True
@@ -1479,7 +1791,7 @@ class RemovedorFundoApp:
 
             if mode == "ia_geral":
                 post_p = self.var_post_process.get() if hasattr(self, 'var_post_process') else True
-                res = remove_ai_semantic(full_img, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
+                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=False, post_process=post_p, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             elif mode == "falso_png":
                 tol = self.var_checker_tol.get() if hasattr(self, 'var_checker_tol') else 30
                 res = remove_fake_png_checkerboard(full_img, tolerance=tol, edge_feather=feather, choke_px=choke)
@@ -1490,7 +1802,7 @@ class RemovedorFundoApp:
                 tol = self.var_chroma_tol.get() if hasattr(self, 'var_chroma_tol') else 48
                 res = remove_chroma_key(full_img, key_color=self.custom_chroma_color, tolerance=tol, feather=feather, despill=despill, choke_px=choke)
             elif mode == "alpha_suave":
-                res = remove_ai_semantic(full_img, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
+                res = remove_ai_semantic(full_img, model_name=ai_model, alpha_matting=True, post_process=False, edge_smooth=feather, choke_px=choke, despill=despill, defringe_white=defringe)
             else:
                 res = full_img.convert("RGBA")
 

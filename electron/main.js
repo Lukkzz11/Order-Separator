@@ -549,7 +549,7 @@ ipcMain.handle('corel:abrirMontador', async () => {
 });
 
 // 11.1 Abrir Vetorizador Profissional CorelDRAW (Dual-Splines / IA)
-ipcMain.handle('corel:abrirVetorizador', async () => {
+ipcMain.handle('corel:abrirVetorizador', async (event, caminhoImagem) => {
   const { execFile } = require('child_process');
 
   const caminhosPython = [
@@ -569,10 +569,12 @@ ipcMain.handle('corel:abrirVetorizador', async () => {
   }
 
   if (pyEncontrado) {
-    execFile('pythonw.exe', [pyEncontrado], (err) => {
+    const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') ? 'C:\\Python314\\pythonw.exe' : 'pythonw.exe';
+    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
+    execFile(pythonExe, args, (err) => {
       if (err) {
-        // Fallback para python normal
-        execFile('python.exe', [pyEncontrado], (err2) => {
+        const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
+        execFile(fallbackPy, args, (err2) => {
           if (err2) console.error('Erro na execução do vetorizador python:', err2);
         });
       }
@@ -611,8 +613,8 @@ ipcMain.handle('corel:abrirVetorizador', async () => {
   return { sucesso: false, erro: 'Script do vetorizador não foi encontrado nos caminhos do sistema.' };
 });
 
-// 11.2 Abrir Removedor de Fundo IA (U2-Net / Chroma / Fundo Branco)
-ipcMain.handle('corel:abrirRemovedor', async () => {
+// 11.2 Abrir Removedor de Fundo IA (U2-Net / IS-Net / BRIA / Chroma / Fundo Branco)
+ipcMain.handle('corel:abrirRemovedor', async (event, caminhoImagem) => {
   const { execFile } = require('child_process');
 
   const caminhosPython = [
@@ -635,12 +637,12 @@ ipcMain.handle('corel:abrirRemovedor', async () => {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
       : 'pythonw.exe';
+    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
 
-    execFile(pythonExe, [pyEncontrado], (err) => {
+    execFile(pythonExe, args, (err) => {
       if (err) {
-        // Fallback para python normal
         const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
-        execFile(fallbackPy, [pyEncontrado], (err2) => {
+        execFile(fallbackPy, args, (err2) => {
           if (err2) console.error('Erro na execução do removedor de fundo python:', err2);
         });
       }
@@ -652,7 +654,7 @@ ipcMain.handle('corel:abrirRemovedor', async () => {
 });
 
 // 11.3 Abrir Upscaler IA Ultra HD 4x / 8x (Real-ESRGAN / DirectML RTX)
-ipcMain.handle('corel:abrirUpscaler', async () => {
+ipcMain.handle('corel:abrirUpscaler', async (event, caminhoImagem) => {
   const { execFile } = require('child_process');
 
   const caminhosPython = [
@@ -675,11 +677,12 @@ ipcMain.handle('corel:abrirUpscaler', async () => {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
       : 'pythonw.exe';
+    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
 
-    execFile(pythonExe, [pyEncontrado], (err) => {
+    execFile(pythonExe, args, (err) => {
       if (err) {
         const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
-        execFile(fallbackPy, [pyEncontrado], (err2) => {
+        execFile(fallbackPy, args, (err2) => {
           if (err2) console.error('Erro na execução do upscaler de imagem python:', err2);
         });
       }

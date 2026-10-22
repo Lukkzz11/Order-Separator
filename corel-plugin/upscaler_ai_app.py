@@ -7,11 +7,13 @@ Aumenta resolução de 300 DPI, reconstrói traços nítidos de logos e elimina 
 
 import sys
 import os
+import re
 import math
 import tempfile
 import threading
 import io
 import time
+import json
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk, ImageGrab, ImageFilter, ImageOps
@@ -27,6 +29,49 @@ except ImportError:
 # Sessão ONNX global mantida em memória para inferência instantânea na GPU
 GLOBAL_UPSCALER_SESSION = None
 ACTIVE_HARDWARE_NAME = "Detectando..."
+
+def load_estamparia_context():
+    """Carrega todos os pedidos e clientes para fornecer contexto à IA."""
+    db_paths = [
+        os.path.join(os.environ.get('APPDATA', ''), 'estamparia-manager', 'db_estamparia.json'),
+        os.path.join(os.environ.get('APPDATA', ''), 'Order Separator', 'db_estamparia.json'),
+    ]
+    for p in db_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    db = json.load(f)
+                    return db.get('pedidos', []), db.get('clientes', [])
+            except Exception:
+                pass
+    return [], []
+
+def analyze_upscale_context(pil_img, scale=4):
+    """Calcula dimensões reais em centímetros @ 300 DPI e diagnóstico de estampa."""
+    w, h = pil_img.size
+    orig_cm_w = round((w / 300.0) * 2.54, 1)
+    orig_cm_h = round((h / 300.0) * 2.54, 1)
+
+    new_w, new_h = w * scale, h * scale
+    new_cm_w = round((new_w / 300.0) * 2.54, 1)
+    new_cm_h = round((new_h / 300.0) * 2.54, 1)
+
+    if new_cm_w <= 12:
+        classificacao = "Peito / Bolso (~10cm)"
+    elif new_cm_w <= 22:
+        classificacao = "Frente A4 (~20cm)"
+    elif new_cm_w <= 34:
+        classificacao = "Costas A3 (~30cm)"
+    else:
+        classificacao = "Bobina Total / Painel (40-58cm)"
+
+    return {
+        "orig_px": f"{w} x {h} px",
+        "orig_cm": f"{orig_cm_w} x {orig_cm_h} cm @ 300 DPI",
+        "new_px": f"{new_w} x {new_h} px",
+        "new_cm": f"{new_cm_w} x {new_cm_h} cm @ 300 DPI",
+        "classificacao": classificacao
+    }
 
 def get_upscaler_session():
     global GLOBAL_UPSCALER_SESSION, ACTIVE_HARDWARE_NAME
@@ -49,7 +94,7 @@ def get_upscaler_session():
     return GLOBAL_UPSCALER_SESSION
 
 
-def upscale_image_realesrgan(pil_img, scale=4, tile_size=512, tile_pad=16, sharpen=False, progress_cb=None):
+def upscale_image_realesrgan(pil_img, scale=4, tile_size=512, tile_pad=16, sharpen=False, profile="geral", progress_cb=None):
     """
     Executa super-resolução 4x / 8x utilizando Real-ESRGAN ONNX acelerado por DirectML.
     Suporta imagens de qualquer tamanho através de divisão em ladrilhos (tiles) com sobreposição suave.
@@ -144,6 +189,15 @@ def upscale_image_realesrgan(pil_img, scale=4, tile_size=512, tile_pad=16, sharp
             progress_cb(88, "Gerando resolução Gigapixel 8x...")
         out_pil = out_pil.resize((w * 8, h * 8), Image.Resampling.LANCZOS)
 
+    # Refinamento por Perfil Contextual de Arte
+    if profile == "logos":
+        if progress_cb:
+            progress_cb(92, "Refinando traços vetoriais e eliminando ruído de compressão...")
+        rgb_part = out_pil.convert("RGB")
+        rgb_np = np.array(rgb_part)
+        smooth_rgb = cv2.bilateralFilter(rgb_np, d=5, sigmaColor=30, sigmaSpace=30)
+        out_pil = Image.fromarray(smooth_rgb)
+
     # Filtro opcional de realce e nitidez de bordas para vetores/logos
     if sharpen:
         out_pil = out_pil.filter(ImageFilter.UnsharpMask(radius=1.2, percent=125, threshold=3))
@@ -152,6 +206,11 @@ def upscale_image_realesrgan(pil_img, scale=4, tile_size=512, tile_pad=16, sharp
     if has_alpha:
         target_w, target_h = out_pil.size
         high_alpha = orig_alpha.resize((target_w, target_h), Image.Resampling.LANCZOS)
+        if profile == "logos":
+            alpha_np = np.array(high_alpha)
+            alpha_np = np.where(alpha_np > 220, 255, alpha_np)
+            alpha_np = np.where(alpha_np < 25, 0, alpha_np)
+            high_alpha = Image.fromarray(alpha_np.astype(np.uint8))
         out_pil.putalpha(high_alpha)
 
     if progress_cb:
@@ -181,6 +240,11 @@ class UpscalerAIApp:
         self.pil_original = None
         self.pil_upscaled = None
         self.current_img_path = None
+
+        # Contexto de Pedidos e Clientes de Estamparia
+        self.pedidos_carregados, self.clientes_carregados = load_estamparia_context()
+        self.pedido_selecionado = None
+        self.var_profile = tk.StringVar(value="geral")
 
         # Dados da seleção do CorelDRAW
         self.orig_w = 0.0
@@ -284,6 +348,53 @@ class UpscalerAIApp:
         )
         self.btn_paste.pack(side=tk.LEFT, padx=3)
 
+        # 1.1 Barra de Contexto de Pedido & Raio-X de Impressão @ 300 DPI
+        ctx_frame = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=6)
+        ctx_frame.pack(fill=tk.X, pady=(0, 6))
+
+        ctx_top = tk.Frame(ctx_frame, bg="#0F172A")
+        ctx_top.pack(fill=tk.X)
+
+        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+
+        ped_list = ["-- Nenhum Pedido Vinculado (Modo Livre) --"]
+        for p in self.pedidos_carregados:
+            ped_list.append(f"#{p.get('numeroPedido', '?')} - {p.get('clienteNome', '')} ({p.get('corTecido', 'Camisa')} - {p.get('descricaoEstampa', '')[:20]})")
+
+        self.cbo_pedidos = ttk.Combobox(ctx_top, values=ped_list, state="readonly", width=42, font=("Segoe UI", 8, "bold"))
+        self.cbo_pedidos.current(0)
+        self.cbo_pedidos.pack(side=tk.LEFT, padx=(0, 8))
+        self.cbo_pedidos.bind("<<ComboboxSelected>>", self.on_pedido_selecionado)
+
+        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#CBD5E1", bg="#0F172A")
+        self.lbl_pedido_badge.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.btn_salvar_pasta_pedido = tk.Button(
+            ctx_top,
+            text="📁 Salvar na Pasta do Pedido",
+            font=("Segoe UI", 8, "bold"),
+            bg="#312E81",
+            fg="#C7D2FE",
+            activebackground="#4338CA",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=8,
+            pady=3,
+            command=self.salvar_na_pasta_do_pedido
+        )
+        self.btn_salvar_pasta_pedido.pack(side=tk.RIGHT)
+
+        self.lbl_raio_x = tk.Label(
+            ctx_frame,
+            text="💡 Raio-X de Impressão @ 300 DPI: Carregue uma imagem para calcular dimensões em cm e verificar qualidade técnica de estamparia.",
+            font=("Segoe UI", 8),
+            fg="#64748B",
+            bg="#0F172A",
+            anchor="w"
+        )
+        self.lbl_raio_x.pack(fill=tk.X, pady=(4, 0))
+
         # 2. Painel Central de Visualização
         preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
         preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
@@ -368,7 +479,15 @@ class UpscalerAIApp:
             activeforeground="#F59E0B",
             command=self.iniciar_upscale_async
         )
-        rb_8x.pack(side=tk.LEFT, padx=(0, 20))
+        rb_8x.pack(side=tk.LEFT, padx=(0, 16))
+
+        tk.Label(row_ctrl, text="Perfil da Arte:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A").pack(side=tk.LEFT, padx=(6, 4))
+        rb_p_geral = tk.Radiobutton(row_ctrl, text="⚡ Geral", variable=self.var_profile, value="geral", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        rb_p_geral.pack(side=tk.LEFT, padx=1)
+        rb_p_logos = tk.Radiobutton(row_ctrl, text="🎨 Logos & Vetores", variable=self.var_profile, value="logos", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        rb_p_logos.pack(side=tk.LEFT, padx=1)
+        rb_p_fotos = tk.Radiobutton(row_ctrl, text="📷 Fotos & Pessoas", variable=self.var_profile, value="fotos", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        rb_p_fotos.pack(side=tk.LEFT, padx=(1, 14))
 
         self.var_sharpen = tk.BooleanVar(value=True)
         cb_sharp = tk.Checkbutton(
@@ -520,6 +639,63 @@ class UpscalerAIApp:
         except Exception as e:
             messagebox.showerror("Erro ao abrir no Vetorizador", str(e))
 
+    def on_pedido_selecionado(self, event=None):
+        idx = self.cbo_pedidos.current()
+        if idx <= 0:
+            self.pedido_selecionado = None
+            self.lbl_pedido_badge.configure(text="")
+            return
+
+        pedido = self.pedidos_carregados[idx - 1]
+        self.pedido_selecionado = pedido
+        cliente_nome = pedido.get('clienteNome', 'Cliente')
+        cor_tecido = (pedido.get('corTecido') or '').upper().strip()
+        info_txt = f"Cliente: {cliente_nome} | Cor: {cor_tecido or 'Padrão'} | {pedido.get('totalPecas', '')} peças"
+        self.lbl_pedido_badge.configure(text=info_txt, fg="#A78BFA")
+
+        if self.pil_original is None and pedido.get('imagens') and len(pedido['imagens']) > 0:
+            first_img = pedido['imagens'][0]
+            img_path = first_img.get('caminhoSalvo') or first_img.get('caminho')
+            if img_path and os.path.isfile(img_path):
+                try:
+                    img = Image.open(img_path)
+                    self.carregar_imagem(img, desc=f"Pedido #{pedido.get('numeroPedido')} - {os.path.basename(img_path)}")
+                except Exception:
+                    pass
+
+    def salvar_na_pasta_do_pedido(self):
+        if not self.pedido_selecionado:
+            messagebox.showwarning("Aviso", "Selecione um pedido primeiro no seletor de contexto!")
+            return
+        target = self.pil_upscaled if self.pil_upscaled is not None else self.pil_original
+        if target is None:
+            messagebox.showwarning("Aviso", "Nenhuma imagem em alta resolução disponível para salvar!")
+            return
+
+        cliente_id = self.pedido_selecionado.get('clienteId')
+        cliente = next((c for c in self.clientes_carregados if c.get('id') == cliente_id), None)
+        pasta_dest = ""
+        if cliente and cliente.get('pastaDiretorio') and os.path.exists(cliente['pastaDiretorio']):
+            pasta_dest = cliente['pastaDiretorio']
+        elif self.pedido_selecionado.get('clientePasta') and os.path.exists(self.pedido_selecionado['clientePasta']):
+            pasta_dest = self.pedido_selecionado['clientePasta']
+
+        if not pasta_dest:
+            messagebox.showwarning("Aviso", "O cliente deste pedido não possui uma pasta válida cadastrada no sistema.")
+            return
+
+        num_ped = self.pedido_selecionado.get('numeroPedido', '0000')
+        desc_limpa = re.sub(r'[\\/:*?"<>|]', '_', self.pedido_selecionado.get('descricaoEstampa', 'Arte')).strip()
+        nome_arquivo = f"Arte_UltraHD_#{num_ped}_{desc_limpa}_{int(time.time())}.png"
+        caminho_final = os.path.join(pasta_dest, nome_arquivo)
+
+        try:
+            target.save(caminho_final, format="PNG")
+            messagebox.showinfo("Salvo com Sucesso!", f"Arte Ultra HD salva diretamente na pasta do cliente:\n\n{caminho_final}")
+            self.lbl_status.configure(text=f"Salvo na pasta do cliente: {nome_arquivo}", fg="#38BDF8")
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar", str(e))
+
     def verificar_selecao_inicial_corel(self):
         if self.pil_original is not None:
             return
@@ -537,6 +713,14 @@ class UpscalerAIApp:
             w, h = self.pil_original.size
             self.lbl_img_info.configure(text=f"{desc} (Original: {w} x {h} px)")
             self.lbl_orig_stats.configure(text=f"{w} x {h} px")
+
+            try:
+                diag = analyze_upscale_context(pil_img, scale=self.var_scale.get())
+                diag_txt = f"🔍 Raio-X Impressão @ 300 DPI: Original {diag['orig_px']} ({diag['orig_cm']}) ➔ ⚡ Ultra HD {diag['new_px']} ({diag['new_cm']}) | Adequado: {diag['classificacao']}"
+                self.lbl_raio_x.configure(text=diag_txt, fg="#38BDF8")
+            except Exception:
+                pass
+
             self.atualizar_canvas_original()
             self.iniciar_upscale_async()
         except Exception as e:
@@ -598,6 +782,7 @@ class UpscalerAIApp:
             def progress_update(pct, text):
                 self.root.after(0, lambda: self._update_progress_ui(pct, text))
 
+            profile_val = self.var_profile.get() if hasattr(self, 'var_profile') else "geral"
             t0 = time.time()
             out = upscale_image_realesrgan(
                 self.pil_original,
@@ -605,6 +790,7 @@ class UpscalerAIApp:
                 tile_size=512,
                 tile_pad=16,
                 sharpen=sharpen,
+                profile=profile_val,
                 progress_cb=progress_update
             )
             t1 = time.time()
@@ -625,6 +811,12 @@ class UpscalerAIApp:
         if self.pil_upscaled:
             uw, uh = self.pil_upscaled.size
             self.lbl_upscaled_stats.configure(text=f"{uw} x {uh} px | Real-ESRGAN {self.var_scale.get()}x")
+            try:
+                diag = analyze_upscale_context(self.pil_original, scale=self.var_scale.get())
+                diag_txt = f"🔍 Raio-X Impressão @ 300 DPI: Original {diag['orig_px']} ({diag['orig_cm']}) ➔ ⚡ Ultra HD {diag['new_px']} ({diag['new_cm']}) | Adequado: {diag['classificacao']}"
+                self.lbl_raio_x.configure(text=diag_txt, fg="#34D399")
+            except Exception:
+                pass
         self.lbl_status.configure(text=f"Super-resolução gerada em {dur}s com GPU DirectML! Imagem nítida e pronta para impressão.", fg="#38BDF8")
         self.btn_enviar_corel.configure(state="normal", text="🚀 ENVIAR IMAGEM ULTRA HD AO CORELDRAW")
 

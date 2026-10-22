@@ -13,8 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   excluirPedido: (pedidoId) => ipcRenderer.invoke('db:excluirPedido', pedidoId),
   carimbarNoCorel: (pedido) => ipcRenderer.invoke('corel:carimbarPedido', pedido),
   abrirMontadorCorel: () => ipcRenderer.invoke('corel:abrirMontador'),
-  abrirVetorizadorCorel: () => ipcRenderer.invoke('corel:abrirVetorizador'),
-  abrirRemovedorCorel: () => ipcRenderer.invoke('corel:abrirRemovedor'),
-  abrirUpscalerCorel: () => ipcRenderer.invoke('corel:abrirUpscaler'),
+  abrirVetorizadorCorel: (caminhoImagem) => ipcRenderer.invoke('corel:abrirVetorizador', caminhoImagem),
+  abrirRemovedorCorel: (caminhoImagem) => ipcRenderer.invoke('corel:abrirRemovedor', caminhoImagem),
+  abrirUpscalerCorel: (caminhoImagem) => ipcRenderer.invoke('corel:abrirUpscaler', caminhoImagem),
   criarPastaPedido: (pedido) => ipcRenderer.invoke('pastas:criarPastaPedido', pedido)
 });

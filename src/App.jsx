@@ -222,14 +222,14 @@ export default function App() {
   };
 
   // Abrir Vetorizador Profissional CorelDRAW
-  const abrirVetorizadorCorel = async () => {
+  const abrirVetorizadorCorel = async (caminhoImagem = null) => {
     if (!window.electronAPI || !window.electronAPI.abrirVetorizadorCorel) {
       avisar('erro', 'Vetorizador CorelDRAW indisponível.');
       return;
     }
-    avisar('sucesso', 'Abrindo janela do Vetorizador Profissional no CorelDRAW...');
+    avisar('sucesso', 'Abrindo janela do Vetorizador Profissional...');
     try {
-      const res = await window.electronAPI.abrirVetorizadorCorel();
+      const res = await window.electronAPI.abrirVetorizadorCorel(caminhoImagem);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir vetorizador: ${res.erro}`);
       }
@@ -239,14 +239,14 @@ export default function App() {
   };
 
   // Abrir Removedor de Fundo IA CorelDRAW
-  const abrirRemovedorCorel = async () => {
+  const abrirRemovedorCorel = async (caminhoImagem = null) => {
     if (!window.electronAPI || !window.electronAPI.abrirRemovedorCorel) {
       avisar('erro', 'Removedor de Fundo CorelDRAW indisponível.');
       return;
     }
-    avisar('sucesso', 'Abrindo janela do Removedor de Fundo IA no CorelDRAW...');
+    avisar('sucesso', 'Abrindo janela do Removedor de Fundo IA...');
     try {
-      const res = await window.electronAPI.abrirRemovedorCorel();
+      const res = await window.electronAPI.abrirRemovedorCorel(caminhoImagem);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir removedor: ${res.erro}`);
       }
@@ -256,14 +256,14 @@ export default function App() {
   };
 
   // Abrir Upscaler IA Ultra HD CorelDRAW
-  const abrirUpscalerCorel = async () => {
+  const abrirUpscalerCorel = async (caminhoImagem = null) => {
     if (!window.electronAPI || !window.electronAPI.abrirUpscalerCorel) {
       avisar('erro', 'Upscaler IA CorelDRAW indisponível.');
       return;
     }
-    avisar('sucesso', 'Abrindo janela do Upscaler IA Ultra HD no CorelDRAW...');
+    avisar('sucesso', 'Abrindo janela do Upscaler IA Ultra HD...');
     try {
-      const res = await window.electronAPI.abrirUpscalerCorel();
+      const res = await window.electronAPI.abrirUpscalerCorel(caminhoImagem);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir upscaler: ${res.erro}`);
       }
@@ -620,11 +620,49 @@ export default function App() {
                 className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg"
               />
             </div>
-            {imagemModal.caminho && (
-              <div className="p-3 bg-slate-950 text-center text-xs text-slate-500 font-mono truncate border-t border-slate-800">
-                {imagemModal.caminho}
+            <div className="p-3 bg-slate-950 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800">
+              <div className="text-xs text-slate-400 font-mono truncate max-w-xs md:max-w-md">
+                {imagemModal.caminho || imagemModal.caminhoSalvo || 'Arte da Estampa'}
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = imagemModal.caminhoSalvo || imagemModal.caminho;
+                    abrirRemovedorCorel(p);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  title="Abrir esta imagem diretamente no Removedor de Fundo IA"
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Recortar IA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = imagemModal.caminhoSalvo || imagemModal.caminho;
+                    abrirUpscalerCorel(p);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  title="Aumentar para Ultra HD 300 DPI com IA"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  Upscale 4x
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = imagemModal.caminhoSalvo || imagemModal.caminho;
+                    abrirVetorizadorCorel(p);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  title="Converter para curvas SVG com IA"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Vetorizar IA
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

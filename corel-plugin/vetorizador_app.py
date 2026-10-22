@@ -17,6 +17,8 @@ import re
 import math
 import tempfile
 import threading
+import json
+import time
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
@@ -30,6 +32,22 @@ try:
     HAS_REAL_ESRGAN = True
 except Exception:
     HAS_REAL_ESRGAN = False
+
+def load_estamparia_context():
+    """Carrega todos os pedidos e clientes para fornecer contexto de estamparia à IA."""
+    db_paths = [
+        os.path.join(os.environ.get('APPDATA', ''), 'estamparia-manager', 'db_estamparia.json'),
+        os.path.join(os.environ.get('APPDATA', ''), 'Order Separator', 'db_estamparia.json'),
+    ]
+    for p in db_paths:
+        if os.path.exists(p):
+            try:
+                with open(p, 'r', encoding='utf-8') as f:
+                    db = json.load(f)
+                    return db.get('pedidos', []), db.get('clientes', [])
+            except Exception:
+                pass
+    return [], []
 
 # =========================================================================
 # FUNÇÕES DE PROCESSAMENTO E VETORIZAÇÃO DE ALTA QUALIDADE
@@ -762,7 +780,7 @@ class VetorizadorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Order Separator - Vetorizador Profissional")
-        self.root.geometry("560x780")
+        self.root.geometry("580x850")
         self.root.resizable(False, False)
         self.root.attributes('-topmost', True)
         self.root.configure(bg="#0B0F19")
@@ -780,6 +798,11 @@ class VetorizadorApp:
         self.orig_x = 0.0
         self.orig_y = 0.0
         self.preview_image_tk = None
+        self.last_output_svg = None
+
+        # Contexto de Pedidos e Clientes de Estamparia
+        self.pedidos_carregados, self.clientes_carregados = load_estamparia_context()
+        self.pedido_selecionado = None
 
         self.setup_styles()
         self.build_ui()
@@ -805,7 +828,45 @@ class VetorizadorApp:
         lbl_head = tk.Label(main_frame, text="Vetorizador de Imagens (Ultra Precisão)", font=("Segoe UI", 13, "bold"), fg="#818CF8", bg="#0B0F19")
         lbl_head.pack(anchor="w")
         lbl_sub = tk.Label(main_frame, text="Super-Resolução Lanczos + K-Means + Dual-Spline (Sem halos ou bordas cinzas)", font=("Segoe UI", 8), fg="#94A3B8", bg="#0B0F19")
-        lbl_sub.pack(anchor="w", pady=(0, 10))
+        lbl_sub.pack(anchor="w", pady=(0, 6))
+
+        # Contexto de Pedidos de Estamparia
+        if self.pedidos_carregados:
+            pnl_contexto = tk.Frame(main_frame, bg="#131B2E", bd=1, relief="solid", padx=8, pady=6)
+            pnl_contexto.pack(fill=tk.X, pady=(0, 8))
+
+            row_top = tk.Frame(pnl_contexto, bg="#131B2E")
+            row_top.pack(fill=tk.X)
+
+            tk.Label(row_top, text="📋 Pedido:", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#131B2E").pack(side=tk.LEFT)
+
+            ped_options = ["Nenhum (Modo Avulso)"] + [
+                f"#{p.get('numeroPedido', '0000')} - {p.get('clienteNome', 'Cliente')} ({p.get('corTecido', 'Padrão')}) - {p.get('descricaoEstampa', '')[:20]}"
+                for p in self.pedidos_carregados
+            ]
+            self.cbo_pedidos = ttk.Combobox(row_top, values=ped_options, state="readonly", font=("Segoe UI", 8), width=32)
+            self.cbo_pedidos.current(0)
+            self.cbo_pedidos.pack(side=tk.LEFT, padx=6)
+            self.cbo_pedidos.bind("<<ComboboxSelected>>", self.on_pedido_selecionado)
+
+            self.btn_salvar_pasta = tk.Button(
+                row_top,
+                text="📁 Salvar na Pasta",
+                font=("Segoe UI", 8, "bold"),
+                bg="#1E293B",
+                fg="#38BDF8",
+                activebackground="#334155",
+                activeforeground="#FFFFFF",
+                bd=0,
+                cursor="hand2",
+                padx=6,
+                pady=2,
+                command=self.salvar_na_pasta_do_pedido
+            )
+            self.btn_salvar_pasta.pack(side=tk.RIGHT)
+
+            self.lbl_pedido_badge = tk.Label(pnl_contexto, text="", font=("Segoe UI", 7.5, "bold"), fg="#A78BFA", bg="#131B2E", anchor="w")
+            self.lbl_pedido_badge.pack(fill=tk.X, pady=(3, 0))
 
         # 2. Caixa de Origem (Captura CorelDRAW / Arquivo)
         pnl_origem = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
@@ -968,7 +1029,7 @@ class VetorizadorApp:
         # 7. Botão Principal
         self.btn_vetorizar = tk.Button(
             main_frame, 
-            text="VETORIZAR E ENVIAR PARA O CORELDRAW", 
+            text="🚀 VETORIZAR E ENVIAR PARA O CORELDRAW", 
             font=("Segoe UI", 11, "bold"), 
             bg="#4F46E5", 
             fg="#FFFFFF", 
@@ -976,12 +1037,125 @@ class VetorizadorApp:
             activeforeground="#FFFFFF",
             bd=0, 
             cursor="hand2", 
-            pady=12,
+            pady=10,
             command=self.iniciar_vetorizacao
         )
         self.btn_vetorizar.pack(fill=tk.X)
 
+        # Linha de Ações Adicionais
+        row_extra = tk.Frame(main_frame, bg="#0B0F19")
+        row_extra.pack(fill=tk.X, pady=(6, 0))
+
+        self.btn_salvar_svg = tk.Button(
+            row_extra,
+            text="💾 Exportar SVG...",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#1E293B",
+            fg="#E2E8F0",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=8,
+            pady=6,
+            command=self.exportar_svg
+        )
+        self.btn_salvar_svg.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
+
+        self.btn_salvar_pedido_full = tk.Button(
+            row_extra,
+            text="📁 Salvar SVG na Pasta do Pedido",
+            font=("Segoe UI", 8.5, "bold"),
+            bg="#1E293B",
+            fg="#38BDF8",
+            activebackground="#334155",
+            activeforeground="#FFFFFF",
+            bd=0,
+            cursor="hand2",
+            padx=8,
+            pady=6,
+            command=self.salvar_na_pasta_do_pedido
+        )
+        self.btn_salvar_pedido_full.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(3, 0))
+
         self.root.bind("<Escape>", lambda e: self.root.destroy())
+
+    def on_pedido_selecionado(self, event=None):
+        if not hasattr(self, 'cbo_pedidos'):
+            return
+        idx = self.cbo_pedidos.current()
+        if idx <= 0:
+            self.pedido_selecionado = None
+            self.lbl_pedido_badge.configure(text="")
+            return
+
+        pedido = self.pedidos_carregados[idx - 1]
+        self.pedido_selecionado = pedido
+        cliente_nome = pedido.get('clienteNome', 'Cliente')
+        cor_tecido = (pedido.get('corTecido') or '').upper().strip()
+        info_txt = f"Cliente: {cliente_nome} | Tecido: {cor_tecido or 'Padrão'} | {pedido.get('totalPecas', '')} peças"
+        self.lbl_pedido_badge.configure(text=info_txt, fg="#A78BFA")
+
+        # Ajuste inteligente para estamparia conforme o tecido
+        if cor_tecido in ["PRETO", "MARINHO", "ESCURO", "CHUMBO"]:
+            self.var_remove_bg.set(True)
+            self.var_stacked.set(True)
+
+        if not self.current_img_path and pedido.get('imagens') and len(pedido['imagens']) > 0:
+            first_img = pedido['imagens'][0]
+            img_path = first_img.get('caminhoSalvo') or first_img.get('caminho')
+            if img_path and os.path.isfile(img_path):
+                self.carregar_imagem_no_preview(img_path)
+
+    def salvar_na_pasta_do_pedido(self):
+        if not self.pedido_selecionado:
+            messagebox.showwarning("Aviso", "Selecione um pedido no seletor de contexto primeiro!")
+            return
+        if not self.last_output_svg or not os.path.exists(self.last_output_svg):
+            messagebox.showwarning("Aviso", "Vetorize a imagem primeiro para gerar o arquivo SVG!")
+            return
+
+        cliente_id = self.pedido_selecionado.get('clienteId')
+        cliente = next((c for c in self.clientes_carregados if c.get('id') == cliente_id), None)
+        pasta_dest = ""
+        if cliente and cliente.get('pastaDiretorio') and os.path.exists(cliente['pastaDiretorio']):
+            pasta_dest = cliente['pastaDiretorio']
+        elif self.pedido_selecionado.get('clientePasta') and os.path.exists(self.pedido_selecionado['clientePasta']):
+            pasta_dest = self.pedido_selecionado['clientePasta']
+
+        if not pasta_dest:
+            messagebox.showwarning("Aviso", "O cliente deste pedido não possui uma pasta válida cadastrada.")
+            return
+
+        num_ped = self.pedido_selecionado.get('numeroPedido', '0000')
+        desc_limpa = re.sub(r'[\\/:*?"<>|]', '_', self.pedido_selecionado.get('descricaoEstampa', 'Arte')).strip()
+        nome_arquivo = f"Vetor_#{num_ped}_{desc_limpa}_{int(time.time())}.svg"
+        caminho_final = os.path.join(pasta_dest, nome_arquivo)
+
+        try:
+            import shutil
+            shutil.copy2(self.last_output_svg, caminho_final)
+            messagebox.showinfo("Salvo com Sucesso!", f"Vetor SVG salvo diretamente na pasta do cliente:\n\n{caminho_final}")
+            self.lbl_status.configure(text=f"SVG salvo na pasta do cliente: {nome_arquivo}", fg="#38BDF8")
+        except Exception as e:
+            messagebox.showerror("Erro ao salvar", str(e))
+
+    def exportar_svg(self):
+        if not self.last_output_svg or not os.path.exists(self.last_output_svg):
+            messagebox.showwarning("Aviso", "Vetorize a imagem primeiro para gerar o arquivo SVG!")
+            return
+        f = filedialog.asksaveasfilename(
+            title="Salvar Arquivo Vetorial SVG",
+            defaultextension=".svg",
+            filetypes=[("Vetor SVG", "*.svg")]
+        )
+        if f:
+            try:
+                import shutil
+                shutil.copy2(self.last_output_svg, f)
+                messagebox.showinfo("Sucesso", f"Vetor SVG exportado com sucesso:\n{f}")
+            except Exception as e:
+                messagebox.showerror("Erro ao exportar", str(e))
 
     def select_preset(self, preset_id):
         self.preset_var.set(preset_id)
@@ -1164,6 +1338,7 @@ class VetorizadorApp:
                 unify_colors=harmonize,
                 preset=preset
             )
+            self.last_output_svg = output_svg
             self.content_ratio_w = cr_w
             self.content_ratio_h = cr_h
 
