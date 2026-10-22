@@ -623,7 +623,11 @@ export default function App() {
         (p.numeroPedido && p.numeroPedido.toLowerCase().includes(termo)) ||
         (p.clienteNome && p.clienteNome.toLowerCase().includes(termo)) ||
         (p.clienteLoja && p.clienteLoja.toLowerCase().includes(termo)) ||
-        (p.descricaoEstampa && p.descricaoEstampa.toLowerCase().includes(termo))
+        (p.descricaoEstampa && p.descricaoEstampa.toLowerCase().includes(termo)) ||
+        (p.tipoTecido && p.tipoTecido.toLowerCase().includes(termo)) ||
+        (p.corTecido && p.corTecido.toLowerCase().includes(termo)) ||
+        (p.posicaoEstampa && p.posicaoEstampa.toLowerCase().includes(termo)) ||
+        (p.observacoes && p.observacoes.toLowerCase().includes(termo))
       );
     });
   }, [pedidos, busca, filtroStatus]);
