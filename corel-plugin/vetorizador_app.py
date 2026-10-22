@@ -1080,6 +1080,35 @@ class VetorizadorApp:
 
         self.root.bind("<Escape>", lambda e: self.root.destroy())
 
+    def find_pedido_by_image_path(self, image_path):
+        if not image_path or not self.pedidos_carregados:
+            return None
+        norm_target = os.path.normpath(os.path.abspath(image_path)).lower()
+        base_target = os.path.basename(image_path).lower()
+        for idx, p in enumerate(self.pedidos_carregados):
+            for img in p.get('imagens', []):
+                for k in ('caminho', 'caminhoSalvo'):
+                    cp = img.get(k)
+                    if cp:
+                        norm_cp = os.path.normpath(os.path.abspath(cp)).lower()
+                        if norm_cp == norm_target or os.path.basename(cp).lower() == base_target:
+                            return idx, p
+            c_pasta = p.get('clientePasta')
+            if c_pasta:
+                norm_pasta = os.path.normpath(os.path.abspath(c_pasta)).lower()
+                if norm_target.startswith(norm_pasta):
+                    return idx, p
+        return None
+
+    def auto_vincular_pedido_por_imagem(self, img_path):
+        if not hasattr(self, 'cbo_pedidos'):
+            return
+        match = self.find_pedido_by_image_path(img_path)
+        if match:
+            idx, p = match
+            self.cbo_pedidos.current(idx + 1)
+            self.on_pedido_selecionado()
+
     def on_pedido_selecionado(self, event=None):
         if not hasattr(self, 'cbo_pedidos'):
             return
@@ -1201,6 +1230,9 @@ class VetorizadorApp:
             pil_img = Image.open(path)
             w, h = pil_img.size
             size_kb = round(os.path.getsize(path) / 1024, 1)
+
+            # Auto-vincula ao pedido correspondente no sistema
+            self.auto_vincular_pedido_por_imagem(path)
 
             pil_thumb = pil_img.copy()
             pil_thumb.thumbnail((88, 88), Image.Resampling.LANCZOS)

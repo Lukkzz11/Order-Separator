@@ -260,8 +260,9 @@ class UpscalerAIApp:
         # Suporte a carregamento direto via argumento CLI (ex: vindo do Removedor ou Corel)
         if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
             try:
-                img = Image.open(sys.argv[1])
-                self.root.after(200, lambda: self.carregar_imagem(img, desc=os.path.basename(sys.argv[1])))
+                f = sys.argv[1]
+                img = Image.open(f)
+                self.root.after(200, lambda: self.carregar_imagem(img, desc=os.path.basename(f), file_path=f))
             except Exception:
                 self.root.after(800, self.verificar_selecao_inicial_corel)
         else:
@@ -639,6 +640,35 @@ class UpscalerAIApp:
         except Exception as e:
             messagebox.showerror("Erro ao abrir no Vetorizador", str(e))
 
+    def find_pedido_by_image_path(self, image_path):
+        if not image_path or not self.pedidos_carregados:
+            return None
+        norm_target = os.path.normpath(os.path.abspath(image_path)).lower()
+        base_target = os.path.basename(image_path).lower()
+        for idx, p in enumerate(self.pedidos_carregados):
+            for img in p.get('imagens', []):
+                for k in ('caminho', 'caminhoSalvo'):
+                    cp = img.get(k)
+                    if cp:
+                        norm_cp = os.path.normpath(os.path.abspath(cp)).lower()
+                        if norm_cp == norm_target or os.path.basename(cp).lower() == base_target:
+                            return idx, p
+            c_pasta = p.get('clientePasta')
+            if c_pasta:
+                norm_pasta = os.path.normpath(os.path.abspath(c_pasta)).lower()
+                if norm_target.startswith(norm_pasta):
+                    return idx, p
+        return None
+
+    def auto_vincular_pedido_por_imagem(self, img_path):
+        if not hasattr(self, 'cbo_pedidos'):
+            return
+        match = self.find_pedido_by_image_path(img_path)
+        if match:
+            idx, p = match
+            self.cbo_pedidos.current(idx + 1)
+            self.on_pedido_selecionado()
+
     def on_pedido_selecionado(self, event=None):
         idx = self.cbo_pedidos.current()
         if idx <= 0:
@@ -707,12 +737,16 @@ class UpscalerAIApp:
         except Exception:
             pass
 
-    def carregar_imagem(self, pil_img, desc=""):
+    def carregar_imagem(self, pil_img, desc="", file_path=None):
         try:
             self.pil_original = pil_img.copy()
             w, h = self.pil_original.size
             self.lbl_img_info.configure(text=f"{desc} (Original: {w} x {h} px)")
             self.lbl_orig_stats.configure(text=f"{w} x {h} px")
+
+            # Se veio de arquivo, auto-vincula ao pedido correspondente no sistema
+            if file_path:
+                self.auto_vincular_pedido_por_imagem(file_path)
 
             try:
                 diag = analyze_upscale_context(pil_img, scale=self.var_scale.get())
@@ -835,7 +869,7 @@ class UpscalerAIApp:
             self.orig_w = 0.0
             self.orig_h = 0.0
             img = Image.open(f)
-            self.carregar_imagem(img, desc=os.path.basename(f))
+            self.carregar_imagem(img, desc=os.path.basename(f), file_path=f)
 
     def colar_clipboard(self):
         try:

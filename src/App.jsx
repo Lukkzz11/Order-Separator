@@ -917,6 +917,12 @@ export default function App() {
             <span className="text-slate-400 font-medium">Fila Ativa:</span>
             <span className="text-indigo-400 font-bold font-mono">{metricas.totalPecasProducao} peças</span>
           </div>
+          <div className="flex items-center justify-between text-slate-400">
+            <span>Aceleração IA:</span>
+            <span className="text-sky-400 font-mono font-bold text-[11px] flex items-center gap-1">
+              ⚡ RTX DirectML
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-emerald-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span>App Local Conectado</span>
@@ -1158,28 +1164,73 @@ export default function App() {
 
                           {/* Miniaturas das Imagens da Estampa no Card */}
                           {Array.isArray(pedido.imagens) && pedido.imagens.length > 0 && (
-                            <div className="flex items-center gap-2 pt-1 overflow-x-auto pb-1">
-                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
-                                <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> Artes:
-                              </span>
-                              {pedido.imagens.map((img, idx) => (
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 mt-1">
+                              <div className="flex items-center gap-2 overflow-x-auto py-1">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
+                                  <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> Artes:
+                                </span>
+                                {pedido.imagens.map((img, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => setImagemModal(img)}
+                                    className="group relative w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 hover:border-indigo-500 transition-all flex-shrink-0 shadow-sm"
+                                    title={`Ver arte: ${img.nome || 'Estampa'}`}
+                                  >
+                                    <img 
+                                      src={img.preview || img.caminhoSalvo || img.caminho} 
+                                      alt={img.nome || 'Estampa'} 
+                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Eye className="w-3.5 h-3.5 text-white" />
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Ações Rápidas de IA para a Arte deste Pedido */}
+                              <div className="flex items-center gap-1.5 ml-auto">
                                 <button
-                                  key={idx}
                                   type="button"
-                                  onClick={() => setImagemModal(img)}
-                                  className="group relative w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 hover:border-indigo-500 transition-all flex-shrink-0 shadow-sm"
-                                  title={`Ver arte: ${img.nome || 'Estampa'}`}
+                                  onClick={() => {
+                                    const img = pedido.imagens[0];
+                                    const p = img.caminhoSalvo || img.caminho;
+                                    abrirRemovedorCorel(p);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  title="Recortar Fundo IA da arte deste pedido"
                                 >
-                                  <img 
-                                    src={img.preview || img.caminhoSalvo || img.caminho} 
-                                    alt={img.nome || 'Estampa'} 
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <Eye className="w-3.5 h-3.5 text-white" />
-                                  </div>
+                                  <Scissors className="w-3 h-3" />
+                                  <span>Recortar IA</span>
                                 </button>
-                              ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const img = pedido.imagens[0];
+                                    const p = img.caminhoSalvo || img.caminho;
+                                    abrirUpscalerCorel(p);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  title="Aumentar resolução (300 DPI) com IA"
+                                >
+                                  <Maximize2 className="w-3 h-3" />
+                                  <span>Upscale 4x</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const img = pedido.imagens[0];
+                                    const p = img.caminhoSalvo || img.caminho;
+                                    abrirVetorizadorCorel(p);
+                                  }}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  title="Converter arte deste pedido em vetor SVG"
+                                >
+                                  <Sparkles className="w-3 h-3" />
+                                  <span>Vetorizar</span>
+                                </button>
+                              </div>
                             </div>
                           )}
 
