@@ -36,7 +36,8 @@ import {
   FolderPlus,
   Grid,
   Sparkles,
-  Maximize2
+  Maximize2,
+  Calculator
 } from 'lucide-react';
 import logoImg from './assets/logo.png';
 
@@ -71,6 +72,72 @@ export default function App() {
   const [modoEdicaoId, setModoEdicaoId] = useState(null);
   const [modalSeparacao, setModalSeparacao] = useState(null);
   const [itensConferidos, setItensConferidos] = useState({});
+  const [modalFicha, setModalFicha] = useState(null); // Ficha de Produção / OS
+  const [modalCalculadoraDTF, setModalCalculadoraDTF] = useState(false); // Calculadora DTF
+
+  // Formulário da Calculadora de Bobina DTF
+  const [dtfCalcForm, setDtfCalcForm] = useState({
+    larguraBobina: 58,
+    larguraEstampa: 20,
+    alturaEstampa: 28,
+    quantidade: 50,
+    espacamento: 1,
+    custoMetro: 35.0,
+    margemLucro: 100,
+    origemPedido: ''
+  });
+
+  // Cálculo Dinâmico de Aproveitamento na Bobina DTF
+  const resultadoCalculoDTF = useMemo(() => {
+    const bobina = Math.max(10, Number(dtfCalcForm.larguraBobina) || 58);
+    const lEst = Math.max(1, Number(dtfCalcForm.larguraEstampa) || 20);
+    const aEst = Math.max(1, Number(dtfCalcForm.alturaEstampa) || 28);
+    const qtd = Math.max(1, Number(dtfCalcForm.quantidade) || 1);
+    const esp = Math.max(0, Number(dtfCalcForm.espacamento) || 1);
+    const cMetro = Number(dtfCalcForm.custoMetro) || 35.0;
+    const margem = Number(dtfCalcForm.margemLucro) || 100;
+
+    // Quantas artes cabem lado a lado na largura da bobina
+    const porLinha = Math.max(1, Math.floor((bobina + esp) / (lEst + esp)));
+    const totalLinhas = Math.ceil(qtd / porLinha);
+    const metrosLineares = Number(((totalLinhas * (aEst + esp)) / 100).toFixed(2));
+    const m2Total = Number(((metrosLineares * bobina) / 100).toFixed(2));
+    const custoTotal = Number((metrosLineares * cMetro).toFixed(2));
+    const precoSugerido = Number((custoTotal * (1 + margem / 100)).toFixed(2));
+    const custoUn = Number((custoTotal / qtd).toFixed(2));
+    const precoUn = Number((precoSugerido / qtd).toFixed(2));
+
+    return {
+      porLinha,
+      totalLinhas,
+      metrosLineares,
+      m2Total,
+      custoTotal,
+      precoSugerido,
+      custoUn,
+      precoUn
+    };
+  }, [dtfCalcForm]);
+
+  const abrirCalculadoraParaPedido = (pedido) => {
+    let larg = 20, alt = 28;
+    const pos = (pedido.posicaoEstampa || '').toLowerCase();
+    if (pos.includes('peito') || pos.includes('bolso') || pos.includes('manga')) {
+      larg = 10; alt = 10;
+    } else if (pos.includes('costas') || pos.includes('a3') || pos.includes('grande')) {
+      larg = 28; alt = 40;
+    } else if (pos.includes('frente')) {
+      larg = 21; alt = 30;
+    }
+    setDtfCalcForm(prev => ({
+      ...prev,
+      larguraEstampa: larg,
+      alturaEstampa: alt,
+      quantidade: pedido.totalPecas || 1,
+      origemPedido: `#${pedido.numeroPedido} - ${pedido.clienteNome}`
+    }));
+    setModalCalculadoraDTF(true);
+  };
 
   // Formulário de Clientes
   const [clienteForm, setClienteForm] = useState({
@@ -778,6 +845,316 @@ export default function App() {
         </div>
       )}
 
+      {/* ================= MODAL FICHA DE PRODUÇÃO (OS IMPRESSA) ================= */}
+      {modalFicha && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="relative bg-white text-slate-900 rounded-3xl max-w-3xl w-full p-6 md:p-8 shadow-2xl space-y-6 my-auto" id="area-impressao-ficha">
+            
+            {/* Barra de Ações (Não sai na impressão) */}
+            <div className="no-print flex items-center justify-between border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-lg text-slate-900">Ficha de Produção & Ordem de Serviço</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                  title="Imprimir esta ficha em papel A4 ou salvar como PDF"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir Ficha (A4)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalFicha(null)}
+                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Cabeçalho Físico da Ficha */}
+            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Order Separator</h1>
+                <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider">Ficha de Produção & Estamparia Têxtil</p>
+                <div className="mt-2 text-xs text-slate-700 space-y-0.5">
+                  <p><strong>Emissão:</strong> {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                  {modalFicha.dataEntrega && (
+                    <p className="text-red-700 font-bold"><strong>Prazo de Entrega:</strong> {formatarDataBR(modalFicha.dataEntrega)}</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="inline-block px-4 py-2 bg-slate-900 text-white font-mono font-black text-2xl rounded-2xl">
+                  #{modalFicha.numeroPedido}
+                </div>
+                <div className="mt-2 text-xs font-bold text-slate-700 uppercase">
+                  Status: <span className="underline">{modalFicha.status}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dados do Cliente e Especificações da Peça */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-indigo-600" /> Dados do Cliente
+                </h4>
+                <p><strong>Cliente:</strong> {modalFicha.clienteNome}</p>
+                {modalFicha.clienteLoja && <p><strong>Loja/Marca:</strong> {modalFicha.clienteLoja}</p>}
+                {modalFicha.clienteTelefone && <p><strong>Telefone / WhatsApp:</strong> {modalFicha.clienteTelefone}</p>}
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-indigo-600" /> Especificação Têxtil
+                </h4>
+                <p><strong>Tecido:</strong> {modalFicha.tipoTecido}</p>
+                <p><strong>Cor do Tecido:</strong> <span className="font-bold uppercase px-1.5 py-0.5 bg-slate-200 rounded">{modalFicha.corTecido}</span></p>
+                <p><strong>Posição da Estampa:</strong> {modalFicha.posicaoEstampa}</p>
+                <p><strong>Descrição da Arte:</strong> {modalFicha.descricaoEstampa || 'Sem descrição'}</p>
+              </div>
+            </div>
+
+            {/* Imagem da Arte e Grade Quantitativa */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+              {/* Imagem / Mockup */}
+              <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 flex flex-col items-center justify-center text-center">
+                <span className="text-[11px] font-bold text-slate-700 uppercase mb-2">Mockup / Arte</span>
+                {Array.isArray(modalFicha.imagens) && modalFicha.imagens.length > 0 ? (
+                  <img 
+                    src={modalFicha.imagens[0].preview || modalFicha.imagens[0].caminhoSalvo || modalFicha.imagens[0].caminho} 
+                    alt="Arte da Estampa" 
+                    className="max-h-40 max-w-full object-contain rounded-xl border border-slate-300 shadow-sm"
+                  />
+                ) : (
+                  <div className="h-32 w-full flex items-center justify-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded-xl">
+                    Sem arte anexada
+                  </div>
+                )}
+              </div>
+
+              {/* Tabela de Grade de Peças */}
+              <div className="md:col-span-2 border border-slate-200 rounded-2xl p-4 bg-slate-50">
+                <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-2 mb-3 flex items-center justify-between">
+                  <span>Grade de Produção & Separação</span>
+                  <span className="font-mono text-sm text-indigo-700 font-black">Total: {modalFicha.totalPecas} peças</span>
+                </h4>
+                
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-300 text-slate-600 uppercase text-[10px]">
+                      <th className="py-1 px-2">Tamanho</th>
+                      <th className="py-1 px-2 font-mono text-right">Qtd</th>
+                      <th className="py-1 px-3 text-center">Conferido [ ✓ ]</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(modalFicha.grade || {})
+                      .filter(([_, qtd]) => Number(qtd) > 0)
+                      .map(([tam, qtd]) => (
+                        <tr key={tam} className="border-b border-slate-200">
+                          <td className="py-1.5 px-2 font-bold font-mono text-slate-900">{tam}</td>
+                          <td className="py-1.5 px-2 font-bold font-mono text-right text-indigo-700">{qtd} un</td>
+                          <td className="py-1.5 px-3 text-center">
+                            <span className="inline-block w-4 h-4 border-2 border-slate-400 rounded"></span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Observações e Assinaturas */}
+            <div className="border-t border-slate-200 pt-3 space-y-4 text-xs">
+              {modalFicha.observacoes && (
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
+                  <strong>Observações Importantes:</strong> {modalFicha.observacoes}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-8 pt-6">
+                <div className="border-t border-slate-400 text-center pt-1 text-slate-600">
+                  Assinatura do Separador / Impressor
+                </div>
+                <div className="border-t border-slate-400 text-center pt-1 text-slate-600">
+                  Assinatura da Conferência / Expedição
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL CALCULADORA DE BOBINA DTF ================= */}
+      {modalCalculadoraDTF && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6 my-auto">
+            
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-950/80 rounded-xl border border-amber-800/60">
+                  <Calculator className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-lg text-white">Calculadora de Bobina DTF</h3>
+                  <p className="text-xs text-slate-400">
+                    {dtfCalcForm.origemPedido ? `Calculando para: ${dtfCalcForm.origemPedido}` : 'Cálculo inteligente de metragem linear, aproveitamento e custo de insumos'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalCalculadoraDTF(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Presets Rápidos de Estampa */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Presets de Tamanho de Estampa:</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: 'Peito / Bolso', w: 10, h: 10 },
+                  { label: 'Frente A4', w: 20, h: 28 },
+                  { label: 'Costas A3', w: 28, h: 40 },
+                  { label: 'Painel Total', w: 56, h: 40 }
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setDtfCalcForm(prev => ({ ...prev, larguraEstampa: preset.w, alturaEstampa: preset.h }))}
+                    className="px-3 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 rounded-xl text-xs font-semibold text-slate-300 transition-all text-center"
+                  >
+                    <div>{preset.label}</div>
+                    <div className="text-[10px] text-amber-400 font-mono mt-0.5">{preset.w} x {preset.h} cm</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Campos de Entrada */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Largura Bobina (cm):</label>
+                <input 
+                  type="number" 
+                  value={dtfCalcForm.larguraBobina}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, larguraBobina: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Largura Estampa (cm):</label>
+                <input 
+                  type="number" 
+                  value={dtfCalcForm.larguraEstampa}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, larguraEstampa: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Altura Estampa (cm):</label>
+                <input 
+                  type="number" 
+                  value={dtfCalcForm.alturaEstampa}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, alturaEstampa: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Quantidade de Peças:</label>
+                <input 
+                  type="number" 
+                  value={dtfCalcForm.quantidade}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, quantidade: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Custo / Metro (R$):</label>
+                <input 
+                  type="number" 
+                  step="0.5"
+                  value={dtfCalcForm.custoMetro}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, custoMetro: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400 uppercase">Margem de Lucro (%):</label>
+                <input 
+                  type="number" 
+                  value={dtfCalcForm.margemLucro}
+                  onChange={e => setDtfCalcForm({ ...dtfCalcForm, margemLucro: e.target.value })}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Painel de Resultados */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Aproveitamento:</span>
+                <div className="font-mono text-base font-black text-amber-400">
+                  {resultadoCalculoDTF.porLinha} un / linha
+                </div>
+                <p className="text-[10px] text-slate-500">{resultadoCalculoDTF.totalLinhas} linhas na bobina</p>
+              </div>
+
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Metragem Bobina:</span>
+                <div className="font-mono text-base font-black text-sky-400">
+                  {resultadoCalculoDTF.metrosLineares} m
+                </div>
+                <p className="text-[10px] text-slate-500">Área: {resultadoCalculoDTF.m2Total} m²</p>
+              </div>
+
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Custo Estimado:</span>
+                <div className="font-mono text-base font-black text-red-400">
+                  R$ {resultadoCalculoDTF.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-[10px] text-slate-500">R$ {resultadoCalculoDTF.custoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
+              </div>
+
+              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Preço Sugerido:</span>
+                <div className="font-mono text-base font-black text-emerald-400">
+                  R$ {resultadoCalculoDTF.precoSugerido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-[10px] text-slate-500">R$ {resultadoCalculoDTF.precoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
+              </div>
+            </div>
+
+            {/* Rodapé do Modal */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setModalCalculadoraDTF(false)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* ================= BARRA LATERAL ================= */}
       <aside className="w-64 bg-slate-900/90 backdrop-blur border-r border-slate-800/80 flex flex-col justify-between p-4 select-none">
         <div>
@@ -905,6 +1282,21 @@ export default function App() {
                 </div>
                 <span className="text-[10px] font-black uppercase bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded border border-sky-500/30">
                   4x/8x
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setModalCalculadoraDTF(true)}
+                title="Abrir Calculadora de Bobina DTF, Metragem Linear e Custos"
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-300 border border-amber-600/30 hover:border-amber-500/50 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Calculator className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <span>Calculadora DTF</span>
+                </div>
+                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
+                  Bobina
                 </span>
               </button>
             </div>
@@ -1266,6 +1658,26 @@ export default function App() {
                           </div>
 
                           {/* Ações Operacionais */}
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              onClick={() => setModalFicha(pedido)}
+                              title="Visualizar e imprimir ficha de produção / ordem de serviço em papel A4"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                              Ficha OS
+                            </button>
+
+                            <button
+                              onClick={() => abrirCalculadoraParaPedido(pedido)}
+                              title="Calcular metragem na bobina DTF 58cm e custo de insumos"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+                            >
+                              <Calculator className="w-3.5 h-3.5 text-amber-400" />
+                              Bobina DTF
+                            </button>
+                          </div>
+
                           <div className="grid grid-cols-2 gap-1.5">
                             <button
                               onClick={() => criarPastaProjeto(pedido)}

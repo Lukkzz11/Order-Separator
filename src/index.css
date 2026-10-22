@@ -8,3 +8,35 @@ body {
   -webkit-user-select: none;
   overflow: hidden;
 }
+
+@media print {
+  body {
+    overflow: visible !important;
+    user-select: auto !important;
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Esconde interface do sistema na impressão */
+  .no-print, aside, nav, header {
+    display: none !important;
+  }
+  
+  #area-impressao-ficha {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: white !important;
+    color: #0f172a !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  #area-impressao-ficha * {
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+}
