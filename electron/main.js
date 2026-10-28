@@ -572,7 +572,8 @@ ipcMain.handle('corel:abrirVetorizador', async (event, caminhoImagem) => {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
       : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
-    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
+    const args = caminhoValido ? [pyEncontrado, caminhoValido] : [pyEncontrado];
     try {
       const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
       child.unref();
@@ -639,7 +640,8 @@ ipcMain.handle('corel:abrirRemovedor', async (event, caminhoImagem) => {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
       : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
-    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
+    const args = caminhoValido ? [pyEncontrado, caminhoValido] : [pyEncontrado];
     try {
       const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
       child.unref();
@@ -678,7 +680,8 @@ ipcMain.handle('corel:abrirUpscaler', async (event, caminhoImagem) => {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
       : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
-    const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
+    const args = caminhoValido ? [pyEncontrado, caminhoValido] : [pyEncontrado];
     try {
       const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
       child.unref();

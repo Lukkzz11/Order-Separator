@@ -290,13 +290,14 @@ export default function App() {
 
   // Abrir Vetorizador Profissional CorelDRAW
   const abrirVetorizadorCorel = async (caminhoImagem = null) => {
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
     if (!window.electronAPI || !window.electronAPI.abrirVetorizadorCorel) {
       avisar('erro', 'Vetorizador CorelDRAW indisponível.');
       return;
     }
     avisar('sucesso', 'Abrindo janela do Vetorizador Profissional...');
     try {
-      const res = await window.electronAPI.abrirVetorizadorCorel(caminhoImagem);
+      const res = await window.electronAPI.abrirVetorizadorCorel(caminhoValido);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir vetorizador: ${res.erro}`);
       }
@@ -307,13 +308,14 @@ export default function App() {
 
   // Abrir Removedor de Fundo IA CorelDRAW
   const abrirRemovedorCorel = async (caminhoImagem = null) => {
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
     if (!window.electronAPI || !window.electronAPI.abrirRemovedorCorel) {
       avisar('erro', 'Removedor de Fundo CorelDRAW indisponível.');
       return;
     }
     avisar('sucesso', 'Abrindo janela do Removedor de Fundo IA...');
     try {
-      const res = await window.electronAPI.abrirRemovedorCorel(caminhoImagem);
+      const res = await window.electronAPI.abrirRemovedorCorel(caminhoValido);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir removedor: ${res.erro}`);
       }
@@ -324,13 +326,14 @@ export default function App() {
 
   // Abrir Upscaler IA Ultra HD CorelDRAW
   const abrirUpscalerCorel = async (caminhoImagem = null) => {
+    const caminhoValido = typeof caminhoImagem === 'string' && caminhoImagem.trim() ? caminhoImagem.trim() : null;
     if (!window.electronAPI || !window.electronAPI.abrirUpscalerCorel) {
       avisar('erro', 'Upscaler IA CorelDRAW indisponível.');
       return;
     }
     avisar('sucesso', 'Abrindo janela do Upscaler IA Ultra HD...');
     try {
-      const res = await window.electronAPI.abrirUpscalerCorel(caminhoImagem);
+      const res = await window.electronAPI.abrirUpscalerCorel(caminhoValido);
       if (!res.sucesso) {
         avisar('erro', `Falha ao abrir upscaler: ${res.erro}`);
       }
@@ -1246,7 +1249,7 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={abrirVetorizadorCorel}
+                onClick={() => abrirVetorizadorCorel()}
                 title="Abrir Vetorizador Profissional de Imagens (Alta Precisão / Dual-Splines / IA) no CorelDRAW"
                 className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-indigo-300 border border-indigo-600/30 hover:border-indigo-500/50 transition-all shadow-sm group"
               >
@@ -1261,7 +1264,7 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={abrirRemovedorCorel}
+                onClick={() => abrirRemovedorCorel()}
                 title="Abrir Removedor de Fundo IA (U2-Net / Chroma Key / Prancheta Branca) no CorelDRAW"
                 className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 text-emerald-300 border border-emerald-600/30 hover:border-emerald-500/50 transition-all shadow-sm group"
               >
@@ -1276,7 +1279,7 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={abrirUpscalerCorel}
+                onClick={() => abrirUpscalerCorel()}
                 title="Abrir Upscaler IA Ultra HD (Real-ESRGAN 4x/8x / 300 DPI) no CorelDRAW"
                 className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-sky-500/10 to-blue-500/10 hover:from-sky-500/20 hover:to-blue-500/20 text-sky-300 border border-sky-600/30 hover:border-sky-500/50 transition-all shadow-sm group"
               >
@@ -1365,7 +1368,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={abrirVetorizadorCorel}
+                    onClick={() => abrirVetorizadorCorel()}
                     className="flex items-center gap-2 px-3.5 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4 text-indigo-400" />
@@ -1373,7 +1376,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={abrirRemovedorCorel}
+                    onClick={() => abrirRemovedorCorel()}
                     className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
                   >
                     <Scissors className="w-4 h-4 text-emerald-400" />
@@ -1381,7 +1384,7 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={abrirUpscalerCorel}
+                    onClick={() => abrirUpscalerCorel()}
                     className="flex items-center gap-2 px-3.5 py-2.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
                   >
                     <Maximize2 className="w-4 h-4 text-sky-400" />
