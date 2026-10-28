@@ -550,7 +550,7 @@ ipcMain.handle('corel:abrirMontador', async () => {
 
 // 11.1 Abrir Vetorizador Profissional CorelDRAW (Dual-Splines / IA)
 ipcMain.handle('corel:abrirVetorizador', async (event, caminhoImagem) => {
-  const { execFile } = require('child_process');
+  const { spawn, execFile } = require('child_process');
 
   const caminhosPython = [
     process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'vetorizador_app.py') : null,
@@ -569,17 +569,19 @@ ipcMain.handle('corel:abrirVetorizador', async (event, caminhoImagem) => {
   }
 
   if (pyEncontrado) {
-    const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') ? 'C:\\Python314\\pythonw.exe' : 'pythonw.exe';
+    const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
+      ? 'C:\\Python314\\pythonw.exe' 
+      : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
     const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
-    execFile(pythonExe, args, (err) => {
-      if (err) {
-        const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
-        execFile(fallbackPy, args, (err2) => {
-          if (err2) console.error('Erro na execução do vetorizador python:', err2);
-        });
-      }
-    });
-    return { sucesso: true, caminho: pyEncontrado };
+    try {
+      const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
+      child.unref();
+      return { sucesso: true, caminho: pyEncontrado };
+    } catch (errSpawn) {
+      console.warn('Fallback spawn vetorizador:', errSpawn);
+      execFile(pythonExe, args, () => {});
+      return { sucesso: true, caminho: pyEncontrado };
+    }
   }
 
   const caminhosPossiveis = [
@@ -615,7 +617,7 @@ ipcMain.handle('corel:abrirVetorizador', async (event, caminhoImagem) => {
 
 // 11.2 Abrir Removedor de Fundo IA (U2-Net / IS-Net / BRIA / Chroma / Fundo Branco)
 ipcMain.handle('corel:abrirRemovedor', async (event, caminhoImagem) => {
-  const { execFile } = require('child_process');
+  const { spawn, execFile } = require('child_process');
 
   const caminhosPython = [
     process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'removedor_fundo_app.py') : null,
@@ -636,18 +638,17 @@ ipcMain.handle('corel:abrirRemovedor', async (event, caminhoImagem) => {
   if (pyEncontrado) {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
-      : 'pythonw.exe';
+      : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
     const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
-
-    execFile(pythonExe, args, (err) => {
-      if (err) {
-        const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
-        execFile(fallbackPy, args, (err2) => {
-          if (err2) console.error('Erro na execução do removedor de fundo python:', err2);
-        });
-      }
-    });
-    return { sucesso: true, caminho: pyEncontrado };
+    try {
+      const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
+      child.unref();
+      return { sucesso: true, caminho: pyEncontrado };
+    } catch (errSpawn) {
+      console.warn('Fallback spawn removedor:', errSpawn);
+      execFile(pythonExe, args, () => {});
+      return { sucesso: true, caminho: pyEncontrado };
+    }
   }
 
   return { sucesso: false, erro: 'Script do removedor de fundo não foi encontrado nos caminhos do sistema.' };
@@ -655,7 +656,7 @@ ipcMain.handle('corel:abrirRemovedor', async (event, caminhoImagem) => {
 
 // 11.3 Abrir Upscaler IA Ultra HD 4x / 8x (Real-ESRGAN / DirectML RTX)
 ipcMain.handle('corel:abrirUpscaler', async (event, caminhoImagem) => {
-  const { execFile } = require('child_process');
+  const { spawn, execFile } = require('child_process');
 
   const caminhosPython = [
     process.resourcesPath ? path.join(process.resourcesPath, 'corel-plugin', 'upscaler_ai_app.py') : null,
@@ -676,18 +677,17 @@ ipcMain.handle('corel:abrirUpscaler', async (event, caminhoImagem) => {
   if (pyEncontrado) {
     const pythonExe = fs.existsSync('C:\\Python314\\pythonw.exe') 
       ? 'C:\\Python314\\pythonw.exe' 
-      : 'pythonw.exe';
+      : (fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'pythonw.exe');
     const args = caminhoImagem ? [pyEncontrado, caminhoImagem] : [pyEncontrado];
-
-    execFile(pythonExe, args, (err) => {
-      if (err) {
-        const fallbackPy = fs.existsSync('C:\\Python314\\python.exe') ? 'C:\\Python314\\python.exe' : 'python.exe';
-        execFile(fallbackPy, args, (err2) => {
-          if (err2) console.error('Erro na execução do upscaler de imagem python:', err2);
-        });
-      }
-    });
-    return { sucesso: true, caminho: pyEncontrado };
+    try {
+      const child = spawn(pythonExe, args, { detached: true, stdio: 'ignore', windowsHide: false });
+      child.unref();
+      return { sucesso: true, caminho: pyEncontrado };
+    } catch (errSpawn) {
+      console.warn('Fallback spawn upscaler:', errSpawn);
+      execFile(pythonExe, args, () => {});
+      return { sucesso: true, caminho: pyEncontrado };
+    }
   }
 
   return { sucesso: false, erro: 'Script do upscaler de imagem não foi encontrado nos caminhos do sistema.' };

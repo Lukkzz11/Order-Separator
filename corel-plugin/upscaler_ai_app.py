@@ -542,7 +542,7 @@ class UpscalerAIApp:
         self.btn_abrir_removedor = tk.Button(
             bottom_box,
             text="✂️ Removedor IA",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#065F46",
             fg="#6EE7B7",
             activebackground="#047857",
@@ -558,7 +558,7 @@ class UpscalerAIApp:
         self.btn_abrir_vetorizador = tk.Button(
             bottom_box,
             text="📐 Vetorizador IA",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#312E81",
             fg="#C7D2FE",
             activebackground="#3730A3",
@@ -574,7 +574,7 @@ class UpscalerAIApp:
         self.btn_salvar = tk.Button(
             bottom_box,
             text="💾 Salvar PNG",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
@@ -590,7 +590,7 @@ class UpscalerAIApp:
         self.btn_copiar = tk.Button(
             bottom_box,
             text="📋 Copiar",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",

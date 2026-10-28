@@ -1041,7 +1041,7 @@ class RemovedorFundoApp:
         self.btn_upscaler = tk.Button(
             bottom_box,
             text="⚡ Upscale 4x IA",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#0284C7",
             fg="#FFFFFF",
             activebackground="#0369A1",
@@ -1057,7 +1057,7 @@ class RemovedorFundoApp:
         self.btn_vetorizar = tk.Button(
             bottom_box,
             text="📐 Vetorizar IA",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#312E81",
             fg="#C7D2FE",
             activebackground="#3730A3",
@@ -1073,7 +1073,7 @@ class RemovedorFundoApp:
         self.btn_salvar = tk.Button(
             bottom_box,
             text="💾 Salvar PNG",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
@@ -1089,7 +1089,7 @@ class RemovedorFundoApp:
         self.btn_copiar = tk.Button(
             bottom_box,
             text="📋 Copiar",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
@@ -1363,7 +1363,7 @@ class RemovedorFundoApp:
                     text=m_info["nome"],
                     variable=self.var_ai_model,
                     value=m_key,
-                    font=("Segoe UI", 7.5, "bold"),
+                    font=("Segoe UI", 8, "bold"),
                     fg="#38BDF8",
                     bg="#0F172A",
                     selectcolor="#1E293B",

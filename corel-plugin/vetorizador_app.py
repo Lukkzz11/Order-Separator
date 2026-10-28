@@ -865,7 +865,7 @@ class VetorizadorApp:
             )
             self.btn_salvar_pasta.pack(side=tk.RIGHT)
 
-            self.lbl_pedido_badge = tk.Label(pnl_contexto, text="", font=("Segoe UI", 7.5, "bold"), fg="#A78BFA", bg="#131B2E", anchor="w")
+            self.lbl_pedido_badge = tk.Label(pnl_contexto, text="", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#131B2E", anchor="w")
             self.lbl_pedido_badge.pack(fill=tk.X, pady=(3, 0))
 
         # 2. Caixa de Origem (Captura CorelDRAW / Arquivo)
@@ -1049,7 +1049,7 @@ class VetorizadorApp:
         self.btn_salvar_svg = tk.Button(
             row_extra,
             text="💾 Exportar SVG...",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#E2E8F0",
             activebackground="#334155",
@@ -1065,7 +1065,7 @@ class VetorizadorApp:
         self.btn_salvar_pedido_full = tk.Button(
             row_extra,
             text="📁 Salvar SVG na Pasta do Pedido",
-            font=("Segoe UI", 8.5, "bold"),
+            font=("Segoe UI", 8, "bold"),
             bg="#1E293B",
             fg="#38BDF8",
             activebackground="#334155",
