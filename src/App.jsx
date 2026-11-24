@@ -42,10 +42,10 @@ import {
 import logoImg from './assets/logo.png';
 
 const STATUS_OPCOES = [
-  { id: 'Aguardando Produção', label: 'Aguardando', icon: Clock, bg: 'bg-amber-950/60', text: 'text-amber-400', border: 'border-amber-700/50' },
-  { id: 'Em Produção', label: 'Em Produção', icon: Scissors, bg: 'bg-blue-950/60', text: 'text-blue-400', border: 'border-blue-700/50' },
-  { id: 'Pronto', label: 'Pronto', icon: CheckCircle2, bg: 'bg-emerald-950/60', text: 'text-emerald-400', border: 'border-emerald-700/50' },
-  { id: 'Entregue', label: 'Entregue', icon: Truck, bg: 'bg-purple-950/60', text: 'text-purple-400', border: 'border-purple-700/50' }
+  { id: 'Aguardando Produção', label: 'Aguardando', icon: Clock, dot: 'bg-amber-400', bg: 'bg-amber-500/10', text: 'text-amber-300', border: 'border-amber-500/30' },
+  { id: 'Em Produção', label: 'Em Produção', icon: Scissors, dot: 'bg-sky-400', bg: 'bg-sky-500/10', text: 'text-sky-300', border: 'border-sky-500/30' },
+  { id: 'Pronto', label: 'Pronto', icon: CheckCircle2, dot: 'bg-emerald-400', bg: 'bg-emerald-500/10', text: 'text-emerald-300', border: 'border-emerald-500/30' },
+  { id: 'Entregue', label: 'Entregue', icon: Truck, dot: 'bg-zinc-400', bg: 'bg-zinc-500/10', text: 'text-zinc-400', border: 'border-zinc-500/30' }
 ];
 
 export const TAMANHOS_PADRAO = [
@@ -636,30 +636,30 @@ export default function App() {
   }, [pedidos, busca, filtroStatus]);
 
   return (
-    <div className="flex h-screen bg-[#070b13] text-slate-100 font-sans overflow-hidden">
+    <div className="flex h-screen bg-[#0b0d11] text-zinc-100 font-sans overflow-hidden">
       {/* ================= MODAL DE CONFIRMAÇÃO SEGURO ================= */}
       {modalConfirmacao && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#13151b] border border-zinc-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-amber-400">
-              <div className="p-2 bg-amber-950/60 rounded-xl border border-amber-800/50">
-                <AlertTriangle className="w-6 h-6" />
+              <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                <AlertTriangle className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-lg text-white">{modalConfirmacao.titulo}</h3>
+              <h3 className="font-bold text-base text-zinc-100">{modalConfirmacao.titulo}</h3>
             </div>
-            <p className="text-sm text-slate-300 leading-relaxed">
+            <p className="text-sm text-zinc-400 leading-relaxed">
               {modalConfirmacao.mensagem}
             </p>
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex justify-end gap-2.5 pt-3 border-t border-zinc-800/80">
               <button
                 onClick={() => setModalConfirmacao(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors"
+                className="px-4 py-2 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded-xl transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={modalConfirmacao.acaoConfirmar}
-                className="px-5 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-red-600/30 transition-colors"
+                className="px-4 py-2 bg-red-600/90 hover:bg-red-600 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors"
               >
                 Confirmar Exclusão
               </button>
@@ -674,28 +674,28 @@ export default function App() {
           onClick={() => setImagemModal(null)}
           className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-6 animate-in fade-in duration-200 cursor-pointer"
         >
-          <div className="relative max-w-4xl max-h-[90vh] bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-slate-800 bg-slate-950/80">
-              <span className="text-sm font-bold text-slate-200 font-mono flex items-center gap-2">
-                <ImageIcon className="w-4 h-4 text-indigo-400" />
+          <div className="relative max-w-4xl max-h-[90vh] bg-[#13151b] border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800 bg-[#0e1015]">
+              <span className="text-xs font-semibold text-zinc-200 font-mono flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-zinc-400" />
                 {imagemModal.nome || 'Arte da Estampa'}
               </span>
               <button 
                 onClick={() => setImagemModal(null)}
-                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                className="p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-4 flex items-center justify-center overflow-auto max-h-[75vh] bg-[#050811]">
+            <div className="p-6 flex items-center justify-center overflow-auto max-h-[72vh] bg-[#0b0d11]">
               <img 
                 src={imagemModal.preview || imagemModal.caminhoSalvo || imagemModal.caminho} 
                 alt="Arte da Estampa" 
-                className="max-h-[70vh] max-w-full object-contain rounded-xl shadow-lg"
+                className="max-h-[68vh] max-w-full object-contain rounded-lg border border-zinc-800/80"
               />
             </div>
-            <div className="p-3 bg-slate-950 flex flex-wrap items-center justify-between gap-3 border-t border-slate-800">
-              <div className="text-xs text-slate-400 font-mono truncate max-w-xs md:max-w-md">
+            <div className="px-5 py-3 bg-[#0e1015] flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800">
+              <div className="text-xs text-zinc-500 font-mono truncate max-w-xs md:max-w-md">
                 {imagemModal.caminho || imagemModal.caminhoSalvo || 'Arte da Estampa'}
               </div>
               <div className="flex items-center gap-2">
@@ -705,10 +705,10 @@ export default function App() {
                     const p = imagemModal.caminhoSalvo || imagemModal.caminho;
                     abrirRemovedorCorel(p);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 rounded-lg text-xs font-medium transition-colors"
                   title="Abrir esta imagem diretamente no Removedor de Fundo IA"
                 >
-                  <Scissors className="w-3.5 h-3.5" />
+                  <Scissors className="w-3.5 h-3.5 text-emerald-400" />
                   Recortar IA
                 </button>
                 <button
@@ -717,10 +717,10 @@ export default function App() {
                     const p = imagemModal.caminhoSalvo || imagemModal.caminho;
                     abrirUpscalerCorel(p);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 rounded-lg text-xs font-medium transition-colors"
                   title="Aumentar para Ultra HD 300 DPI com IA"
                 >
-                  <Maximize2 className="w-3.5 h-3.5" />
+                  <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
                   Upscale 4x
                 </button>
                 <button
@@ -729,10 +729,10 @@ export default function App() {
                     const p = imagemModal.caminhoSalvo || imagemModal.caminho;
                     abrirVetorizadorCorel(p);
                   }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/60 rounded-lg text-xs font-medium transition-colors"
                   title="Converter para curvas SVG com IA"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                   Vetorizar IA
                 </button>
               </div>
@@ -744,27 +744,27 @@ export default function App() {
       {/* ================= MODAL DE CONFERÊNCIA DE SEPARAÇÃO ================= */}
       {modalSeparacao && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6">
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+          <div className="bg-[#13151b] border border-zinc-800 rounded-2xl p-6 md:p-7 max-w-2xl w-full shadow-2xl space-y-5">
+            <div className="flex items-start justify-between border-b border-zinc-800/80 pb-4">
               <div>
-                <div className="flex items-center gap-3">
-                  <span className="text-indigo-400 font-mono font-black text-xl bg-indigo-950 border border-indigo-800 px-3 py-1 rounded-xl">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-zinc-200 font-mono font-bold text-sm bg-zinc-900 border border-zinc-700/80 px-2.5 py-1 rounded-lg">
                     #{modalSeparacao.numeroPedido}
                   </span>
-                  <h3 className="font-extrabold text-xl text-white">Checklist de Separação</h3>
+                  <h3 className="font-bold text-lg text-zinc-100">Checklist de Separação</h3>
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Cliente: <strong className="text-slate-200">{modalSeparacao.clienteNome}</strong> • Estampa: <strong className="text-slate-200">{modalSeparacao.descricaoEstampa || 'Sem descrição'}</strong>
+                <p className="text-xs text-zinc-400 mt-1.5">
+                  Cliente: <strong className="text-zinc-200">{modalSeparacao.clienteNome}</strong> • Estampa: <strong className="text-zinc-200">{modalSeparacao.descricaoEstampa || 'Sem descrição'}</strong>
                 </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Tecido: <strong className="text-slate-200">{modalSeparacao.tipoTecido} ({modalSeparacao.corTecido})</strong> • Posição: <strong className="text-slate-200">{modalSeparacao.posicaoEstampa}</strong>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Tecido: <strong className="text-zinc-300">{modalSeparacao.tipoTecido} ({modalSeparacao.corTecido})</strong> • Posição: <strong className="text-zinc-300">{modalSeparacao.posicaoEstampa}</strong>
                 </p>
               </div>
               <button
                 onClick={() => setModalSeparacao(null)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -779,21 +779,21 @@ export default function App() {
 
               return (
                 <div className="space-y-4">
-                  <div className="bg-slate-950/70 p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-slate-400">Progresso de Separação:</span>
-                      <span className="text-indigo-400 font-mono font-bold">{qtdConferidos} de {totalTamanhos} tamanhos conferidos ({porcentagem}%)</span>
+                  <div className="bg-zinc-950/70 p-3.5 rounded-xl border border-zinc-800/80 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-zinc-400">Progresso de Separação:</span>
+                      <span className="text-zinc-200 font-mono font-semibold">{qtdConferidos} de {totalTamanhos} conferidos ({porcentagem}%)</span>
                     </div>
-                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full transition-all duration-300 ${todosConferidos ? 'bg-emerald-500' : 'bg-indigo-600'}`}
+                        className={`h-full transition-all duration-300 ${todosConferidos ? 'bg-emerald-500' : 'bg-blue-600'}`}
                         style={{ width: `${porcentagem}%` }}
                       ></div>
                     </div>
                   </div>
 
                   {/* Grade de Separação com Checkboxes */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 max-h-[40vh] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 max-h-[40vh] overflow-y-auto pr-1">
                     {tamanhosComPecas.map(([tam, qtd]) => {
                       const conferido = !!checksDoPedido[tam];
                       return (
@@ -801,47 +801,47 @@ export default function App() {
                           key={tam}
                           type="button"
                           onClick={() => alternarItemSeparado(modalSeparacao.id, tam)}
-                          className={`p-3 rounded-2xl border flex flex-col items-center justify-between gap-2 transition-all cursor-pointer ${
+                          className={`p-3 rounded-xl border flex flex-col items-center justify-between gap-2 transition-all cursor-pointer ${
                             conferido 
-                              ? 'bg-emerald-950/40 border-emerald-600 text-emerald-300 shadow-lg shadow-emerald-950/50' 
-                              : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
+                              ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' 
+                              : 'bg-zinc-950/60 border-zinc-800 text-zinc-300 hover:border-zinc-700'
                           }`}
                         >
                           <div className="flex items-center justify-between w-full">
                             <span className="text-xs font-mono font-bold uppercase">{tam}</span>
-                            <div className={`w-5 h-5 rounded-lg flex items-center justify-center border ${
-                              conferido ? 'bg-emerald-600 border-emerald-500 text-white' : 'border-slate-700 bg-slate-900'
+                            <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                              conferido ? 'bg-emerald-600 border-emerald-500 text-white' : 'border-zinc-700 bg-zinc-900'
                             }`}>
-                              {conferido && <CheckCircle className="w-3.5 h-3.5" />}
+                              {conferido && <CheckCircle className="w-3 h-3" />}
                             </div>
                           </div>
-                          <span className="text-2xl font-black font-mono">{qtd}</span>
-                          <span className="text-[10px] uppercase font-bold text-slate-400">peças</span>
+                          <span className="text-xl font-bold font-mono">{qtd}</span>
+                          <span className="text-[10px] uppercase font-medium text-zinc-500">peças</span>
                         </button>
                       );
                     })}
                   </div>
 
                   {/* Botões do Rodapé do Modal */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
-                    <span className="text-xs text-slate-400 font-mono">
-                      Total: <strong className="text-white">{modalSeparacao.totalPecas} peças</strong>
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+                    <span className="text-xs text-zinc-400 font-mono">
+                      Total: <strong className="text-zinc-200">{modalSeparacao.totalPecas} peças</strong>
                     </span>
                     <div className="flex gap-2 w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() => setModalSeparacao(null)}
-                        className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                        className="flex-1 sm:flex-none px-4 py-2 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-medium transition-colors"
                       >
                         Fechar
                       </button>
                       <button
                         type="button"
                         onClick={() => concluirSeparacao(modalSeparacao)}
-                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        Finalizar Separação & Marcar Pronto
+                        Finalizar Separação
                       </button>
                     </div>
                   </div>
@@ -855,19 +855,19 @@ export default function App() {
       {/* ================= MODAL FICHA DE PRODUÇÃO (OS IMPRESSA) ================= */}
       {modalFicha && (
         <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="relative bg-white text-slate-900 rounded-3xl max-w-3xl w-full p-6 md:p-8 shadow-2xl space-y-6 my-auto" id="area-impressao-ficha">
+          <div className="relative bg-white text-slate-900 rounded-2xl max-w-3xl w-full p-6 md:p-8 shadow-2xl space-y-6 my-auto" id="area-impressao-ficha">
             
             {/* Barra de Ações (Não sai na impressão) */}
             <div className="no-print flex items-center justify-between border-b border-slate-200 pb-4">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-lg text-slate-900">Ficha de Produção & Ordem de Serviço</h3>
+                <FileText className="w-5 h-5 text-zinc-700" />
+                <h3 className="font-bold text-base text-slate-900">Ficha de Produção & Ordem de Serviço</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold shadow-sm transition-all cursor-pointer"
                   title="Imprimir esta ficha em papel A4 ou salvar como PDF"
                 >
                   <Printer className="w-4 h-4" />
@@ -876,9 +876,9 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setModalFicha(null)}
-                  className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -896,7 +896,7 @@ export default function App() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="inline-block px-4 py-2 bg-slate-900 text-white font-mono font-black text-2xl rounded-2xl">
+                <div className="inline-block px-4 py-2 bg-slate-900 text-white font-mono font-black text-2xl rounded-xl">
                   #{modalFicha.numeroPedido}
                 </div>
                 <div className="mt-2 text-xs font-bold text-slate-700 uppercase">
@@ -907,18 +907,18 @@ export default function App() {
 
             {/* Dados do Cliente e Especificações da Peça */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-indigo-600" /> Dados do Cliente
+                  <Users className="w-3.5 h-3.5 text-slate-700" /> Dados do Cliente
                 </h4>
                 <p><strong>Cliente:</strong> {modalFicha.clienteNome}</p>
                 {modalFicha.clienteLoja && <p><strong>Loja/Marca:</strong> {modalFicha.clienteLoja}</p>}
                 {modalFicha.clienteTelefone && <p><strong>Telefone / WhatsApp:</strong> {modalFicha.clienteTelefone}</p>}
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-2">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-1 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-indigo-600" /> Especificação Têxtil
+                  <Layers className="w-3.5 h-3.5 text-slate-700" /> Especificação Têxtil
                 </h4>
                 <p><strong>Tecido:</strong> {modalFicha.tipoTecido}</p>
                 <p><strong>Cor do Tecido:</strong> <span className="font-bold uppercase px-1.5 py-0.5 bg-slate-200 rounded">{modalFicha.corTecido}</span></p>
@@ -930,26 +930,26 @@ export default function App() {
             {/* Imagem da Arte e Grade Quantitativa */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               {/* Imagem / Mockup */}
-              <div className="border border-slate-200 rounded-2xl p-3 bg-slate-50 flex flex-col items-center justify-center text-center">
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50 flex flex-col items-center justify-center text-center">
                 <span className="text-[11px] font-bold text-slate-700 uppercase mb-2">Mockup / Arte</span>
                 {Array.isArray(modalFicha.imagens) && modalFicha.imagens.length > 0 ? (
                   <img 
                     src={modalFicha.imagens[0].preview || modalFicha.imagens[0].caminhoSalvo || modalFicha.imagens[0].caminho} 
                     alt="Arte da Estampa" 
-                    className="max-h-40 max-w-full object-contain rounded-xl border border-slate-300 shadow-sm"
+                    className="max-h-40 max-w-full object-contain rounded-lg border border-slate-300 shadow-sm"
                   />
                 ) : (
-                  <div className="h-32 w-full flex items-center justify-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded-xl">
+                  <div className="h-32 w-full flex items-center justify-center text-slate-400 text-xs italic border border-dashed border-slate-300 rounded-lg">
                     Sem arte anexada
                   </div>
                 )}
               </div>
 
               {/* Tabela de Grade de Peças */}
-              <div className="md:col-span-2 border border-slate-200 rounded-2xl p-4 bg-slate-50">
+              <div className="md:col-span-2 border border-slate-200 rounded-xl p-4 bg-slate-50">
                 <h4 className="font-bold text-slate-900 uppercase tracking-wider text-[11px] border-b border-slate-200 pb-2 mb-3 flex items-center justify-between">
                   <span>Grade de Produção & Separação</span>
-                  <span className="font-mono text-sm text-indigo-700 font-black">Total: {modalFicha.totalPecas} peças</span>
+                  <span className="font-mono text-sm text-slate-900 font-bold">Total: {modalFicha.totalPecas} peças</span>
                 </h4>
                 
                 <table className="w-full text-xs text-left border-collapse">
@@ -966,7 +966,7 @@ export default function App() {
                       .map(([tam, qtd]) => (
                         <tr key={tam} className="border-b border-slate-200">
                           <td className="py-1.5 px-2 font-bold font-mono text-slate-900">{tam}</td>
-                          <td className="py-1.5 px-2 font-bold font-mono text-right text-indigo-700">{qtd} un</td>
+                          <td className="py-1.5 px-2 font-bold font-mono text-right text-slate-800">{qtd} un</td>
                           <td className="py-1.5 px-3 text-center">
                             <span className="inline-block w-4 h-4 border-2 border-slate-400 rounded"></span>
                           </td>
@@ -1001,33 +1001,33 @@ export default function App() {
 
       {/* ================= MODAL CALCULADORA DE BOBINA DTF ================= */}
       {modalCalculadoraDTF && (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-6 my-auto">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-[#13151b] border border-zinc-800 rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-5 my-auto">
             
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-amber-950/80 rounded-xl border border-amber-800/60">
+                <div className="p-2 bg-zinc-850 rounded-xl border border-zinc-750">
                   <Calculator className="w-5 h-5 text-amber-400" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-lg text-white">Calculadora de Bobina DTF</h3>
-                  <p className="text-xs text-slate-400">
-                    {dtfCalcForm.origemPedido ? `Calculando para: ${dtfCalcForm.origemPedido}` : 'Cálculo inteligente de metragem linear, aproveitamento e custo de insumos'}
+                  <h3 className="font-bold text-base text-zinc-100">Calculadora de Bobina DTF</h3>
+                  <p className="text-xs text-zinc-400">
+                    {dtfCalcForm.origemPedido ? `Calculando para: ${dtfCalcForm.origemPedido}` : 'Cálculo de metragem linear, aproveitamento e custo de insumos'}
                   </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setModalCalculadoraDTF(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"
+                className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Presets Rápidos de Estampa */}
             <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Presets de Tamanho de Estampa:</span>
+              <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Presets de Tamanho de Estampa:</span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
                   { label: 'Peito / Bolso', w: 10, h: 10 },
@@ -1039,10 +1039,10 @@ export default function App() {
                     key={idx}
                     type="button"
                     onClick={() => setDtfCalcForm(prev => ({ ...prev, larguraEstampa: preset.w, alturaEstampa: preset.h }))}
-                    className="px-3 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/50 rounded-xl text-xs font-semibold text-slate-300 transition-all text-center"
+                    className="px-3 py-2 bg-zinc-950 hover:bg-zinc-800/80 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-medium text-zinc-300 transition-all text-center"
                   >
                     <div>{preset.label}</div>
-                    <div className="text-[10px] text-amber-400 font-mono mt-0.5">{preset.w} x {preset.h} cm</div>
+                    <div className="text-[10px] text-zinc-400 font-mono mt-0.5">{preset.w} x {preset.h} cm</div>
                   </button>
                 ))}
               </div>
@@ -1051,108 +1051,108 @@ export default function App() {
             {/* Campos de Entrada */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Largura Bobina (cm):</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Largura Bobina (cm):</label>
                 <input 
                   type="number" 
                   value={dtfCalcForm.larguraBobina}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, larguraBobina: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Largura Estampa (cm):</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Largura Estampa (cm):</label>
                 <input 
                   type="number" 
                   value={dtfCalcForm.larguraEstampa}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, larguraEstampa: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Altura Estampa (cm):</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Altura Estampa (cm):</label>
                 <input 
                   type="number" 
                   value={dtfCalcForm.alturaEstampa}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, alturaEstampa: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Quantidade de Peças:</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Quantidade de Peças:</label>
                 <input 
                   type="number" 
                   value={dtfCalcForm.quantidade}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, quantidade: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Custo / Metro (R$):</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Custo / Metro (R$):</label>
                 <input 
                   type="number" 
                   step="0.5"
                   value={dtfCalcForm.custoMetro}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, custoMetro: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-slate-400 uppercase">Margem de Lucro (%):</label>
+                <label className="text-[11px] font-medium text-zinc-400 uppercase">Margem de Lucro (%):</label>
                 <input 
                   type="number" 
                   value={dtfCalcForm.margemLucro}
                   onChange={e => setDtfCalcForm({ ...dtfCalcForm, margemLucro: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono font-bold text-sm focus:border-amber-500 outline-none"
+                  className="w-full mt-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-zinc-100 font-mono font-semibold text-sm focus:border-zinc-600 outline-none"
                 />
               </div>
             </div>
 
             {/* Painel de Resultados */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Aproveitamento:</span>
-                <div className="font-mono text-base font-black text-amber-400">
+              <div className="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 space-y-1">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase">Aproveitamento:</span>
+                <div className="font-mono text-base font-bold text-zinc-100">
                   {resultadoCalculoDTF.porLinha} un / linha
                 </div>
-                <p className="text-[10px] text-slate-500">{resultadoCalculoDTF.totalLinhas} linhas na bobina</p>
+                <p className="text-[10px] text-zinc-500">{resultadoCalculoDTF.totalLinhas} linhas na bobina</p>
               </div>
 
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Metragem Bobina:</span>
-                <div className="font-mono text-base font-black text-sky-400">
+              <div className="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 space-y-1">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase">Metragem Bobina:</span>
+                <div className="font-mono text-base font-bold text-zinc-100">
                   {resultadoCalculoDTF.metrosLineares} m
                 </div>
-                <p className="text-[10px] text-slate-500">Área: {resultadoCalculoDTF.m2Total} m²</p>
+                <p className="text-[10px] text-zinc-500">Área: {resultadoCalculoDTF.m2Total} m²</p>
               </div>
 
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Custo Estimado:</span>
-                <div className="font-mono text-base font-black text-red-400">
+              <div className="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 space-y-1">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase">Custo Estimado:</span>
+                <div className="font-mono text-base font-bold text-zinc-100">
                   R$ {resultadoCalculoDTF.custoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
-                <p className="text-[10px] text-slate-500">R$ {resultadoCalculoDTF.custoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
+                <p className="text-[10px] text-zinc-500">R$ {resultadoCalculoDTF.custoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
               </div>
 
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800 space-y-1">
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Preço Sugerido:</span>
-                <div className="font-mono text-base font-black text-emerald-400">
+              <div className="bg-zinc-950/70 p-3 rounded-xl border border-zinc-800/80 space-y-1">
+                <span className="text-[10px] font-semibold text-zinc-500 uppercase">Preço Sugerido:</span>
+                <div className="font-mono text-base font-bold text-emerald-400">
                   R$ {resultadoCalculoDTF.precoSugerido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </div>
-                <p className="text-[10px] text-slate-500">R$ {resultadoCalculoDTF.precoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
+                <p className="text-[10px] text-zinc-500">R$ {resultadoCalculoDTF.precoUn.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / un</p>
               </div>
             </div>
 
             {/* Rodapé do Modal */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
               <button
                 type="button"
                 onClick={() => setModalCalculadoraDTF(false)}
-                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                className="px-4 py-2 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-medium transition-colors"
               >
                 Fechar
               </button>
@@ -1163,35 +1163,35 @@ export default function App() {
       )}
 
       {/* ================= BARRA LATERAL ================= */}
-      <aside className="w-64 bg-slate-900/90 backdrop-blur border-r border-slate-800/80 flex flex-col justify-between p-4 select-none">
+      <aside className="w-64 bg-[#0e1015] border-r border-zinc-800/80 flex flex-col justify-between p-4 select-none">
         <div>
           {/* Logo / Cabeçalho */}
-          <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800/80">
-            <div className="w-11 h-11 rounded-2xl overflow-hidden shadow-xl shadow-indigo-950/50 border border-slate-700/80 flex items-center justify-center bg-[#070b13] shrink-0">
+          <div className="flex items-center gap-3 px-1 py-3 mb-5 border-b border-zinc-800/80">
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-zinc-800 bg-zinc-900 flex items-center justify-center shrink-0">
               <img src={logoImg} alt="Order Separator" className="w-full h-full object-cover" />
             </div>
             <div>
-              <h1 className="font-extrabold text-base text-white tracking-tight leading-tight">Order Separator</h1>
-              <span className="text-[10px] font-bold text-indigo-400 tracking-wider uppercase">Gestão & Separação</span>
+              <h1 className="font-bold text-sm text-zinc-100 tracking-tight leading-tight">Order Separator</h1>
+              <span className="text-[10px] font-semibold text-zinc-400 tracking-wider uppercase">Gestão & Estamparia</span>
             </div>
           </div>
 
           {/* Navegação por Abas */}
-          <nav className="space-y-1.5">
+          <nav className="space-y-1">
             <button
               onClick={() => setAbaAtiva('pedidos')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 abaAtiva === 'pedidos'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                  ? 'bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm'
+                  : 'text-zinc-400 hover:bg-zinc-850 hover:text-zinc-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <FileText className="w-4 h-4" />
-                Painel de Pedidos
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-4 h-4 text-zinc-400" />
+                <span>Painel de Pedidos</span>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                abaAtiva === 'pedidos' ? 'bg-indigo-950 text-indigo-200' : 'bg-slate-800 text-slate-400'
+              <span className={`text-[11px] px-2 py-0.5 rounded-md font-mono ${
+                abaAtiva === 'pedidos' ? 'bg-zinc-900 text-zinc-200 border border-zinc-700/50' : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800'
               }`}>
                 {pedidos.length}
               </span>
@@ -1199,50 +1199,50 @@ export default function App() {
 
             <button
               onClick={prepararNovoPedido}
-              className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 abaAtiva === 'novo-pedido'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                  ? 'bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm'
+                  : 'text-zinc-400 hover:bg-zinc-850 hover:text-zinc-200'
               }`}
             >
-              <PlusCircle className="w-4 h-4" />
-              Lançar Pedido
+              <PlusCircle className="w-4 h-4 text-zinc-400" />
+              <span>Lançar Pedido</span>
             </button>
 
             <button
               onClick={() => setAbaAtiva('clientes')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
                 abaAtiva === 'clientes'
-                  ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-600/30 font-semibold'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                  ? 'bg-zinc-800/90 text-white font-semibold border border-zinc-700/60 shadow-sm'
+                  : 'text-zinc-400 hover:bg-zinc-850 hover:text-zinc-200'
               }`}
             >
-              <div className="flex items-center gap-3">
-                <Users className="w-4 h-4" />
-                Clientes & Pastas
+              <div className="flex items-center gap-2.5">
+                <Users className="w-4 h-4 text-zinc-400" />
+                <span>Clientes & Pastas</span>
               </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-mono ${
-                abaAtiva === 'clientes' ? 'bg-indigo-950 text-indigo-200' : 'bg-slate-800 text-slate-400'
+              <span className={`text-[11px] px-2 py-0.5 rounded-md font-mono ${
+                abaAtiva === 'clientes' ? 'bg-zinc-900 text-zinc-200 border border-zinc-700/50' : 'bg-zinc-900/60 text-zinc-400 border border-zinc-800'
               }`}>
                 {clientes.length}
               </span>
             </button>
 
-            {/* Atalho Especial: Ferramentas CorelDRAW */}
-            <div className="pt-3 border-t border-slate-800/80 space-y-2">
-              <span className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-2">Ferramentas Corel</span>
+            {/* Atalho Especial: Ferramentas CorelDRAW & IA */}
+            <div className="pt-3 mt-3 border-t border-zinc-800/80 space-y-1.5">
+              <span className="px-1 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1.5">Ferramentas Corel & IA</span>
               
               <button
                 type="button"
                 onClick={abrirMontadorCorel}
-                title="Abrir Janelinha Flutuante do Montador de Folha no CorelDRAW (Imposição / Gang Sheet Automático)"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-300 border border-amber-600/30 hover:border-amber-500/50 transition-all shadow-sm group"
+                title="Abrir Janela do Montador de Folha no CorelDRAW (Imposição / Gang Sheet)"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Grid className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
+                  <Grid className="w-3.5 h-3.5 text-amber-400" />
                   <span>Montador de Folha</span>
                 </div>
-                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-700/50">
                   Janela
                 </span>
               </button>
@@ -1250,29 +1250,29 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => abrirVetorizadorCorel()}
-                title="Abrir Vetorizador Profissional de Imagens (Alta Precisão / Dual-Splines / IA) no CorelDRAW"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-indigo-300 border border-indigo-600/30 hover:border-indigo-500/50 transition-all shadow-sm group"
+                title="Abrir Vetorizador Profissional de Imagens (SVG / Curvas)"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Sparkles className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                   <span>Vetorizador IA</span>
                 </div>
-                <span className="text-[10px] font-black uppercase bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-500/30">
-                  Curvas
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-700/50">
+                  Vetor
                 </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => abrirRemovedorCorel()}
-                title="Abrir Removedor de Fundo IA (U2-Net / Chroma Key / Prancheta Branca) no CorelDRAW"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 text-emerald-300 border border-emerald-600/30 hover:border-emerald-500/50 transition-all shadow-sm group"
+                title="Abrir Removedor de Fundo IA (U2-Net / Transparência)"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Scissors className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+                  <Scissors className="w-3.5 h-3.5 text-emerald-400" />
                   <span>Removedor IA</span>
                 </div>
-                <span className="text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-700/50">
                   Fundo
                 </span>
               </button>
@@ -1280,14 +1280,14 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => abrirUpscalerCorel()}
-                title="Abrir Upscaler IA Ultra HD (Real-ESRGAN 4x/8x / 300 DPI) no CorelDRAW"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-sky-500/10 to-blue-500/10 hover:from-sky-500/20 hover:to-blue-500/20 text-sky-300 border border-sky-600/30 hover:border-sky-500/50 transition-all shadow-sm group"
+                title="Abrir Upscaler IA Ultra HD (300 DPI / Real-ESRGAN)"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Maximize2 className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
+                  <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
                   <span>Upscaler IA</span>
                 </div>
-                <span className="text-[10px] font-black uppercase bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded border border-sky-500/30">
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-700/50">
                   4x/8x
                 </span>
               </button>
@@ -1296,13 +1296,13 @@ export default function App() {
                 type="button"
                 onClick={() => setModalCalculadoraDTF(true)}
                 title="Abrir Calculadora de Bobina DTF, Metragem Linear e Custos"
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-300 border border-amber-600/30 hover:border-amber-500/50 transition-all shadow-sm group"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all shadow-sm group"
               >
                 <div className="flex items-center gap-2.5">
-                  <Calculator className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                  <Calculator className="w-3.5 h-3.5 text-amber-400" />
                   <span>Calculadora DTF</span>
                 </div>
-                <span className="text-[10px] font-black uppercase bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">
+                <span className="text-[10px] font-mono text-zinc-400 bg-zinc-800/80 px-1.5 py-0.5 rounded border border-zinc-700/50">
                   Bobina
                 </span>
               </button>
@@ -1311,19 +1311,19 @@ export default function App() {
         </div>
 
         {/* Rodapé da Sidebar */}
-        <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800/80 text-xs space-y-2">
+        <div className="bg-zinc-900/60 p-3 rounded-xl border border-zinc-800/80 text-xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400 font-medium">Fila Ativa:</span>
-            <span className="text-indigo-400 font-bold font-mono">{metricas.totalPecasProducao} peças</span>
+            <span className="text-zinc-400 font-medium">Fila Ativa:</span>
+            <span className="text-zinc-200 font-bold font-mono">{metricas.totalPecasProducao} peças</span>
           </div>
-          <div className="flex items-center justify-between text-slate-400">
+          <div className="flex items-center justify-between text-zinc-400 text-[11px]">
             <span>Aceleração IA:</span>
-            <span className="text-sky-400 font-mono font-bold text-[11px] flex items-center gap-1">
-              ⚡ RTX DirectML
+            <span className="text-zinc-300 font-mono font-medium flex items-center gap-1">
+              RTX DirectML
             </span>
           </div>
-          <div className="flex items-center gap-2 text-emerald-400 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <div className="flex items-center gap-2 text-emerald-400 font-medium text-[11px] pt-1 border-t border-zinc-800/60">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
             <span>App Local Conectado</span>
           </div>
         </div>
@@ -1333,105 +1333,111 @@ export default function App() {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Toast Notificação */}
         {notificacao && (
-          <div className={`absolute top-4 right-6 z-50 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-medium border animate-in slide-in-from-top-4 duration-200 ${
+          <div className={`absolute top-4 right-6 z-50 px-4 py-2.5 rounded-xl shadow-xl flex items-center gap-2.5 text-xs font-medium border animate-in slide-in-from-top-4 duration-200 ${
             notificacao.tipo === 'sucesso'
-              ? 'bg-emerald-950/95 text-emerald-200 border-emerald-700/80'
-              : 'bg-red-950/95 text-red-200 border-red-700/80'
+              ? 'bg-[#13151b] text-emerald-300 border-emerald-500/30'
+              : 'bg-[#13151b] text-red-300 border-red-500/30'
           }`}>
-            {notificacao.tipo === 'sucesso' ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <AlertTriangle className="w-5 h-5 text-red-400" />}
+            {notificacao.tipo === 'sucesso' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
             <span>{notificacao.mensagem}</span>
             <button onClick={() => setNotificacao(null)} className="ml-2 hover:opacity-70">
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8">
           {/* ================= ABA: PAINEL DE PEDIDOS ================= */}
           {abaAtiva === 'pedidos' && (
-            <div className="space-y-6 max-w-6xl mx-auto">
+            <div className="space-y-5 max-w-6xl mx-auto">
               {/* Cabeçalho do Painel */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">Painel Localizador de Pedidos</h2>
-                  <p className="text-sm text-slate-400">Gerencie a produção e acesse as pastas físicas dos clientes no PC com 1 clique.</p>
+                  <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Painel de Pedidos & Produção</h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">Gerenciamento ágil da estamparia, integração CorelDRAW e pastas de clientes.</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={abrirMontadorCorel}
-                    className="flex items-center gap-2 px-3.5 py-2.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <Grid className="w-4 h-4 text-amber-400" />
+                    <Grid className="w-3.5 h-3.5 text-amber-400" />
                     Montador Corel
                   </button>
                   <button
                     type="button"
                     onClick={() => abrirVetorizadorCorel()}
-                    className="flex items-center gap-2 px-3.5 py-2.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <Sparkles className="w-4 h-4 text-indigo-400" />
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                     Vetorizador IA
                   </button>
                   <button
                     type="button"
                     onClick={() => abrirRemovedorCorel()}
-                    className="flex items-center gap-2 px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <Scissors className="w-4 h-4 text-emerald-400" />
+                    <Scissors className="w-3.5 h-3.5 text-emerald-400" />
                     Removedor IA
                   </button>
                   <button
                     type="button"
                     onClick={() => abrirUpscalerCorel()}
-                    className="flex items-center gap-2 px-3.5 py-2.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 hover:border-zinc-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
                   >
-                    <Maximize2 className="w-4 h-4 text-sky-400" />
+                    <Maximize2 className="w-3.5 h-3.5 text-sky-400" />
                     Upscaler IA
                   </button>
                   <button
                     onClick={prepararNovoPedido}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all whitespace-nowrap cursor-pointer"
+                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
                   >
-                    <PlusCircle className="w-4 h-4" />
+                    <PlusCircle className="w-3.5 h-3.5" />
                     Lançar Pedido
                   </button>
                 </div>
               </div>
 
               {/* Cards de Métricas */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4">
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total de Pedidos</span>
-                  <p className="text-2xl font-black text-white mt-1 font-mono">{metricas.total}</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-[#13151b] border border-zinc-800/80 rounded-xl p-4">
+                  <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">Total de Pedidos</span>
+                  <p className="text-2xl font-bold text-zinc-100 mt-1 font-mono">{metricas.total}</p>
                 </div>
-                <div className="bg-amber-950/30 border border-amber-800/40 rounded-2xl p-4">
-                  <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Aguardando Produção</span>
-                  <p className="text-2xl font-black text-amber-300 mt-1 font-mono">{metricas.aguardando}</p>
+                <div className="bg-[#13151b] border border-zinc-800/80 rounded-xl p-4">
+                  <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-400"></span> Aguardando
+                  </span>
+                  <p className="text-2xl font-bold text-amber-300 mt-1 font-mono">{metricas.aguardando}</p>
                 </div>
-                <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-4">
-                  <span className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Em Produção</span>
-                  <p className="text-2xl font-black text-blue-300 mt-1 font-mono">{metricas.emProducao}</p>
+                <div className="bg-[#13151b] border border-zinc-800/80 rounded-xl p-4">
+                  <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-sky-400"></span> Em Produção
+                  </span>
+                  <p className="text-2xl font-bold text-sky-300 mt-1 font-mono">{metricas.emProducao}</p>
                 </div>
-                <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-2xl p-4">
-                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Prontos / Entregues</span>
-                  <p className="text-2xl font-black text-emerald-300 mt-1 font-mono">{metricas.concluidos}</p>
+                <div className="bg-[#13151b] border border-zinc-800/80 rounded-xl p-4">
+                  <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Prontos / Entregues
+                  </span>
+                  <p className="text-2xl font-bold text-emerald-300 mt-1 font-mono">{metricas.concluidos}</p>
                 </div>
               </div>
 
               {/* Barra de Filtros e Busca */}
-              <div className="bg-slate-900/80 border border-slate-800/90 rounded-2xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
+              <div className="bg-[#13151b] border border-zinc-800/80 rounded-xl p-2.5 flex flex-col md:flex-row items-center justify-between gap-3">
                 {/* Abas de Status */}
-                <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+                <div className="flex flex-wrap gap-1 w-full md:w-auto">
                   {['Todos', 'Aguardando Produção', 'Em Produção', 'Pronto', 'Entregue'].map(st => (
                     <button
                       key={st}
                       onClick={() => setFiltroStatus(st)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         filtroStatus === st
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                          ? 'bg-zinc-800 text-white font-semibold shadow-sm'
+                          : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
                       }`}
                     >
                       {st}
@@ -1441,16 +1447,16 @@ export default function App() {
 
                 {/* Input de Busca */}
                 <div className="relative w-full md:w-72">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-zinc-500" />
                   <input
                     type="text"
                     value={busca}
                     onChange={(e) => setBusca(e.target.value)}
-                    placeholder="Buscar pedido, cliente ou arte..."
-                    className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-700 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                    placeholder="Buscar pedido, cliente, tecido ou arte..."
+                    className="w-full pl-8 pr-7 py-1.5 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
                   />
                   {busca && (
-                    <button onClick={() => setBusca('')} className="absolute right-2.5 top-2 text-slate-500 hover:text-slate-300">
+                    <button onClick={() => setBusca('')} className="absolute right-2.5 top-2 text-zinc-500 hover:text-zinc-300">
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -1459,10 +1465,10 @@ export default function App() {
 
               {/* Lista de Pedidos */}
               {pedidosFiltrados.length === 0 ? (
-                <div className="border border-dashed border-slate-800 rounded-3xl p-14 text-center bg-slate-900/30">
-                  <FileText className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-300 font-bold text-base">Nenhum pedido encontrado</p>
-                  <p className="text-slate-500 text-sm mt-1 max-w-sm mx-auto">
+                <div className="border border-dashed border-zinc-800 rounded-2xl p-12 text-center bg-[#13151b]/40">
+                  <FileText className="w-10 h-10 text-zinc-600 mx-auto mb-2.5" />
+                  <p className="text-zinc-200 font-semibold text-sm">Nenhum pedido encontrado</p>
+                  <p className="text-zinc-500 text-xs mt-1 max-w-sm mx-auto">
                     {busca || filtroStatus !== 'Todos'
                       ? 'Nenhum resultado corresponde aos filtros aplicados.'
                       : 'Cadastre seus clientes e lance seus pedidos para acompanhar toda a estamparia.'}
@@ -1470,14 +1476,14 @@ export default function App() {
                   {pedidos.length === 0 && (
                     <button
                       onClick={prepararNovoPedido}
-                      className="mt-5 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 transition-all"
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-500 shadow-sm transition-colors"
                     >
                       Criar Primeiro Pedido
                     </button>
                   )}
                 </div>
               ) : (
-                <div className="grid gap-4">
+                <div className="grid gap-3.5">
                   {pedidosFiltrados.map((pedido) => {
                     const statusInfo = STATUS_OPCOES.find(s => s.id === pedido.status) || STATUS_OPCOES[0];
                     const StatusIcon = statusInfo.icon;
@@ -1485,59 +1491,61 @@ export default function App() {
                     return (
                       <div 
                         key={pedido.id}
-                        className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-5 transition-all shadow-md flex flex-col md:flex-row justify-between md:items-center gap-5"
+                        className="bg-[#13151b] border border-zinc-800/90 hover:border-zinc-700/80 rounded-2xl p-4 md:p-5 transition-all shadow-sm flex flex-col md:flex-row justify-between md:items-center gap-4"
                       >
                         <div className="space-y-3 flex-1">
                           {/* Cabeçalho do Card */}
-                          <div className="flex flex-wrap items-center gap-2.5">
-                            <span className="text-indigo-400 font-mono font-black text-lg bg-indigo-950/80 border border-indigo-800/80 px-2.5 py-0.5 rounded-lg shadow-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-zinc-200 font-mono font-bold text-sm bg-zinc-900 border border-zinc-750 px-2.5 py-0.5 rounded-lg">
                               #{pedido.numeroPedido}
                             </span>
-                            <span className="text-white font-bold text-base">{pedido.clienteNome}</span>
+                            <span className="text-zinc-100 font-semibold text-sm md:text-base">{pedido.clienteNome}</span>
                             {pedido.clienteLoja && (
-                              <span className="text-xs bg-slate-800/90 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 font-medium">
+                              <span className="text-xs bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded border border-zinc-800 font-medium">
                                 {pedido.clienteLoja}
                               </span>
                             )}
 
-                            {/* Badge Seletor Rápido de Status */}
-                            <select
-                              value={pedido.status || 'Aguardando Produção'}
-                              onChange={(e) => mudarStatusPedido(pedido.id, e.target.value)}
-                              className={`text-xs font-semibold px-2.5 py-1 rounded-lg border focus:outline-none cursor-pointer ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
-                            >
-                              {STATUS_OPCOES.map(opt => (
-                                <option key={opt.id} value={opt.id} className="bg-slate-900 text-slate-200">
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
+                            {/* Badge Seletor Rápido de Status com Micro-dot */}
+                            <div className="relative inline-flex items-center">
+                              <select
+                                value={pedido.status || 'Aguardando Produção'}
+                                onChange={(e) => mudarStatusPedido(pedido.id, e.target.value)}
+                                className={`text-xs font-medium pl-2 pr-6 py-1 rounded-lg border focus:outline-none cursor-pointer ${statusInfo.bg} ${statusInfo.text} ${statusInfo.border}`}
+                              >
+                                {STATUS_OPCOES.map(opt => (
+                                  <option key={opt.id} value={opt.id} className="bg-zinc-900 text-zinc-200">
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
 
-                            <span className="text-xs bg-indigo-950/80 text-indigo-300 border border-indigo-800 px-2.5 py-1 rounded-full font-bold ml-auto md:ml-0">
+                            <span className="text-xs bg-zinc-900 text-zinc-300 border border-zinc-800 px-2.5 py-0.5 rounded-md font-mono font-medium ml-auto md:ml-0">
                               {pedido.totalPecas} Peças
                             </span>
                           </div>
 
                           {/* Detalhes Técnicos */}
-                          <div className="text-xs text-slate-300 flex flex-wrap items-center gap-y-1.5 gap-x-3.5 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/60">
+                          <div className="text-xs text-zinc-300 flex flex-wrap items-center gap-y-1.5 gap-x-3 bg-zinc-950/60 p-2.5 rounded-xl border border-zinc-800/80">
                             <span className="flex items-center gap-1.5">
-                              <Palette className="w-3.5 h-3.5 text-indigo-400" />
-                              <strong className="text-slate-400">Estampa:</strong> {pedido.descricaoEstampa || 'Sem descrição'}
+                              <Palette className="w-3.5 h-3.5 text-zinc-400" />
+                              <strong className="text-zinc-400">Estampa:</strong> {pedido.descricaoEstampa || 'Sem descrição'}
                             </span>
-                            <span className="text-slate-700">•</span>
+                            <span className="text-zinc-700">•</span>
                             <span>
-                              <strong className="text-slate-400">Posição:</strong> {pedido.posicaoEstampa}
+                              <strong className="text-zinc-400">Posição:</strong> {pedido.posicaoEstampa}
                             </span>
-                            <span className="text-slate-700">•</span>
+                            <span className="text-zinc-700">•</span>
                             <span>
-                              <strong className="text-slate-400">Tecido:</strong> {pedido.tipoTecido} ({pedido.corTecido})
+                              <strong className="text-zinc-400">Tecido:</strong> {pedido.tipoTecido} ({pedido.corTecido})
                             </span>
                             {pedido.dataEntrega && (
                               <>
-                                <span className="text-slate-700">•</span>
-                                <span className="flex items-center gap-1 text-slate-300">
-                                  <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                                  <strong className="text-slate-400">Entrega:</strong> {formatarDataBR(pedido.dataEntrega)}
+                                <span className="text-zinc-700">•</span>
+                                <span className="flex items-center gap-1 text-zinc-300">
+                                  <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                                  <strong className="text-zinc-400">Entrega:</strong> {formatarDataBR(pedido.dataEntrega)}
                                 </span>
                               </>
                             )}
@@ -1545,44 +1553,44 @@ export default function App() {
 
                           {/* Grade Quantitativa */}
                           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">Grade:</span>
+                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider mr-1">Grade:</span>
                             {Object.entries(pedido.grade || {})
                               .filter(([_, qtd]) => Number(qtd) > 0)
                               .map(([tam, qtd]) => (
                                 <div 
                                   key={tam} 
-                                  className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold border bg-indigo-950/80 text-indigo-300 border-indigo-700/60 shadow-sm"
+                                  className="px-2 py-0.5 rounded-lg text-xs font-mono border bg-zinc-900/90 text-zinc-300 border-zinc-800 shadow-sm"
                                 >
-                                  {tam}: {qtd}
+                                  <span className="text-zinc-400">{tam}:</span> <strong className="text-zinc-100">{qtd}</strong>
                                 </div>
                               ))}
                             {Object.values(pedido.grade || {}).every(q => Number(q) <= 0) && (
-                              <span className="text-xs text-slate-500 italic">Sem peças</span>
+                              <span className="text-xs text-zinc-500 italic">Sem peças</span>
                             )}
                           </div>
 
                           {/* Miniaturas das Imagens da Estampa no Card */}
                           {Array.isArray(pedido.imagens) && pedido.imagens.length > 0 && (
-                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 mt-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-zinc-800/80 mt-1">
                               <div className="flex items-center gap-2 overflow-x-auto py-1">
-                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
-                                  <ImageIcon className="w-3.5 h-3.5 text-indigo-400" /> Artes:
+                                <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider mr-1 flex items-center gap-1 flex-shrink-0">
+                                  <ImageIcon className="w-3.5 h-3.5 text-zinc-400" /> Artes:
                                 </span>
                                 {pedido.imagens.map((img, idx) => (
                                   <button
                                     key={idx}
                                     type="button"
                                     onClick={() => setImagemModal(img)}
-                                    className="group relative w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-950 hover:border-indigo-500 transition-all flex-shrink-0 shadow-sm"
+                                    className="group relative w-10 h-10 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 hover:border-zinc-600 transition-all flex-shrink-0 shadow-sm"
                                     title={`Ver arte: ${img.nome || 'Estampa'}`}
                                   >
                                     <img 
                                       src={img.preview || img.caminhoSalvo || img.caminho} 
                                       alt={img.nome || 'Estampa'} 
-                                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                     />
                                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                      <Eye className="w-3.5 h-3.5 text-white" />
+                                      <Eye className="w-3 h-3 text-white" />
                                     </div>
                                   </button>
                                 ))}
@@ -1597,10 +1605,10 @@ export default function App() {
                                     const p = img.caminhoSalvo || img.caminho;
                                     abrirRemovedorCorel(p);
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 rounded-lg text-[11px] font-medium transition-colors shadow-sm"
                                   title="Recortar Fundo IA da arte deste pedido"
                                 >
-                                  <Scissors className="w-3 h-3" />
+                                  <Scissors className="w-3 h-3 text-emerald-400" />
                                   <span>Recortar IA</span>
                                 </button>
                                 <button
@@ -1610,10 +1618,10 @@ export default function App() {
                                     const p = img.caminhoSalvo || img.caminho;
                                     abrirUpscalerCorel(p);
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-sky-500/10 hover:bg-sky-500/25 text-sky-400 border border-sky-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 rounded-lg text-[11px] font-medium transition-colors shadow-sm"
                                   title="Aumentar resolução (300 DPI) com IA"
                                 >
-                                  <Maximize2 className="w-3 h-3" />
+                                  <Maximize2 className="w-3 h-3 text-sky-400" />
                                   <span>Upscale 4x</span>
                                 </button>
                                 <button
@@ -1623,10 +1631,10 @@ export default function App() {
                                     const p = img.caminhoSalvo || img.caminho;
                                     abrirVetorizadorCorel(p);
                                   }}
-                                  className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/25 text-indigo-400 border border-indigo-500/30 rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                                  className="flex items-center gap-1 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 hover:border-zinc-700 rounded-lg text-[11px] font-medium transition-colors shadow-sm"
                                   title="Converter arte deste pedido em vetor SVG"
                                 >
-                                  <Sparkles className="w-3 h-3" />
+                                  <Sparkles className="w-3 h-3 text-indigo-400" />
                                   <span>Vetorizar</span>
                                 </button>
                               </div>
@@ -1634,32 +1642,32 @@ export default function App() {
                           )}
 
                           {pedido.observacoes && (
-                            <p className="text-xs text-slate-400 italic bg-slate-950/40 px-3 py-1.5 rounded-lg border border-slate-800/60">
+                            <p className="text-xs text-zinc-400 italic bg-zinc-950/40 px-3 py-1.5 rounded-lg border border-zinc-800/60">
                               Obs: {pedido.observacoes}
                             </p>
                           )}
                         </div>
 
                         {/* Botões de Ação */}
-                        <div className="flex flex-col items-stretch gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-5 border-slate-800 shrink-0 w-full md:w-56">
+                        <div className="flex flex-col items-stretch gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-5 border-zinc-800/80 shrink-0 w-full md:w-52">
                           {/* Ações CorelDRAW */}
                           <div className="grid grid-cols-1 gap-1.5">
                             <button
                               onClick={() => carimbarNoCorelDRAW(pedido)}
                               disabled={enviandoCorel === pedido.id}
                               title="Carimbar a ficha técnica e grade de tamanhos na arte aberta do CorelDRAW"
-                              className="flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors cursor-pointer"
                             >
-                              <Printer className="w-3.5 h-3.5 text-emerald-200" />
+                              <Printer className="w-3.5 h-3.5 text-white" />
                               {enviandoCorel === pedido.id ? 'Carimbando...' : 'Carimbar no Corel'}
                             </button>
 
                             <button
                               onClick={abrirMontadorCorel}
                               title="Abrir Janela do Montador de Folha no CorelDRAW (Imposição / Gang Sheet)"
-                              className="flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+                              className="flex items-center justify-center gap-2 px-3 py-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 text-xs font-medium rounded-xl border border-zinc-750 transition-colors cursor-pointer"
                             >
-                              <Grid className="w-3.5 h-3.5 text-amber-200" />
+                              <Grid className="w-3.5 h-3.5 text-amber-400" />
                               Montar Folha
                             </button>
                           </div>
@@ -1669,16 +1677,16 @@ export default function App() {
                             <button
                               onClick={() => setModalFicha(pedido)}
                               title="Visualizar e imprimir ficha de produção / ordem de serviço em papel A4"
-                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-[11px] font-medium rounded-xl border border-zinc-800 transition-colors cursor-pointer"
                             >
-                              <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                              <FileText className="w-3.5 h-3.5 text-zinc-400" />
                               Ficha OS
                             </button>
 
                             <button
                               onClick={() => abrirCalculadoraParaPedido(pedido)}
                               title="Calcular metragem na bobina DTF 58cm e custo de insumos"
-                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-xl border border-slate-700 transition-all cursor-pointer"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-[11px] font-medium rounded-xl border border-zinc-800 transition-colors cursor-pointer"
                             >
                               <Calculator className="w-3.5 h-3.5 text-amber-400" />
                               Bobina DTF
@@ -1689,36 +1697,36 @@ export default function App() {
                             <button
                               onClick={() => criarPastaProjeto(pedido)}
                               title="Criar pasta organizada do pedido, copiar imagens e abrir no Explorer"
-                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-[11px] font-semibold rounded-xl border border-indigo-700/50 transition-all"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-[11px] font-medium rounded-xl border border-zinc-800 transition-colors"
                             >
-                              <FolderPlus className="w-3.5 h-3.5 text-indigo-400" />
+                              <FolderPlus className="w-3.5 h-3.5 text-zinc-400" />
                               Pasta
                             </button>
 
                             <button
                               onClick={() => abrirSeparacao(pedido)}
                               title="Abrir checklist de separação das peças por tamanho"
-                              className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 text-[11px] font-semibold rounded-xl border border-cyan-700/50 transition-all"
+                              className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-zinc-900 hover:bg-zinc-850 text-zinc-300 text-[11px] font-medium rounded-xl border border-zinc-800 transition-colors"
                             >
-                              <CheckSquare className="w-3.5 h-3.5 text-cyan-400" />
+                              <CheckSquare className="w-3.5 h-3.5 text-zinc-400" />
                               Separar
                             </button>
                           </div>
 
                           {/* Barra de Ações Rápidas: Editar, Duplicar, Excluir */}
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 px-1">
+                          <div className="flex items-center justify-between pt-1 border-t border-zinc-800/80 px-1">
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => iniciarEdicaoPedido(pedido)}
                                 title="Editar dados e grade deste pedido"
-                                className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-950/60 rounded-lg transition-colors"
+                                className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => duplicarPedido(pedido)}
                                 title="Duplicar pedido com novo número"
-                                className="p-1.5 text-slate-400 hover:text-amber-300 hover:bg-amber-950/60 rounded-lg transition-colors"
+                                className="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-lg transition-colors"
                               >
                                 <Copy className="w-3.5 h-3.5" />
                               </button>
@@ -1727,7 +1735,7 @@ export default function App() {
                             <button
                               onClick={() => confirmarExcluirPedido(pedido)}
                               title="Remover pedido do painel"
-                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors"
+                              className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1743,20 +1751,20 @@ export default function App() {
 
           {/* ================= ABA: NOVO PEDIDO COM GRADE ================= */}
           {abaAtiva === 'novo-pedido' && (
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="max-w-4xl mx-auto space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-2xl font-black text-white tracking-tight">
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-xl font-bold text-zinc-100 tracking-tight">
                       {modoEdicaoId ? `Editando Pedido #${pedidoForm.numeroPedido}` : 'Lançamento de Pedido de Estamparia'}
                     </h2>
                     {modoEdicaoId && (
-                      <span className="text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                      <span className="text-[11px] font-mono font-medium bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md">
                         MODO EDIÇÃO
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-xs text-zinc-400 mt-0.5">
                     {modoEdicaoId 
                       ? 'Atualize os dados técnicos ou quantidades da grade deste pedido.' 
                       : 'Preencha os dados técnicos da arte e a grade quantitativa para produção.'}
@@ -1766,52 +1774,52 @@ export default function App() {
                   <button
                     type="button"
                     onClick={prepararNovoPedido}
-                    className="self-start sm:self-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                    className="self-start sm:self-auto px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-medium transition-colors"
                   >
-                    Cancelar Edição (Novo Pedido)
+                    Cancelar Edição
                   </button>
                 )}
               </div>
 
               {clientes.length === 0 ? (
-                <div className="bg-amber-950/40 border border-amber-800/60 rounded-3xl p-8 text-center space-y-4">
-                  <AlertTriangle className="w-12 h-12 text-amber-400 mx-auto" />
-                  <h3 className="font-bold text-amber-200 text-lg">Nenhum cliente cadastrado ainda!</h3>
-                  <p className="text-sm text-amber-300/80 max-w-md mx-auto">
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-8 text-center space-y-3">
+                  <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto" />
+                  <h3 className="font-bold text-zinc-100 text-base">Nenhum cliente cadastrado ainda!</h3>
+                  <p className="text-xs text-zinc-400 max-w-md mx-auto">
                     Para vincular a pasta física no seu computador e salvar os arquivos de pedidos, cadastre o primeiro cliente.
                   </p>
                   <button
                     onClick={() => setAbaAtiva('clientes')}
-                    className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-semibold transition-colors shadow-lg"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm"
                   >
                     Cadastrar Cliente Agora
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSalvarPedido} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+                <form onSubmit={handleSalvarPedido} className="bg-[#13151b] border border-zinc-800 rounded-2xl p-6 md:p-7 space-y-5 shadow-xl">
                   {/* Cabeçalho */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Número do Pedido</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Número do Pedido</label>
                       <div className="relative">
-                        <Hash className="absolute left-3 top-3 w-4 h-4 text-indigo-400" />
+                        <Hash className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
                         <input
                           type="text"
                           required
                           value={pedidoForm.numeroPedido}
                           onChange={(e) => setPedidoForm({ ...pedidoForm, numeroPedido: e.target.value })}
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-indigo-400 font-mono font-black focus:outline-none focus:border-indigo-500"
+                          className="w-full pl-9 pr-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-100 font-mono font-bold focus:outline-none focus:border-zinc-700"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Cliente Cadastrado</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Cliente Cadastrado</label>
                       <select
                         required
                         value={pedidoForm.clienteId}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, clienteId: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
                       >
                         <option value="">Selecione o Cliente...</option>
                         {clientes.map(c => (
@@ -1823,36 +1831,36 @@ export default function App() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Previsão de Entrega</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Previsão de Entrega</label>
                       <input
                         type="date"
                         value={pedidoForm.dataEntrega}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, dataEntrega: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                       />
                     </div>
                   </div>
 
                   {/* Detalhes da Estampa */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome / Descrição da Estampa</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Nome / Descrição da Estampa</label>
                       <input
                         type="text"
                         required
                         placeholder="Ex: Estampa Caveira Surfista 3 Cores Silk Screen"
                         value={pedidoForm.descricaoEstampa}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, descricaoEstampa: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Posição da Estampa</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Posição da Estampa</label>
                       <select
                         value={pedidoForm.posicaoEstampa}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, posicaoEstampa: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
                       >
                         <option value="Frente">Frente</option>
                         <option value="Costas">Costas</option>
@@ -1865,46 +1873,46 @@ export default function App() {
                   </div>
 
                   {/* Tecido & Cor */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tipo de Tecido / Malha</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Tipo de Tecido / Malha</label>
                       <input
                         type="text"
                         placeholder="Ex: Algodão Fio 30.1, Poliéster, Dry-Fit..."
                         value={pedidoForm.tipoTecido}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, tipoTecido: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Cor da Peça</label>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Cor da Peça</label>
                       <input
                         type="text"
                         placeholder="Ex: Preta, Branca, Mescla..."
                         value={pedidoForm.corTecido}
                         onChange={(e) => setPedidoForm({ ...pedidoForm, corTecido: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                       />
                     </div>
                   </div>
 
                   {/* Grade Quantitativa com Botões + e - */}
-                  <div className="border border-slate-800 bg-slate-950/70 p-6 rounded-2xl space-y-4">
+                  <div className="border border-zinc-800 bg-zinc-950/60 p-5 rounded-2xl space-y-3.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Layers className="w-5 h-5 text-indigo-400" />
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Grade de Peças por Tamanho</h3>
+                        <Layers className="w-4 h-4 text-zinc-400" />
+                        <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Grade de Peças por Tamanho</h3>
                       </div>
-                      <span className="text-sm font-black text-indigo-400 bg-indigo-950/80 px-4 py-1 rounded-full border border-indigo-800/80 font-mono">
+                      <span className="text-xs font-mono font-bold text-zinc-200 bg-zinc-900 border border-zinc-750 px-3 py-0.5 rounded-full">
                         Total: {totalPecas} Peças
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-2.5 pt-2">
+                    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-8 gap-2 pt-1">
                       {TAMANHOS_PADRAO.map((tamanho) => (
-                        <div key={tamanho} className="bg-slate-900 border border-slate-700/80 rounded-2xl p-2.5 text-center transition-all focus-within:border-indigo-500">
-                          <label className="block text-xs font-black text-slate-300 mb-1.5">{tamanho}</label>
+                        <div key={tamanho} className="bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-center transition-all focus-within:border-zinc-650">
+                          <label className="block text-[11px] font-bold text-zinc-300 mb-1">{tamanho}</label>
                           <input
                             type="number"
                             min="0"
@@ -1916,20 +1924,20 @@ export default function App() {
                                 [tamanho]: Math.max(0, parseInt(e.target.value, 10) || 0)
                               }
                             })}
-                            className="w-full text-center bg-slate-950 border border-slate-700 rounded-xl py-1.5 text-lg font-black text-white focus:outline-none focus:border-indigo-500 font-mono"
+                            className="w-full text-center bg-zinc-950 border border-zinc-800 rounded-lg py-1 text-base font-bold text-zinc-100 focus:outline-none focus:border-zinc-650 font-mono"
                           />
-                          <div className="flex gap-1 mt-1.5 justify-center">
+                          <div className="flex gap-1 mt-1 justify-center">
                             <button
                               type="button"
                               onClick={() => alterarQtdGrade(tamanho, -1)}
-                              className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-bold"
+                              className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 rounded text-xs font-bold"
                             >
                               -
                             </button>
                             <button
                               type="button"
                               onClick={() => alterarQtdGrade(tamanho, 1)}
-                              className="px-2 py-0.5 bg-indigo-900/60 hover:bg-indigo-800 text-indigo-300 rounded text-xs font-bold"
+                              className="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-750 text-zinc-200 rounded text-xs font-bold"
                             >
                               +
                             </button>
@@ -1940,23 +1948,23 @@ export default function App() {
                   </div>
 
                   {/* Imagens da Estampa / Mockups */}
-                  <div className="border border-slate-800 bg-slate-950/70 p-6 rounded-2xl space-y-4">
+                  <div className="border border-zinc-800 bg-zinc-950/60 p-5 rounded-2xl space-y-3.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="p-2 bg-indigo-950/80 rounded-xl border border-indigo-800/60">
-                          <ImageIcon className="w-5 h-5 text-indigo-400" />
+                        <div className="p-2 bg-zinc-900 rounded-xl border border-zinc-800">
+                          <ImageIcon className="w-4 h-4 text-zinc-400" />
                         </div>
                         <div>
-                          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Imagens da Estampa / Mockup da Peça</h3>
-                          <p className="text-xs text-slate-400">Anexe as fotos da arte (frente, costas, manga ou simulação) para controle de produção.</p>
+                          <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Imagens da Estampa / Mockup da Peça</h3>
+                          <p className="text-xs text-zinc-400">Anexe as fotos da arte (frente, costas, manga) para controle de produção.</p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={escolherImagensEstampa}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all self-start sm:self-auto cursor-pointer"
+                        className="flex items-center gap-1.5 px-3.5 py-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 text-xs font-medium rounded-xl border border-zinc-750 transition-colors self-start sm:self-auto cursor-pointer"
                       >
-                        <ImagePlus className="w-4 h-4" />
+                        <ImagePlus className="w-3.5 h-3.5" />
                         Anexar Imagens...
                       </button>
                     </div>
@@ -1964,17 +1972,17 @@ export default function App() {
                     {pedidoForm.imagens.length === 0 ? (
                       <div 
                         onClick={escolherImagensEstampa}
-                        className="border border-dashed border-slate-800 hover:border-slate-700/80 rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-900/40 group"
+                        className="border border-dashed border-zinc-800 hover:border-zinc-700 rounded-xl p-6 text-center cursor-pointer transition-colors bg-zinc-900/30 group"
                       >
-                        <ImagePlus className="w-8 h-8 text-slate-600 group-hover:text-indigo-400 mx-auto mb-2 transition-colors" />
-                        <p className="text-xs text-slate-300 font-semibold">Nenhuma imagem anexada ainda</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Clique aqui para selecionar arquivos de imagem do seu computador (JPG, PNG, WEBP, BMP)</p>
+                        <ImagePlus className="w-7 h-7 text-zinc-600 group-hover:text-zinc-400 mx-auto mb-1.5 transition-colors" />
+                        <p className="text-xs text-zinc-300 font-medium">Nenhuma imagem anexada ainda</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5">Clique para selecionar arquivos de imagem no computador (JPG, PNG, WEBP, BMP)</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                         {pedidoForm.imagens.map((img, idx) => (
-                          <div key={idx} className="group relative bg-slate-900 border border-slate-800 hover:border-indigo-600/60 rounded-xl overflow-hidden shadow-sm flex flex-col transition-all">
-                            <div className="h-32 bg-[#050811] flex items-center justify-center overflow-hidden relative">
+                          <div key={idx} className="group relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-sm flex flex-col transition-all">
+                            <div className="h-28 bg-[#0b0d11] flex items-center justify-center overflow-hidden relative">
                               <img 
                                 src={img.preview || img.caminho} 
                                 alt={img.nome} 
@@ -1984,22 +1992,22 @@ export default function App() {
                                 <button
                                   type="button"
                                   onClick={() => setImagemModal(img)}
-                                  className="p-2 bg-slate-900/90 text-white rounded-lg hover:bg-indigo-600 transition-colors shadow"
+                                  className="p-1.5 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 transition-colors shadow"
                                   title="Visualizar em tamanho grande"
                                 >
-                                  <Eye className="w-4 h-4" />
+                                  <Eye className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => removerImagemEstampa(idx)}
-                                  className="p-2 bg-red-900/90 text-white rounded-lg hover:bg-red-600 transition-colors shadow"
+                                  className="p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-500 transition-colors shadow"
                                   title="Remover imagem"
                                 >
-                                  <X className="w-4 h-4" />
+                                  <X className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </div>
-                            <span className="p-2 text-[11px] font-mono text-slate-300 truncate bg-slate-950/80 border-t border-slate-800" title={img.nome}>
+                            <span className="p-2 text-[10px] font-mono text-zinc-400 truncate bg-zinc-950 border-t border-zinc-800" title={img.nome}>
                               {img.nome}
                             </span>
                           </div>
@@ -2010,36 +2018,36 @@ export default function App() {
 
                   {/* Observações */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Instruções de Impressão / Cores Pantone / Observações</label>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Instruções de Impressão / Observações</label>
                     <textarea
                       rows="3"
                       placeholder="Instruções de tintas, telas de seda, temperatura de cura ou especificações do cliente..."
                       value={pedidoForm.observacoes}
                       onChange={(e) => setPedidoForm({ ...pedidoForm, observacoes: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-700"
                     ></textarea>
                   </div>
 
                   {/* Botões do Rodapé */}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-800">
-                    <p className="text-xs text-slate-500">
-                      💾 Ao clicar em salvar, um arquivo <code className="text-indigo-400 font-mono font-bold">pedido_#{pedidoForm.numeroPedido}.json</code> será gravado na pasta do cliente.
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+                    <p className="text-xs text-zinc-500">
+                      💾 Arquivo <code className="text-zinc-300 font-mono">pedido_#{pedidoForm.numeroPedido}.json</code> será gravado na pasta do cliente.
                     </p>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setAbaAtiva('pedidos')}
-                        className="px-5 py-2.5 bg-slate-800 text-slate-300 rounded-xl text-sm font-semibold hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-medium transition-colors"
                       >
                         Cancelar
                       </button>
                       <button
                         type="submit"
-                        className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                        className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors cursor-pointer"
                       >
-                        <Save className="w-4 h-4" />
-                        {modoEdicaoId ? 'Atualizar Pedido no PC' : 'Salvar Pedido & Gravar no PC'}
+                        <Save className="w-3.5 h-3.5" />
+                        {modoEdicaoId ? 'Atualizar Pedido' : 'Salvar Pedido no PC'}
                       </button>
                     </div>
                   </div>
@@ -2050,55 +2058,55 @@ export default function App() {
 
           {/* ================= ABA: CLIENTES & DIRETÓRIOS ================= */}
           {abaAtiva === 'clientes' && (
-            <div className="max-w-5xl mx-auto space-y-8">
+            <div className="max-w-5xl mx-auto space-y-6">
               <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Cadastro de Clientes e Pastas</h2>
-                <p className="text-sm text-slate-400">Vincule cada cliente ao seu diretório correspondente no Windows para gravação direta de pedidos e artes.</p>
+                <h2 className="text-xl font-bold text-zinc-100 tracking-tight">Cadastro de Clientes e Pastas</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">Vincule cada cliente ao seu diretório correspondente no Windows para gravação direta de pedidos e artes.</p>
               </div>
 
               {/* Formulário de Novo Cliente */}
-              <form onSubmit={handleSalvarCliente} className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl">
-                <h3 className="text-sm font-black text-slate-200 uppercase tracking-wider">Novo Cliente</h3>
+              <form onSubmit={handleSalvarCliente} className="bg-[#13151b] border border-zinc-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
+                <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Novo Cliente</h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome do Cliente / Responsável *</label>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Nome do Cliente *</label>
                     <input
                       type="text"
                       required
                       placeholder="Ex: João da Silva"
                       value={clienteForm.nome}
                       onChange={(e) => setClienteForm({ ...clienteForm, nome: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nome da Loja / Marca</label>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Nome da Loja / Marca</label>
                     <input
                       type="text"
                       placeholder="Ex: Streetwear Co."
                       value={clienteForm.loja}
                       onChange={(e) => setClienteForm({ ...clienteForm, loja: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">WhatsApp / Telefone</label>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">WhatsApp / Telefone</label>
                     <input
                       type="text"
                       placeholder="(11) 99999-9999"
                       value={clienteForm.telefone}
                       onChange={(e) => setClienteForm({ ...clienteForm, telefone: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-200 focus:outline-none focus:border-zinc-700"
                     />
                   </div>
                 </div>
 
                 {/* Seleção do Diretório */}
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
                     Diretório da Pasta no Computador (Onde ficam as artes e pedidos) *
                   </label>
                   <div className="flex gap-2">
@@ -2109,77 +2117,77 @@ export default function App() {
                       placeholder="Clique em 'Selecionar Pasta' para escolher o caminho no seu PC..."
                       value={clienteForm.pastaDiretorio}
                       onClick={escolherPastaCliente}
-                      className="flex-1 px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-sm text-slate-300 font-mono focus:outline-none cursor-pointer"
+                      className="flex-1 px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-sm text-zinc-300 font-mono focus:outline-none cursor-pointer"
                     />
                     <button
                       type="button"
                       onClick={escolherPastaCliente}
-                      className="flex items-center gap-2 px-5 py-2.5 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 text-sm font-semibold rounded-xl border border-indigo-700/50 transition-colors shadow-sm"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 text-xs font-medium rounded-xl border border-zinc-750 transition-colors shadow-sm"
                     >
-                      <FolderSync className="w-4 h-4 text-indigo-400" />
+                      <FolderSync className="w-3.5 h-3.5 text-zinc-400" />
                       Selecionar Pasta...
                     </button>
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end pt-1">
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-semibold shadow-lg shadow-indigo-600/30 transition-all"
+                    className="flex items-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
                   >
-                    <PlusCircle className="w-4 h-4" />
+                    <PlusCircle className="w-3.5 h-3.5" />
                     Cadastrar Cliente
                   </button>
                 </div>
               </form>
 
               {/* Lista de Clientes Cadastrados */}
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
                     Clientes Cadastrados ({clientes.length})
                   </h3>
                   <button 
                     onClick={carregarDados}
-                    className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
+                    className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition-colors"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" /> Atualizar lista
+                    <RefreshCw className="w-3 h-3" /> Atualizar lista
                   </button>
                 </div>
 
                 {clientes.length === 0 ? (
-                  <div className="p-10 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500 text-sm">
+                  <div className="p-8 text-center border border-dashed border-zinc-800 rounded-2xl text-zinc-500 text-xs">
                     Nenhum cliente cadastrado no momento.
                   </div>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="grid gap-2.5">
                     {clientes.map(c => {
                       const pedidosDoCliente = pedidos.filter(p => p.clienteId === c.id || p.clienteNome === c.nome);
                       const iniciais = c.nome ? c.nome.slice(0, 2).toUpperCase() : 'CL';
 
                       return (
-                        <div key={c.id} className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all shadow-sm">
-                          <div className="flex items-center gap-4">
+                        <div key={c.id} className="bg-[#13151b] border border-zinc-800 hover:border-zinc-700/80 p-4 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 transition-all shadow-sm">
+                          <div className="flex items-center gap-3.5">
                             {/* Avatar */}
-                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-600/20 border border-indigo-700/30 flex items-center justify-center font-black text-indigo-400 text-base shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-zinc-750 flex items-center justify-center font-bold text-zinc-300 text-sm shadow-sm">
                               {iniciais}
                             </div>
 
                             <div className="space-y-1">
-                              <div className="flex items-center gap-3">
-                                <span className="font-bold text-white text-base">{c.nome}</span>
+                              <div className="flex items-center gap-2.5">
+                                <span className="font-semibold text-zinc-100 text-sm">{c.nome}</span>
                                 {c.loja && (
-                                  <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-md border border-slate-700 font-medium">
+                                  <span className="text-xs bg-zinc-900 text-zinc-400 px-2 py-0.5 rounded border border-zinc-800 font-medium">
                                     {c.loja}
                                   </span>
                                 )}
-                                <span className="text-xs text-slate-400 font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                                <span className="text-xs text-zinc-400 font-mono bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
                                   {pedidosDoCliente.length} pedidos
                                 </span>
                               </div>
 
-                              <p className="text-xs text-slate-400 font-mono flex items-center gap-1.5 bg-slate-950/70 px-2.5 py-1 rounded-lg border border-slate-800/80">
-                                <FolderOpen className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                              <p className="text-xs text-zinc-400 font-mono flex items-center gap-1.5 bg-zinc-950/70 px-2 py-0.5 rounded-lg border border-zinc-800/80">
+                                <FolderOpen className="w-3.5 h-3.5 text-zinc-400 flex-shrink-0" />
                                 {c.pastaDiretorio}
                               </p>
                             </div>
@@ -2192,27 +2200,27 @@ export default function App() {
                                 target="_blank"
                                 rel="noreferrer"
                                 title="Conversar no WhatsApp"
-                                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 text-xs font-semibold rounded-xl border border-emerald-700/40 transition-colors"
+                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-medium rounded-xl border border-emerald-500/30 transition-colors"
                               >
-                                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                                <MessageCircle className="w-3.5 h-3.5 text-emerald-400" />
                                 WhatsApp
                               </a>
                             )}
 
                             <button
                               onClick={() => abrirNoExplorer(c.pastaDiretorio)}
-                              className="flex items-center gap-2 px-3.5 py-2 bg-indigo-950/50 hover:bg-indigo-900/60 text-indigo-300 hover:text-indigo-200 text-xs font-semibold rounded-xl border border-indigo-700/40 transition-colors shadow-sm"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 text-xs font-medium rounded-xl border border-zinc-750 transition-colors shadow-sm"
                             >
-                              <FolderOpen className="w-4 h-4 text-indigo-400" />
+                              <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
                               Abrir Pasta
                             </button>
 
                             <button
                               onClick={() => confirmarExcluirCliente(c)}
                               title="Remover cliente"
-                              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-950/40 rounded-lg transition-colors"
+                              className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
