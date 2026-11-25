@@ -45,14 +45,14 @@ $form.Size = New-Object System.Drawing.Size(640, 560)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
-$form.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42) # Slate 900
+$form.BackColor = [System.Drawing.Color]::FromArgb(11, 13, 17) # Slate 900
 $form.ForeColor = [System.Drawing.Color]::White
 
 # Título
 $lblTitulo = New-Object System.Windows.Forms.Label
 $lblTitulo.Text = "Vincular Pedido à Arte do CorelDRAW"
 $lblTitulo.Font = New-Object System.Drawing.Font("Segoe UI", 13, [System.Drawing.FontStyle]::Bold)
-$lblTitulo.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo 400
+$lblTitulo.ForeColor = [System.Drawing.Color]::FromArgb(244, 244, 245) # Indigo 400
 $lblTitulo.Location = New-Object System.Drawing.Point(20, 15)
 $lblTitulo.Size = New-Object System.Drawing.Size(580, 30)
 $form.Controls.Add($lblTitulo)
@@ -61,7 +61,7 @@ $form.Controls.Add($lblTitulo)
 $lblSub = New-Object System.Windows.Forms.Label
 $lblSub.Text = "Selecione o pedido abaixo para visualizar a grade e carimbar a ficha de produção na folha ativa."
 $lblSub.Font = New-Object System.Drawing.Font("Segoe UI", 8.5)
-$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184) # Slate 400
+$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170) # Slate 400
 $lblSub.Location = New-Object System.Drawing.Point(20, 45)
 $lblSub.Size = New-Object System.Drawing.Size(580, 20)
 $form.Controls.Add($lblSub)
@@ -70,7 +70,7 @@ $form.Controls.Add($lblSub)
 $lblLista = New-Object System.Windows.Forms.Label
 $lblLista.Text = "PEDIDOS CADASTRADOS NO SISTEMA:"
 $lblLista.Font = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.FontStyle]::Bold)
-$lblLista.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblLista.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblLista.Location = New-Object System.Drawing.Point(20, 75)
 $lblLista.Size = New-Object System.Drawing.Size(580, 18)
 $form.Controls.Add($lblLista)
@@ -78,7 +78,7 @@ $form.Controls.Add($lblLista)
 $listBox = New-Object System.Windows.Forms.ListBox
 $listBox.Location = New-Object System.Drawing.Point(20, 95)
 $listBox.Size = New-Object System.Drawing.Size(580, 110)
-$listBox.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59) # Slate 800
+$listBox.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34) # Slate 800
 $listBox.ForeColor = [System.Drawing.Color]::White
 $listBox.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.FontStyle]::Bold)
 $listBox.BorderStyle = "FixedSingle"
@@ -94,14 +94,14 @@ $form.Controls.Add($listBox)
 $panelDetalhes = New-Object System.Windows.Forms.Panel
 $panelDetalhes.Location = New-Object System.Drawing.Point(20, 215)
 $panelDetalhes.Size = New-Object System.Drawing.Size(580, 200)
-$panelDetalhes.BackColor = [System.Drawing.Color]::FromArgb(8, 14, 26)
+$panelDetalhes.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
 $panelDetalhes.BorderStyle = "FixedSingle"
 
 $lblDetalhes = New-Object System.Windows.Forms.Label
 $lblDetalhes.Location = New-Object System.Drawing.Point(15, 12)
 $lblDetalhes.Size = New-Object System.Drawing.Size(550, 175)
 $lblDetalhes.Font = New-Object System.Drawing.Font("Consolas", 9.5)
-$lblDetalhes.ForeColor = [System.Drawing.Color]::FromArgb(226, 232, 240)
+$lblDetalhes.ForeColor = [System.Drawing.Color]::FromArgb(244, 244, 245)
 $panelDetalhes.Controls.Add($lblDetalhes)
 $form.Controls.Add($panelDetalhes)
 
@@ -132,7 +132,7 @@ $listBox.Add_SelectedIndexChanged($atualizarPainel)
 $btnCarimbar = New-Object System.Windows.Forms.Button
 $btnCarimbar.Text = "🎨 CARIMBAR GRADE NA FOLHA DO CORELDRAW"
 $btnCarimbar.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$btnCarimbar.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo 600
+$btnCarimbar.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129) # Indigo 600
 $btnCarimbar.ForeColor = [System.Drawing.Color]::White
 $btnCarimbar.FlatStyle = "Flat"
 $btnCarimbar.FlatAppearance.BorderSize = 0
@@ -188,11 +188,11 @@ $form.Controls.Add($btnCarimbar)
 $btnSalvar = New-Object System.Windows.Forms.Button
 $btnSalvar.Text = "📁 ABRIR PASTA DO CLIENTE"
 $btnSalvar.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
-$btnSalvar.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
-$btnSalvar.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
+$btnSalvar.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$btnSalvar.ForeColor = [System.Drawing.Color]::FromArgb(244, 244, 245)
 $btnSalvar.FlatStyle = "Flat"
 $btnSalvar.FlatAppearance.BorderSize = 1
-$btnSalvar.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(79, 70, 229)
+$btnSalvar.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(63, 63, 70)
 $btnSalvar.Location = New-Object System.Drawing.Point(400, 430)
 $btnSalvar.Size = New-Object System.Drawing.Size(200, 48)
 $btnSalvar.Cursor = [System.Windows.Forms.Cursors]::Hand

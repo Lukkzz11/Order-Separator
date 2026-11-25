@@ -15,7 +15,7 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedDialog"
 $form.MaximizeBox = $false
 $form.TopMost = $true
-$form.BackColor = [System.Drawing.Color]::FromArgb(11, 15, 25) # Dark Blue/Black
+$form.BackColor = [System.Drawing.Color]::FromArgb(11, 13, 17) # Dark Blue/Black
 $form.ForeColor = [System.Drawing.Color]::White
 
 $iconPath = "E:\estamparia-manager\build\icon.ico"
@@ -35,7 +35,7 @@ $fontSmall  = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.Font
 $lblHeader = New-Object System.Windows.Forms.Label
 $lblHeader.Text = "Montador de Folha / Bobina"
 $lblHeader.Font = $fontTitle
-$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
+$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo
 $lblHeader.Location = New-Object System.Drawing.Point(16, 10)
 $lblHeader.Size = New-Object System.Drawing.Size(205, 24)
 $form.Controls.Add($lblHeader)
@@ -43,7 +43,7 @@ $form.Controls.Add($lblHeader)
 $lblSub = New-Object System.Windows.Forms.Label
 $lblSub.Text = "Encaixe inteligente com economia"
 $lblSub.Font = $fontStats
-$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 $lblSub.Location = New-Object System.Drawing.Point(16, 34)
 $lblSub.Size = New-Object System.Drawing.Size(205, 18)
 $form.Controls.Add($lblSub)
@@ -54,7 +54,10 @@ $btnAbrirUpscaler.Text = "Upscaler IA"
 $btnAbrirUpscaler.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirUpscaler.Location = New-Object System.Drawing.Point(225, 12)
 $btnAbrirUpscaler.Size = New-Object System.Drawing.Size(98, 36)
-$btnAbrirUpscaler.BackColor = [System.Drawing.Color]::FromArgb(2, 132, 199) # Sky Blue
+$btnAbrirUpscaler.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+.FlatAppearance.BorderSize = 1
+.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
+.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248) # Sky Blue
 $btnAbrirUpscaler.ForeColor = [System.Drawing.Color]::White
 $btnAbrirUpscaler.FlatStyle = "Flat"
 $btnAbrirUpscaler.FlatAppearance.BorderSize = 0
@@ -73,7 +76,10 @@ $btnAbrirRemovedor.Text = "Removedor IA"
 $btnAbrirRemovedor.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirRemovedor.Location = New-Object System.Drawing.Point(328, 12)
 $btnAbrirRemovedor.Size = New-Object System.Drawing.Size(102, 36)
-$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(16, 185, 129) # Emerald
+$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+.FlatAppearance.BorderSize = 1
+.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
+.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
 $btnAbrirRemovedor.ForeColor = [System.Drawing.Color]::White
 $btnAbrirRemovedor.FlatStyle = "Flat"
 $btnAbrirRemovedor.FlatAppearance.BorderSize = 0
@@ -92,7 +98,10 @@ $btnAbrirVetorizador.Text = "Vetorizador IA"
 $btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirVetorizador.Location = New-Object System.Drawing.Point(435, 12)
 $btnAbrirVetorizador.Size = New-Object System.Drawing.Size(102, 36)
-$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo
+$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+.FlatAppearance.BorderSize = 1
+.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
+.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo
 $btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::White
 $btnAbrirVetorizador.FlatStyle = "Flat"
 $btnAbrirVetorizador.FlatAppearance.BorderSize = 0
@@ -110,7 +119,7 @@ $form.Controls.Add($btnAbrirVetorizador)
 $lblPedido = New-Object System.Windows.Forms.Label
 $lblPedido.Text = "Puxar Pedido Cadastrado (Opcional):"
 $lblPedido.Font = $fontLabel
-$lblPedido.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblPedido.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblPedido.Location = New-Object System.Drawing.Point(20, 56)
 $lblPedido.Size = New-Object System.Drawing.Size(465, 16)
 $form.Controls.Add($lblPedido)
@@ -119,7 +128,7 @@ $cboPedidos = New-Object System.Windows.Forms.ComboBox
 $cboPedidos.Location = New-Object System.Drawing.Point(20, 74)
 $cboPedidos.Size = New-Object System.Drawing.Size(465, 25)
 $cboPedidos.DropDownStyle = "DropDownList"
-$cboPedidos.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
+$cboPedidos.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
 $cboPedidos.ForeColor = [System.Drawing.Color]::White
 $cboPedidos.Font = $fontInput
 $form.Controls.Add($cboPedidos)
@@ -152,7 +161,7 @@ $form.Controls.Add($pnlUnidade)
 $lblUnidade = New-Object System.Windows.Forms.Label
 $lblUnidade.Text = "Unidade de Medida:"
 $lblUnidade.Font = $fontLabel
-$lblUnidade.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblUnidade.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblUnidade.Location = New-Object System.Drawing.Point(0, 4)
 $lblUnidade.Size = New-Object System.Drawing.Size(140, 20)
 $pnlUnidade.Controls.Add($lblUnidade)
@@ -160,7 +169,7 @@ $pnlUnidade.Controls.Add($lblUnidade)
 $rbCm = New-Object System.Windows.Forms.RadioButton
 $rbCm.Text = "Centimetros (cm)"
 $rbCm.Font = $fontLabel
-$rbCm.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
+$rbCm.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo
 $rbCm.Location = New-Object System.Drawing.Point(145, 2)
 $rbCm.Size = New-Object System.Drawing.Size(145, 22)
 $rbCm.Checked = $true
@@ -170,7 +179,7 @@ $pnlUnidade.Controls.Add($rbCm)
 $rbMm = New-Object System.Windows.Forms.RadioButton
 $rbMm.Text = "Milimetros (mm)"
 $rbMm.Font = $fontLabel
-$rbMm.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+$rbMm.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 $rbMm.Location = New-Object System.Drawing.Point(305, 2)
 $rbMm.Size = New-Object System.Drawing.Size(145, 22)
 $rbMm.Cursor = [System.Windows.Forms.Cursors]::Hand
@@ -180,7 +189,7 @@ $pnlUnidade.Controls.Add($rbMm)
 $lblLargura = New-Object System.Windows.Forms.Label
 $lblLargura.Text = "Largura da Folha / Bobina (cm):"
 $lblLargura.Font = $fontLabel
-$lblLargura.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblLargura.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblLargura.Location = New-Object System.Drawing.Point(20, 134)
 $lblLargura.Size = New-Object System.Drawing.Size(225, 16)
 $form.Controls.Add($lblLargura)
@@ -192,7 +201,7 @@ $numLargura.DecimalPlaces = 1
 $numLargura.Minimum = 5
 $numLargura.Maximum = 500
 $numLargura.Value = 58.0
-$numLargura.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
+$numLargura.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
 $numLargura.ForeColor = [System.Drawing.Color]::White
 $numLargura.Font = $fontInput
 $form.Controls.Add($numLargura)
@@ -200,7 +209,7 @@ $form.Controls.Add($numLargura)
 $lblEspaco = New-Object System.Windows.Forms.Label
 $lblEspaco.Text = "Espaco p/ Tesoura entre artes (cm):"
 $lblEspaco.Font = $fontLabel
-$lblEspaco.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblEspaco.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblEspaco.Location = New-Object System.Drawing.Point(265, 134)
 $lblEspaco.Size = New-Object System.Drawing.Size(220, 16)
 $form.Controls.Add($lblEspaco)
@@ -212,7 +221,7 @@ $numEspaco.DecimalPlaces = 2
 $numEspaco.Minimum = 0
 $numEspaco.Maximum = 10
 $numEspaco.Value = 0.50
-$numEspaco.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
+$numEspaco.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
 $numEspaco.ForeColor = [System.Drawing.Color]::White
 $numEspaco.Font = $fontInput
 $form.Controls.Add($numEspaco)
@@ -248,8 +257,8 @@ function AtualizarBotoesPresets {
     $btn.Text = $p.Nome
     $btn.Size = New-Object System.Drawing.Size(88, 25)
     $btn.Font = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
-    $btn.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
-    $btn.ForeColor = [System.Drawing.Color]::FromArgb(226, 232, 240)
+    $btn.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+    $btn.ForeColor = [System.Drawing.Color]::FromArgb(244, 244, 245)
     $btn.FlatStyle = "Flat"
     $btn.FlatAppearance.BorderSize = 0
     $btn.Cursor = [System.Windows.Forms.Cursors]::Hand
@@ -270,7 +279,7 @@ AtualizarBotoesPresets
 $lblMargem = New-Object System.Windows.Forms.Label
 $lblMargem.Text = "Margem nas bordas da folha (cm):"
 $lblMargem.Font = $fontLabel
-$lblMargem.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblMargem.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblMargem.Location = New-Object System.Drawing.Point(20, 216)
 $lblMargem.Size = New-Object System.Drawing.Size(225, 16)
 $form.Controls.Add($lblMargem)
@@ -282,7 +291,7 @@ $numMargem.DecimalPlaces = 2
 $numMargem.Minimum = 0
 $numMargem.Maximum = 10
 $numMargem.Value = 0.50
-$numMargem.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
+$numMargem.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
 $numMargem.ForeColor = [System.Drawing.Color]::White
 $numMargem.Font = $fontInput
 $form.Controls.Add($numMargem)
@@ -354,7 +363,7 @@ $form.Controls.Add($chkCarimbo)
 $btnDetectar = New-Object System.Windows.Forms.Button
 $btnDetectar.Text = "1. Ler Arte(s) Selecionada(s) no CorelDRAW"
 $btnDetectar.Font = $fontBtn
-$btnDetectar.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
+$btnDetectar.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
 $btnDetectar.ForeColor = [System.Drawing.Color]::White
 $btnDetectar.Location = New-Object System.Drawing.Point(20, 348)
 $btnDetectar.Size = New-Object System.Drawing.Size(465, 36)
@@ -372,7 +381,7 @@ $form.Controls.Add($pnlQtdGlobal)
 $lblQtdGlobal = New-Object System.Windows.Forms.Label
 $lblQtdGlobal.Text = "Qtd de Copias:"
 $lblQtdGlobal.Font = $fontLabel
-$lblQtdGlobal.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+$lblQtdGlobal.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
 $lblQtdGlobal.Location = New-Object System.Drawing.Point(0, 6)
 $lblQtdGlobal.Size = New-Object System.Drawing.Size(100, 20)
 $pnlQtdGlobal.Controls.Add($lblQtdGlobal)
@@ -383,8 +392,8 @@ $numQtdGlobal.Size = New-Object System.Drawing.Size(80, 24)
 $numQtdGlobal.Minimum = 1
 $numQtdGlobal.Maximum = 10000
 $numQtdGlobal.Value = 26
-$numQtdGlobal.BackColor = [System.Drawing.Color]::FromArgb(20, 27, 45)
-$numQtdGlobal.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
+$numQtdGlobal.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$numQtdGlobal.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11)
 $numQtdGlobal.Font = $fontInput
 $pnlQtdGlobal.Controls.Add($numQtdGlobal)
 
@@ -402,8 +411,8 @@ $numQtdGlobal.Add_ValueChanged({
 $btnAplicarTodas = New-Object System.Windows.Forms.Button
 $btnAplicarTodas.Text = "Aplicar esta Quantidade a Todas as Artes"
 $btnAplicarTodas.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
-$btnAplicarTodas.BackColor = [System.Drawing.Color]::FromArgb(30, 41, 59)
-$btnAplicarTodas.ForeColor = [System.Drawing.Color]::FromArgb(226, 232, 240)
+$btnAplicarTodas.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+$btnAplicarTodas.ForeColor = [System.Drawing.Color]::FromArgb(244, 244, 245)
 $btnAplicarTodas.Location = New-Object System.Drawing.Point(195, 2)
 $btnAplicarTodas.Size = New-Object System.Drawing.Size(270, 26)
 $btnAplicarTodas.FlatStyle = "Flat"
@@ -425,7 +434,7 @@ $pnlQtdGlobal.Controls.Add($btnAplicarTodas)
 $pnlArtes = New-Object System.Windows.Forms.Panel
 $pnlArtes.Location = New-Object System.Drawing.Point(20, 424)
 $pnlArtes.Size = New-Object System.Drawing.Size(465, 115)
-$pnlArtes.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+$pnlArtes.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
 $pnlArtes.BorderStyle = "FixedSingle"
 $pnlArtes.AutoScroll = $true
 $form.Controls.Add($pnlArtes)
@@ -434,14 +443,14 @@ $form.Controls.Add($pnlArtes)
 $pnlResumo = New-Object System.Windows.Forms.Panel
 $pnlResumo.Location = New-Object System.Drawing.Point(20, 545)
 $pnlResumo.Size = New-Object System.Drawing.Size(465, 100)
-$pnlResumo.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
+$pnlResumo.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
 $pnlResumo.BorderStyle = "FixedSingle"
 $form.Controls.Add($pnlResumo)
 
 $lblStatusSelecao = New-Object System.Windows.Forms.Label
 $lblStatusSelecao.Text = "Nenhuma arte lida ainda. Selecione 1 ou mais desenhos no Corel."
 $lblStatusSelecao.Font = $fontStats
-$lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+$lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 $lblStatusSelecao.Location = New-Object System.Drawing.Point(12, 6)
 $lblStatusSelecao.Size = New-Object System.Drawing.Size(440, 18)
 $pnlResumo.Controls.Add($lblStatusSelecao)
@@ -474,7 +483,10 @@ $pnlResumo.Controls.Add($lblMetragemInfo)
 $btnMontar = New-Object System.Windows.Forms.Button
 $btnMontar.Text = "2. MONTAR FOLHA OTIMIZADA (GANG SHEET)"
 $btnMontar.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
-$btnMontar.BackColor = [System.Drawing.Color]::FromArgb(79, 70, 229) # Indigo 600
+$btnMontar.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
+.FlatAppearance.BorderSize = 1
+.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
+.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo 600
 $btnMontar.ForeColor = [System.Drawing.Color]::White
 $btnMontar.Location = New-Object System.Drawing.Point(20, 652)
 $btnMontar.Size = New-Object System.Drawing.Size(465, 48)
@@ -493,7 +505,7 @@ function RenderizarListaArtes {
   if ($global:artesDetectadas.Count -eq 0) {
     $lblVazio = New-Object System.Windows.Forms.Label
     $lblVazio.Text = "Nenhuma arte carregada. Selecione os desenhos no Corel e clique acima."
-    $lblVazio.ForeColor = [System.Drawing.Color]::FromArgb(100, 116, 139)
+    $lblVazio.ForeColor = [System.Drawing.Color]::FromArgb(113, 113, 122)
     $lblVazio.Font = $fontStats
     $lblVazio.Location = New-Object System.Drawing.Point(15, 48)
     $lblVazio.Size = New-Object System.Drawing.Size(430, 30)
@@ -509,7 +521,7 @@ function RenderizarListaArtes {
     $pnlItem = New-Object System.Windows.Forms.Panel
     $pnlItem.Location = New-Object System.Drawing.Point(8, $yPos)
     $pnlItem.Size = New-Object System.Drawing.Size(430, 36)
-    $pnlItem.BackColor = [System.Drawing.Color]::FromArgb(24, 33, 56)
+    $pnlItem.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
     $pnlArtes.Controls.Add($pnlItem)
 
     $unitTxt = if ($rbCm.Checked) { "cm" } else { "mm" }
@@ -526,7 +538,7 @@ function RenderizarListaArtes {
 
     $lblQtdItem = New-Object System.Windows.Forms.Label
     $lblQtdItem.Text = "Qtd:"
-    $lblQtdItem.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+    $lblQtdItem.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
     $lblQtdItem.Font = $fontLabel
     $lblQtdItem.Location = New-Object System.Drawing.Point(245, 9)
     $lblQtdItem.Size = New-Object System.Drawing.Size(35, 20)
@@ -538,8 +550,8 @@ function RenderizarListaArtes {
     $numQtdItem.Minimum = 1
     $numQtdItem.Maximum = 10000
     $numQtdItem.Value = [decimal]$item.Qtd
-    $numQtdItem.BackColor = [System.Drawing.Color]::FromArgb(15, 23, 42)
-    $numQtdItem.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
+    $numQtdItem.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
+    $numQtdItem.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11)
     $numQtdItem.Font = $fontInput
     
     # Guarda o controle diretamente no objeto para leitura 100% garantida
@@ -966,7 +978,7 @@ function AtualizarCalculo {
   $alturaTotal = $res.AlturaArtesTotal + (2.0 * $res.MargemEfetiva) + $carimboH
 
   $lblStatusSelecao.Text = "Total de Desenhos no Projeto: $($res.TotalPecas) pecas em $($res.TotalLinhas) faixas de corte"
-  $lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
+  $lblStatusSelecao.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11)
 
   if ($res.Ajustes.Count -gt 0) {
     $lblOtimizacaoInfo.Text = "Auto-Encaixe Ativo: $($res.Ajustes -join '; ')"
@@ -976,7 +988,7 @@ function AtualizarCalculo {
     $lblOtimizacaoInfo.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153)
   } else {
     $lblOtimizacaoInfo.Text = "Otimizacao: Mantendo orientacao original das artes (0 graus)"
-    $lblOtimizacaoInfo.ForeColor = [System.Drawing.Color]::FromArgb(203, 213, 225)
+    $lblOtimizacaoInfo.ForeColor = [System.Drawing.Color]::FromArgb(212, 212, 216)
   }
 
   if ($rbCm.Checked) {
@@ -996,8 +1008,8 @@ $global:unidadeAtual = "cm"
 $rbCm.Add_CheckedChanged({
   if ($rbCm.Checked -and $global:unidadeAtual -ne "cm") {
     $global:unidadeAtual = "cm"
-    $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
-    $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+    $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11)
+    $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 
     $lblLargura.Text = "Largura da Folha / Bobina (cm):"
     $lblEspaco.Text = "Espaco p/ Tesoura entre artes (cm):"
@@ -1033,8 +1045,8 @@ $rbCm.Add_CheckedChanged({
 $rbMm.Add_CheckedChanged({
   if ($rbMm.Checked -and $global:unidadeAtual -ne "mm") {
     $global:unidadeAtual = "mm"
-    $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248)
-    $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(148, 163, 184)
+    $rbMm.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11)
+    $rbCm.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 
     $lblLargura.Text = "Largura da Folha / Bobina (mm):"
     $lblEspaco.Text = "Espaco p/ Tesoura entre artes (mm):"

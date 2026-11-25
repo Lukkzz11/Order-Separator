@@ -719,7 +719,7 @@ class RemovedorFundoApp:
         self.root.title("Order Separator - Removedor de Fundo Profissional 2.6 (VFX Anti-Verde & Anti-Halo Pelos)")
         self.root.geometry("920x860")
         self.root.minsize(860, 780)
-        self.root.configure(bg="#0B0F19")
+        self.root.configure(bg="#0B0D11")
 
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "icon.ico")
         if os.path.exists(icon_path):
@@ -773,14 +773,14 @@ class RemovedorFundoApp:
             self.root.after(800, self.verificar_selecao_inicial_corel)
 
     def setup_ui(self):
-        main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
+        main_frame = tk.Frame(self.root, bg="#0B0D11", padx=16, pady=12)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # 1. Cabeçalho com Título e Ações Rápidas
-        hdr_box = tk.Frame(main_frame, bg="#0B0F19")
+        hdr_box = tk.Frame(main_frame, bg="#0B0D11")
         hdr_box.pack(fill=tk.X, pady=(0, 8))
 
-        title_frame = tk.Frame(hdr_box, bg="#0B0F19")
+        title_frame = tk.Frame(hdr_box, bg="#0B0D11")
         title_frame.pack(side=tk.LEFT)
 
         lbl_title = tk.Label(
@@ -788,7 +788,7 @@ class RemovedorFundoApp:
             text="Removedor de Fundo IA 2.6",
             font=("Segoe UI", 16, "bold"),
             fg="#10B981", # Emerald
-            bg="#0B0F19"
+            bg="#0B0D11"
         )
         lbl_title.pack(anchor="w")
 
@@ -796,13 +796,13 @@ class RemovedorFundoApp:
             title_frame,
             text="IA U2-Net Leve & Rápida (⚡ GPU DirectML RTX Ativa), Guided Filter, Despill VFX, Anti-Halo Branco de Pelos e Choke DTF",
             font=("Segoe UI", 8),
-            fg="#94A3B8",
-            bg="#0B0F19"
+            fg="#A1A1AA",
+            bg="#0B0D11"
         )
         lbl_sub.pack(anchor="w")
 
         # Botões de Ação de Entrada Rápidos
-        btn_box = tk.Frame(hdr_box, bg="#0B0F19")
+        btn_box = tk.Frame(hdr_box, bg="#0B0D11")
         btn_box.pack(side=tk.RIGHT)
 
         btn_corel = tk.Button(
@@ -825,9 +825,9 @@ class RemovedorFundoApp:
             btn_box,
             text="📂 Abrir Imagem",
             font=("Segoe UI", 9, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -841,9 +841,9 @@ class RemovedorFundoApp:
             btn_box,
             text="📋 Colar",
             font=("Segoe UI", 9, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -854,13 +854,13 @@ class RemovedorFundoApp:
         btn_paste.pack(side=tk.LEFT, padx=3)
 
         # 1.1 Barra de Contexto de Pedido & Raio-X Diagnóstico de Estamparia
-        ctx_frame = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=6)
+        ctx_frame = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=10, pady=6)
         ctx_frame.pack(fill=tk.X, pady=(0, 6))
 
-        ctx_top = tk.Frame(ctx_frame, bg="#0F172A")
+        ctx_top = tk.Frame(ctx_frame, bg="#13151B")
         ctx_top.pack(fill=tk.X)
 
-        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#13151B").pack(side=tk.LEFT, padx=(0, 6))
 
         ped_list = ["-- Nenhum Pedido Vinculado (Modo Livre) --"]
         for p in self.pedidos_carregados:
@@ -871,16 +871,16 @@ class RemovedorFundoApp:
         self.cbo_pedidos.pack(side=tk.LEFT, padx=(0, 8))
         self.cbo_pedidos.bind("<<ComboboxSelected>>", self.on_pedido_selecionado)
 
-        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#CBD5E1", bg="#0F172A")
+        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#D4D4D8", bg="#13151B")
         self.lbl_pedido_badge.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         self.btn_salvar_pasta_pedido = tk.Button(
             ctx_top,
             text="📁 Salvar na Pasta do Pedido",
             font=("Segoe UI", 8, "bold"),
-            bg="#312E81",
-            fg="#C7D2FE",
-            activebackground="#4338CA",
+            bg="#1E2129",
+            fg="#A78BFA",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -894,17 +894,17 @@ class RemovedorFundoApp:
             ctx_frame,
             text="💡 Raio-X da Estampa: Carregue uma imagem para a IA analisar DPI, tamanho de estampa e sugerir o melhor modelo neural.",
             font=("Segoe UI", 8),
-            fg="#64748B",
-            bg="#0F172A",
+            fg="#71717A",
+            bg="#13151B",
             anchor="w"
         )
         self.lbl_raio_x.pack(fill=tk.X, pady=(4, 0))
 
         # 2. Painel Central de Visualização
-        preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
+        preview_container = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=10, pady=8)
         preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
-        info_bar = tk.Frame(preview_container, bg="#0F172A")
+        info_bar = tk.Frame(preview_container, bg="#13151B")
         info_bar.pack(fill=tk.X, pady=(0, 6))
 
         self.lbl_img_info = tk.Label(
@@ -912,69 +912,69 @@ class RemovedorFundoApp:
             text="Selecione um objeto no CorelDRAW e clique em Capturar, ou abra uma imagem.",
             font=("Segoe UI", 9, "bold"),
             fg="#818CF8",
-            bg="#0F172A",
+            bg="#13151B",
             anchor="w"
         )
         self.lbl_img_info.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # Alternador de Fundo do Preview
-        bg_toggle_box = tk.Frame(info_bar, bg="#0F172A")
+        bg_toggle_box = tk.Frame(info_bar, bg="#13151B")
         bg_toggle_box.pack(side=tk.RIGHT)
 
-        tk.Label(bg_toggle_box, text="Fundo Preview:", font=("Segoe UI", 7, "bold"), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 4))
+        tk.Label(bg_toggle_box, text="Fundo Preview:", font=("Segoe UI", 7, "bold"), fg="#A1A1AA", bg="#13151B").pack(side=tk.LEFT, padx=(0, 4))
 
         self.btn_bg_chk = tk.Button(bg_toggle_box, text="🏁 Xadrez", font=("Segoe UI", 7, "bold"), bg="#10B981", fg="#FFFFFF", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("checker"))
         self.btn_bg_chk.pack(side=tk.LEFT, padx=1)
 
-        self.btn_bg_blk = tk.Button(bg_toggle_box, text="⬛ Preto", font=("Segoe UI", 7, "bold"), bg="#1E293B", fg="#CBD5E1", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("black"))
+        self.btn_bg_blk = tk.Button(bg_toggle_box, text="⬛ Preto", font=("Segoe UI", 7, "bold"), bg="#1E2129", fg="#D4D4D8", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("black"))
         self.btn_bg_blk.pack(side=tk.LEFT, padx=1)
 
-        self.btn_bg_wht = tk.Button(bg_toggle_box, text="⬜ Branco", font=("Segoe UI", 7, "bold"), bg="#1E293B", fg="#CBD5E1", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("white"))
+        self.btn_bg_wht = tk.Button(bg_toggle_box, text="⬜ Branco", font=("Segoe UI", 7, "bold"), bg="#1E2129", fg="#D4D4D8", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("white"))
         self.btn_bg_wht.pack(side=tk.LEFT, padx=1)
 
-        self.btn_bg_drk = tk.Button(bg_toggle_box, text="👕 Camiseta", font=("Segoe UI", 7, "bold"), bg="#1E293B", fg="#CBD5E1", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("dark"))
+        self.btn_bg_drk = tk.Button(bg_toggle_box, text="👕 Camiseta", font=("Segoe UI", 7, "bold"), bg="#1E2129", fg="#D4D4D8", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("dark"))
         self.btn_bg_drk.pack(side=tk.LEFT, padx=1)
 
         self.btn_bg_ord = tk.Button(bg_toggle_box, text="👕 Tecido Pedido", font=("Segoe UI", 7, "bold"), bg="#581C87", fg="#FFFFFF", bd=0, padx=6, pady=2, cursor="hand2", command=lambda: self.set_preview_bg("order_fabric"))
         # Inicialmente não empacotado até selecionar pedido com cor
 
         # Divisão Dupla: Esquerda (Original / Conta-gotas) / Direita (Sem Fundo)
-        cards_frame = tk.Frame(preview_container, bg="#0F172A")
+        cards_frame = tk.Frame(preview_container, bg="#13151B")
         cards_frame.pack(fill=tk.BOTH, expand=True)
 
         # Card Esquerdo: Imagem Original
-        card_orig = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_orig = tk.Frame(cards_frame, bg="#181B22", bd=1, relief="solid")
         card_orig.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
 
-        subhdr_orig = tk.Frame(card_orig, bg="#141B2D", padx=6, pady=3)
+        subhdr_orig = tk.Frame(card_orig, bg="#181B22", padx=6, pady=3)
         subhdr_orig.pack(fill=tk.X)
-        tk.Label(subhdr_orig, text="Original", font=("Segoe UI", 8, "bold"), fg="#94A3B8", bg="#141B2D").pack(side=tk.LEFT)
-        self.lbl_eyedrop_hint = tk.Label(subhdr_orig, text="🎯 Clique para selecionar cor", font=("Segoe UI", 7), fg="#64748B", bg="#141B2D")
+        tk.Label(subhdr_orig, text="Original", font=("Segoe UI", 8, "bold"), fg="#A1A1AA", bg="#181B22").pack(side=tk.LEFT)
+        self.lbl_eyedrop_hint = tk.Label(subhdr_orig, text="🎯 Clique para selecionar cor", font=("Segoe UI", 7), fg="#71717A", bg="#181B22")
         self.lbl_eyedrop_hint.pack(side=tk.RIGHT)
 
-        self.canvas_orig = tk.Canvas(card_orig, bg="#020617", bd=0, highlightthickness=0, cursor="tcross")
+        self.canvas_orig = tk.Canvas(card_orig, bg="#0B0D11", bd=0, highlightthickness=0, cursor="tcross")
         self.canvas_orig.pack(fill=tk.BOTH, expand=True)
         self.canvas_orig.bind("<Button-1>", self.on_canvas_orig_click)
         self.canvas_orig.bind("<Motion>", self.on_canvas_orig_motion)
 
         # Card Direito: Imagem Recortada Transparente
-        card_proc = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_proc = tk.Frame(cards_frame, bg="#181B22", bd=1, relief="solid")
         card_proc.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(4, 0))
 
-        subhdr_proc = tk.Frame(card_proc, bg="#141B2D", padx=6, pady=3)
+        subhdr_proc = tk.Frame(card_proc, bg="#181B22", padx=6, pady=3)
         subhdr_proc.pack(fill=tk.X)
-        tk.Label(subhdr_proc, text="Sem Fundo (Transparente)", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#141B2D").pack(side=tk.LEFT)
-        self.lbl_crop_stats = tk.Label(subhdr_proc, text="", font=("Segoe UI", 7, "bold"), fg="#6EE7B7", bg="#141B2D")
+        tk.Label(subhdr_proc, text="Sem Fundo (Transparente)", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#181B22").pack(side=tk.LEFT)
+        self.lbl_crop_stats = tk.Label(subhdr_proc, text="", font=("Segoe UI", 7, "bold"), fg="#6EE7B7", bg="#181B22")
         self.lbl_crop_stats.pack(side=tk.RIGHT)
 
-        self.canvas_proc = tk.Canvas(card_proc, bg="#020617", bd=0, highlightthickness=0)
+        self.canvas_proc = tk.Canvas(card_proc, bg="#0B0D11", bd=0, highlightthickness=0)
         self.canvas_proc.pack(fill=tk.BOTH, expand=True)
 
         # 3. Seletor de Modo de Remoção
-        lbl_mode_title = tk.Label(main_frame, text="Modo de Remoção Inteligente:", font=("Segoe UI", 9, "bold"), fg="#CBD5E1", bg="#0B0F19")
+        lbl_mode_title = tk.Label(main_frame, text="Modo de Remoção Inteligente:", font=("Segoe UI", 9, "bold"), fg="#D4D4D8", bg="#0B0D11")
         lbl_mode_title.pack(anchor="w", pady=(0, 4))
 
-        modes_box = tk.Frame(main_frame, bg="#0B0F19")
+        modes_box = tk.Frame(main_frame, bg="#0B0D11")
         modes_box.pack(fill=tk.X, pady=(0, 8))
 
         self.mode_var = tk.StringVar(value="ia_geral")
@@ -1002,7 +1002,7 @@ class RemovedorFundoApp:
             self.mode_btns[m_id] = btn
 
         # 4. Painel de Controles e Parâmetros
-        self.pnl_params = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=12, pady=8)
+        self.pnl_params = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=12, pady=8)
         self.pnl_params.pack(fill=tk.X, pady=(0, 8))
 
         self.setup_mode_controls()
@@ -1013,14 +1013,14 @@ class RemovedorFundoApp:
             main_frame,
             text="Pronto. Carregue uma imagem ou capture do CorelDRAW para remover o fundo com 1 clique.",
             font=("Segoe UI", 8),
-            fg="#94A3B8",
-            bg="#0B0F19",
+            fg="#A1A1AA",
+            bg="#0B0D11",
             anchor="center"
         )
         self.lbl_status.pack(fill=tk.X, pady=(2, 6))
 
         # 6. Rodapé de Ações Principais
-        bottom_box = tk.Frame(main_frame, bg="#0B0F19")
+        bottom_box = tk.Frame(main_frame, bg="#0B0D11")
         bottom_box.pack(fill=tk.X)
 
         self.btn_remover_corel = tk.Button(
@@ -1058,9 +1058,9 @@ class RemovedorFundoApp:
             bottom_box,
             text="📐 Vetorizar IA",
             font=("Segoe UI", 8, "bold"),
-            bg="#312E81",
-            fg="#C7D2FE",
-            activebackground="#3730A3",
+            bg="#1E2129",
+            fg="#A78BFA",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -1074,9 +1074,9 @@ class RemovedorFundoApp:
             bottom_box,
             text="💾 Salvar PNG",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -1090,9 +1090,9 @@ class RemovedorFundoApp:
             bottom_box,
             text="📋 Copiar",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -1262,7 +1262,7 @@ class RemovedorFundoApp:
             if m == mode:
                 btn.configure(bg="#10B981", fg="#FFFFFF")
             else:
-                btn.configure(bg="#1E293B", fg="#CBD5E1")
+                btn.configure(bg="#1E2129", fg="#D4D4D8")
 
         if self.pil_processed is not None:
             self.atualizar_canvas_processado()
@@ -1274,7 +1274,7 @@ class RemovedorFundoApp:
         mode = self.mode_var.get()
 
         # Linha 1: Ajustes Físicos de Estamparia (Choke DTF, Suavização, Despill VFX e Auto-Trim)
-        row_common = tk.Frame(self.pnl_params, bg="#0F172A")
+        row_common = tk.Frame(self.pnl_params, bg="#13151B")
         row_common.pack(fill=tk.X, pady=(0, 6))
 
         if not hasattr(self, 'var_autotrim'):
@@ -1285,9 +1285,9 @@ class RemovedorFundoApp:
             variable=self.var_autotrim,
             font=("Segoe UI", 8, "bold"),
             fg="#34D399",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#34D399"
         )
         cb_trim.pack(side=tk.LEFT, padx=(0, 10))
@@ -1295,20 +1295,20 @@ class RemovedorFundoApp:
         # Choke / Retração anti-rebarba
         if not hasattr(self, 'var_choke'):
             self.var_choke = tk.IntVar(value=-1)
-        lbl_chk = tk.Label(row_common, text="Choke DTF:", font=("Segoe UI", 8, "bold"), fg="#FBBF24", bg="#0F172A")
+        lbl_chk = tk.Label(row_common, text="Choke DTF:", font=("Segoe UI", 8, "bold"), fg="#FBBF24", bg="#13151B")
         lbl_chk.pack(side=tk.LEFT, padx=(4, 2))
-        sp_chk = tk.Spinbox(row_common, from_=-5, to=5, textvariable=self.var_choke, width=4, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
+        sp_chk = tk.Spinbox(row_common, from_=-5, to=5, textvariable=self.var_choke, width=4, font=("Segoe UI", 9, "bold"), bg="#181B22", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
         sp_chk.pack(side=tk.LEFT, padx=(0, 2))
-        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 8))
+        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#A1A1AA", bg="#13151B").pack(side=tk.LEFT, padx=(0, 8))
 
         # Suavização de Borda
         if not hasattr(self, 'var_feather'):
             self.var_feather = tk.DoubleVar(value=0.8)
-        lbl_feat = tk.Label(row_common, text="Suavização:", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A")
+        lbl_feat = tk.Label(row_common, text="Suavização:", font=("Segoe UI", 8, "bold"), fg="#D4D4D8", bg="#13151B")
         lbl_feat.pack(side=tk.LEFT, padx=(4, 2))
-        sp_feat = tk.Spinbox(row_common, from_=0.0, to=5.0, increment=0.2, format="%.1f", textvariable=self.var_feather, width=5, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
+        sp_feat = tk.Spinbox(row_common, from_=0.0, to=5.0, increment=0.2, format="%.1f", textvariable=self.var_feather, width=5, font=("Segoe UI", 9, "bold"), bg="#181B22", fg="#FFFFFF", bd=1, relief="solid", command=self.agendar_preview_recalculo)
         sp_feat.pack(side=tk.LEFT)
-        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A").pack(side=tk.LEFT, padx=(2, 10))
+        tk.Label(row_common, text="px", font=("Segoe UI", 8), fg="#A1A1AA", bg="#13151B").pack(side=tk.LEFT, padx=(2, 10))
 
         # Filtro Despill VFX Anti-Verde
         if not hasattr(self, 'var_despill_vfx'):
@@ -1319,9 +1319,9 @@ class RemovedorFundoApp:
             variable=self.var_despill_vfx,
             font=("Segoe UI", 8, "bold"),
             fg="#10B981",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#10B981",
             command=self.agendar_preview_recalculo
         )
@@ -1336,23 +1336,23 @@ class RemovedorFundoApp:
             variable=self.var_defringe_white,
             font=("Segoe UI", 8, "bold"),
             fg="#F59E0B",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#F59E0B",
             command=self.agendar_preview_recalculo
         )
         cb_defringe.pack(side=tk.LEFT)
 
         # Divisor
-        tk.Frame(self.pnl_params, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 6))
+        tk.Frame(self.pnl_params, bg="#2D313D", height=1).pack(fill=tk.X, pady=(0, 6))
 
         # Controles Específicos por Modo
         if mode in ("ia_geral", "alpha_suave"):
-            row_models = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_models = tk.Frame(self.pnl_params, bg="#13151B")
             row_models.pack(fill=tk.X, pady=(0, 6))
 
-            tk.Label(row_models, text="🧠 Modelo de IA Neural:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+            tk.Label(row_models, text="🧠 Modelo de IA Neural:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#13151B").pack(side=tk.LEFT, padx=(0, 6))
 
             if not hasattr(self, 'var_ai_model'):
                 self.var_ai_model = tk.StringVar(value="u2net")
@@ -1365,9 +1365,9 @@ class RemovedorFundoApp:
                     value=m_key,
                     font=("Segoe UI", 8, "bold"),
                     fg="#38BDF8",
-                    bg="#0F172A",
-                    selectcolor="#1E293B",
-                    activebackground="#0F172A",
+                    bg="#13151B",
+                    selectcolor="#1E2129",
+                    activebackground="#13151B",
                     activeforeground="#38BDF8",
                     command=self.agendar_preview_recalculo
                 )
@@ -1378,8 +1378,8 @@ class RemovedorFundoApp:
                 self.pnl_params,
                 text="Rede neural profunda com DirectML GPU RTX + Guided Filter e Despill VFX: recorta pessoas, fones, cabelos, produtos e cenários com velocidade instantânea e zero halos verdes ou brancos.",
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A",
+                fg="#A1A1AA",
+                bg="#13151B",
                 wraplength=800,
                 justify="left"
             )
@@ -1392,58 +1392,58 @@ class RemovedorFundoApp:
                 text="Pós-processamento de máscara (elimina micro-buracos internos e ruídos espalhados)",
                 variable=self.var_post_process,
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A",
-                selectcolor="#1E293B",
-                activebackground="#0F172A",
-                activeforeground="#94A3B8",
+                fg="#A1A1AA",
+                bg="#13151B",
+                selectcolor="#1E2129",
+                activebackground="#13151B",
+                activeforeground="#A1A1AA",
                 command=self.agendar_preview_recalculo
             )
             cb_post.pack(anchor="w")
 
         elif mode == "falso_png":
-            row_fp = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_fp = tk.Frame(self.pnl_params, bg="#13151B")
             row_fp.pack(fill=tk.X, pady=(0, 2))
 
-            tk.Label(row_fp, text="Sensibilidade do Xadrez (10 a 60):", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A").pack(side=tk.LEFT)
+            tk.Label(row_fp, text="Sensibilidade do Xadrez (10 a 60):", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#13151B").pack(side=tk.LEFT)
             if not hasattr(self, 'var_checker_tol'):
                 self.var_checker_tol = tk.IntVar(value=30)
-            scale_tol = tk.Scale(row_fp, from_=10, to=60, orient=tk.HORIZONTAL, variable=self.var_checker_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=240, troughcolor="#1E293B", command=lambda e: self.agendar_preview_recalculo())
+            scale_tol = tk.Scale(row_fp, from_=10, to=60, orient=tk.HORIZONTAL, variable=self.var_checker_tol, bg="#13151B", fg="#FFFFFF", highlightthickness=0, length=240, troughcolor="#1E2129", command=lambda e: self.agendar_preview_recalculo())
             scale_tol.pack(side=tk.LEFT, padx=10)
 
             lbl_fp_desc = tk.Label(
                 self.pnl_params,
                 text="Elimina 100% do xadrez falso da web/Google Images a partir das bordas externas. Salva remos, âncoras e detalhes finos sem apagar o interior do logo.",
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A"
+                fg="#A1A1AA",
+                bg="#13151B"
             )
             lbl_fp_desc.pack(anchor="w")
 
         elif mode == "fundo_branco":
-            row_wb = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_wb = tk.Frame(self.pnl_params, bg="#13151B")
             row_wb.pack(fill=tk.X, pady=(0, 2))
 
-            tk.Label(row_wb, text="Tolerância do Branco (1 a 60):", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#0F172A").pack(side=tk.LEFT)
+            tk.Label(row_wb, text="Tolerância do Branco (1 a 60):", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#13151B").pack(side=tk.LEFT)
             if not hasattr(self, 'var_white_tol'):
                 self.var_white_tol = tk.IntVar(value=28)
-            scale_tol = tk.Scale(row_wb, from_=1, to=60, orient=tk.HORIZONTAL, variable=self.var_white_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=240, troughcolor="#1E293B", command=lambda e: self.agendar_preview_recalculo())
+            scale_tol = tk.Scale(row_wb, from_=1, to=60, orient=tk.HORIZONTAL, variable=self.var_white_tol, bg="#13151B", fg="#FFFFFF", highlightthickness=0, length=240, troughcolor="#1E2129", command=lambda e: self.agendar_preview_recalculo())
             scale_tol.pack(side=tk.LEFT, padx=10)
 
             lbl_wb_desc = tk.Label(
                 self.pnl_params,
                 text="Inunda exclusivamente a partir das bordas externas da imagem. Preserva 100% dos brancos do interior do escudo/arte.",
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A"
+                fg="#A1A1AA",
+                bg="#13151B"
             )
             lbl_wb_desc.pack(anchor="w")
 
         elif mode == "chroma_key":
-            row_ck = tk.Frame(self.pnl_params, bg="#0F172A")
+            row_ck = tk.Frame(self.pnl_params, bg="#13151B")
             row_ck.pack(fill=tk.X, pady=(0, 2))
 
-            tk.Label(row_ck, text="Cor do Fundo:", font=("Segoe UI", 8, "bold"), fg="#10B981", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+            tk.Label(row_ck, text="Cor do Fundo:", font=("Segoe UI", 8, "bold"), fg="#10B981", bg="#13151B").pack(side=tk.LEFT, padx=(0, 6))
 
             btn_green = tk.Button(row_ck, text="Verde Chroma", font=("Segoe UI", 8, "bold"), bg="#10B981", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((40, 172, 82)))
             btn_green.pack(side=tk.LEFT, padx=2)
@@ -1451,21 +1451,21 @@ class RemovedorFundoApp:
             btn_blue = tk.Button(row_ck, text="Azul Chroma", font=("Segoe UI", 8, "bold"), bg="#3B82F6", fg="#FFFFFF", bd=0, padx=8, pady=2, cursor="hand2", command=lambda: self.set_chroma_color((0, 0, 255)))
             btn_blue.pack(side=tk.LEFT, padx=2)
 
-            self.btn_custom_color = tk.Button(row_ck, text="🎨 Conta-gotas", font=("Segoe UI", 8, "bold"), bg="#1E293B", fg="#FFFFFF", bd=1, relief="solid", padx=8, pady=2, cursor="hand2", command=self.escolher_cor_chroma)
+            self.btn_custom_color = tk.Button(row_ck, text="🎨 Conta-gotas", font=("Segoe UI", 8, "bold"), bg="#1E2129", fg="#FFFFFF", bd=1, relief="solid", padx=8, pady=2, cursor="hand2", command=self.escolher_cor_chroma)
             self.btn_custom_color.pack(side=tk.LEFT, padx=6)
 
-            tk.Label(row_ck, text="Tolerância:", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT, padx=(10, 4))
+            tk.Label(row_ck, text="Tolerância:", font=("Segoe UI", 8, "bold"), fg="#D4D4D8", bg="#13151B").pack(side=tk.LEFT, padx=(10, 4))
             if not hasattr(self, 'var_chroma_tol'):
                 self.var_chroma_tol = tk.IntVar(value=48)
-            scale_ck = tk.Scale(row_ck, from_=10, to=100, orient=tk.HORIZONTAL, variable=self.var_chroma_tol, bg="#0F172A", fg="#FFFFFF", highlightthickness=0, length=180, troughcolor="#1E293B", command=lambda e: self.agendar_preview_recalculo())
+            scale_ck = tk.Scale(row_ck, from_=10, to=100, orient=tk.HORIZONTAL, variable=self.var_chroma_tol, bg="#13151B", fg="#FFFFFF", highlightthickness=0, length=180, troughcolor="#1E2129", command=lambda e: self.agendar_preview_recalculo())
             scale_ck.pack(side=tk.LEFT, padx=6)
 
             lbl_ck_desc = tk.Label(
                 self.pnl_params,
                 text="Detecção de espectro Chroma Key com supressor Despill VFX ativo. Remove o fundo e elimina todo o reflexo verde na roupa.",
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A"
+                fg="#A1A1AA",
+                bg="#13151B"
             )
             lbl_ck_desc.pack(anchor="w", pady=(2, 0))
 
@@ -1474,8 +1474,8 @@ class RemovedorFundoApp:
                 self.pnl_params,
                 text="Modo Alpha Matting com Guided Filter O(1): transição ultra suave para pelos de leão, animais, cabelos finos, tecidos e vidro, com eliminação ativa de névoas e halos brancos.",
                 font=("Segoe UI", 8),
-                fg="#94A3B8",
-                bg="#0F172A"
+                fg="#A1A1AA",
+                bg="#13151B"
             )
             lbl_desc.pack(anchor="w")
 
@@ -1497,7 +1497,7 @@ class RemovedorFundoApp:
             if mid == curr:
                 btn.configure(bg="#10B981", fg="#FFFFFF") # Emerald Ativo
             else:
-                btn.configure(bg="#1E293B", fg="#94A3B8")
+                btn.configure(bg="#1E2129", fg="#A1A1AA")
 
     def set_chroma_color(self, rgb):
         self.custom_chroma_color = rgb
@@ -1557,7 +1557,7 @@ class RemovedorFundoApp:
             except Exception:
                 pass
         else:
-            self.lbl_eyedrop_hint.configure(text="🎯 Clique para selecionar cor", fg="#64748B")
+            self.lbl_eyedrop_hint.configure(text="🎯 Clique para selecionar cor", fg="#71717A")
 
     def verificar_selecao_inicial_corel(self):
         if self.pil_original is not None:

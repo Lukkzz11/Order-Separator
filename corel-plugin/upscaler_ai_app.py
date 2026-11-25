@@ -235,7 +235,7 @@ class UpscalerAIApp:
         self.root.title("Order Separator - Upscaler IA Ultra HD 4x / 8x")
         self.root.geometry("1100x740")
         self.root.minsize(950, 650)
-        self.root.configure(bg="#0B0F19")
+        self.root.configure(bg="#0B0D11")
 
         self.pil_original = None
         self.pil_upscaled = None
@@ -269,14 +269,14 @@ class UpscalerAIApp:
             self.root.after(800, self.verificar_selecao_inicial_corel)
 
     def setup_ui(self):
-        main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
+        main_frame = tk.Frame(self.root, bg="#0B0D11", padx=16, pady=12)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # 1. Cabeçalho
-        hdr_box = tk.Frame(main_frame, bg="#0B0F19")
+        hdr_box = tk.Frame(main_frame, bg="#0B0D11")
         hdr_box.pack(fill=tk.X, pady=(0, 8))
 
-        title_frame = tk.Frame(hdr_box, bg="#0B0F19")
+        title_frame = tk.Frame(hdr_box, bg="#0B0D11")
         title_frame.pack(side=tk.LEFT)
 
         lbl_title = tk.Label(
@@ -284,7 +284,7 @@ class UpscalerAIApp:
             text="Upscaler IA Ultra HD 4x / 8x",
             font=("Segoe UI", 16, "bold"),
             fg="#38BDF8", # Light Sky Blue
-            bg="#0B0F19"
+            bg="#0B0D11"
         )
         lbl_title.pack(anchor="w")
 
@@ -292,13 +292,13 @@ class UpscalerAIApp:
             title_frame,
             text="Super-Resolução Neural Real-ESRGAN (⚡ GPU DirectML RTX Ativa), Reconstrução de Traços 300 DPI",
             font=("Segoe UI", 8),
-            fg="#94A3B8",
-            bg="#0B0F19"
+            fg="#A1A1AA",
+            bg="#0B0D11"
         )
         self.lbl_sub.pack(anchor="w")
 
         # Botões de Ação de Entrada
-        btn_box = tk.Frame(hdr_box, bg="#0B0F19")
+        btn_box = tk.Frame(hdr_box, bg="#0B0D11")
         btn_box.pack(side=tk.RIGHT)
 
         self.btn_corel = tk.Button(
@@ -321,9 +321,9 @@ class UpscalerAIApp:
             btn_box,
             text="📂 Abrir Imagem",
             font=("Segoe UI", 9, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -337,9 +337,9 @@ class UpscalerAIApp:
             btn_box,
             text="📋 Colar",
             font=("Segoe UI", 9, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -350,13 +350,13 @@ class UpscalerAIApp:
         self.btn_paste.pack(side=tk.LEFT, padx=3)
 
         # 1.1 Barra de Contexto de Pedido & Raio-X de Impressão @ 300 DPI
-        ctx_frame = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=6)
+        ctx_frame = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=10, pady=6)
         ctx_frame.pack(fill=tk.X, pady=(0, 6))
 
-        ctx_top = tk.Frame(ctx_frame, bg="#0F172A")
+        ctx_top = tk.Frame(ctx_frame, bg="#13151B")
         ctx_top.pack(fill=tk.X)
 
-        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 6))
+        tk.Label(ctx_top, text="📦 Contexto do Pedido:", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#13151B").pack(side=tk.LEFT, padx=(0, 6))
 
         ped_list = ["-- Nenhum Pedido Vinculado (Modo Livre) --"]
         for p in self.pedidos_carregados:
@@ -367,16 +367,16 @@ class UpscalerAIApp:
         self.cbo_pedidos.pack(side=tk.LEFT, padx=(0, 8))
         self.cbo_pedidos.bind("<<ComboboxSelected>>", self.on_pedido_selecionado)
 
-        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#CBD5E1", bg="#0F172A")
+        self.lbl_pedido_badge = tk.Label(ctx_top, text="", font=("Segoe UI", 8), fg="#D4D4D8", bg="#13151B")
         self.lbl_pedido_badge.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         self.btn_salvar_pasta_pedido = tk.Button(
             ctx_top,
             text="📁 Salvar na Pasta do Pedido",
             font=("Segoe UI", 8, "bold"),
-            bg="#312E81",
-            fg="#C7D2FE",
-            activebackground="#4338CA",
+            bg="#1E2129",
+            fg="#A78BFA",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -390,17 +390,17 @@ class UpscalerAIApp:
             ctx_frame,
             text="💡 Raio-X de Impressão @ 300 DPI: Carregue uma imagem para calcular dimensões em cm e verificar qualidade técnica de estamparia.",
             font=("Segoe UI", 8),
-            fg="#64748B",
-            bg="#0F172A",
+            fg="#71717A",
+            bg="#13151B",
             anchor="w"
         )
         self.lbl_raio_x.pack(fill=tk.X, pady=(4, 0))
 
         # 2. Painel Central de Visualização
-        preview_container = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
+        preview_container = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=10, pady=8)
         preview_container.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
-        info_bar = tk.Frame(preview_container, bg="#0F172A")
+        info_bar = tk.Frame(preview_container, bg="#13151B")
         info_bar.pack(fill=tk.X, pady=(0, 6))
 
         self.lbl_img_info = tk.Label(
@@ -408,48 +408,48 @@ class UpscalerAIApp:
             text="Selecione uma imagem de baixa resolução no CorelDRAW ou abra um arquivo para melhorar 4x/8x.",
             font=("Segoe UI", 9, "bold"),
             fg="#38BDF8",
-            bg="#0F172A",
+            bg="#13151B",
             anchor="w"
         )
         self.lbl_img_info.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        cards_frame = tk.Frame(preview_container, bg="#0F172A")
+        cards_frame = tk.Frame(preview_container, bg="#13151B")
         cards_frame.pack(fill=tk.BOTH, expand=True)
 
         # Card Esquerdo: Imagem Original (Baixa Resolução)
-        card_orig = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_orig = tk.Frame(cards_frame, bg="#181B22", bd=1, relief="solid")
         card_orig.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 4))
 
-        subhdr_orig = tk.Frame(card_orig, bg="#141B2D", padx=6, pady=3)
+        subhdr_orig = tk.Frame(card_orig, bg="#181B22", padx=6, pady=3)
         subhdr_orig.pack(fill=tk.X)
-        tk.Label(subhdr_orig, text="Original (Baixa Resolução)", font=("Segoe UI", 8, "bold"), fg="#94A3B8", bg="#141B2D").pack(side=tk.LEFT)
-        self.lbl_orig_stats = tk.Label(subhdr_orig, text="", font=("Segoe UI", 7), fg="#94A3B8", bg="#141B2D")
+        tk.Label(subhdr_orig, text="Original (Baixa Resolução)", font=("Segoe UI", 8, "bold"), fg="#A1A1AA", bg="#181B22").pack(side=tk.LEFT)
+        self.lbl_orig_stats = tk.Label(subhdr_orig, text="", font=("Segoe UI", 7), fg="#A1A1AA", bg="#181B22")
         self.lbl_orig_stats.pack(side=tk.RIGHT)
 
-        self.canvas_orig = tk.Canvas(card_orig, bg="#020617", bd=0, highlightthickness=0)
+        self.canvas_orig = tk.Canvas(card_orig, bg="#0B0D11", bd=0, highlightthickness=0)
         self.canvas_orig.pack(fill=tk.BOTH, expand=True)
 
         # Card Direito: Imagem Aumentada Ultra HD
-        card_proc = tk.Frame(cards_frame, bg="#141B2D", bd=1, relief="solid")
+        card_proc = tk.Frame(cards_frame, bg="#181B22", bd=1, relief="solid")
         card_proc.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(4, 0))
 
-        subhdr_proc = tk.Frame(card_proc, bg="#141B2D", padx=6, pady=3)
+        subhdr_proc = tk.Frame(card_proc, bg="#181B22", padx=6, pady=3)
         subhdr_proc.pack(fill=tk.X)
-        tk.Label(subhdr_proc, text="Super-Resolução Ultra HD (Nítida)", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#141B2D").pack(side=tk.LEFT)
-        self.lbl_upscaled_stats = tk.Label(subhdr_proc, text="", font=("Segoe UI", 7, "bold"), fg="#38BDF8", bg="#141B2D")
+        tk.Label(subhdr_proc, text="Super-Resolução Ultra HD (Nítida)", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#181B22").pack(side=tk.LEFT)
+        self.lbl_upscaled_stats = tk.Label(subhdr_proc, text="", font=("Segoe UI", 7, "bold"), fg="#38BDF8", bg="#181B22")
         self.lbl_upscaled_stats.pack(side=tk.RIGHT)
 
-        self.canvas_proc = tk.Canvas(card_proc, bg="#020617", bd=0, highlightthickness=0)
+        self.canvas_proc = tk.Canvas(card_proc, bg="#0B0D11", bd=0, highlightthickness=0)
         self.canvas_proc.pack(fill=tk.BOTH, expand=True)
 
         # 3. Painel de Controles do Upscaler
-        ctrl_frame = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=12, pady=8)
+        ctrl_frame = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=12, pady=8)
         ctrl_frame.pack(fill=tk.X, pady=(0, 8))
 
-        row_ctrl = tk.Frame(ctrl_frame, bg="#0F172A")
+        row_ctrl = tk.Frame(ctrl_frame, bg="#13151B")
         row_ctrl.pack(fill=tk.X)
 
-        tk.Label(row_ctrl, text="Fator de Aumento:", font=("Segoe UI", 9, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(row_ctrl, text="Fator de Aumento:", font=("Segoe UI", 9, "bold"), fg="#D4D4D8", bg="#13151B").pack(side=tk.LEFT, padx=(0, 10))
 
         self.var_scale = tk.IntVar(value=4)
         rb_4x = tk.Radiobutton(
@@ -459,9 +459,9 @@ class UpscalerAIApp:
             value=4,
             font=("Segoe UI", 9, "bold"),
             fg="#38BDF8",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#38BDF8",
             command=self.iniciar_upscale_async
         )
@@ -474,20 +474,20 @@ class UpscalerAIApp:
             value=8,
             font=("Segoe UI", 9, "bold"),
             fg="#F59E0B",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#F59E0B",
             command=self.iniciar_upscale_async
         )
         rb_8x.pack(side=tk.LEFT, padx=(0, 16))
 
-        tk.Label(row_ctrl, text="Perfil da Arte:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A").pack(side=tk.LEFT, padx=(6, 4))
-        rb_p_geral = tk.Radiobutton(row_ctrl, text="⚡ Geral", variable=self.var_profile, value="geral", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        tk.Label(row_ctrl, text="Perfil da Arte:", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#13151B").pack(side=tk.LEFT, padx=(6, 4))
+        rb_p_geral = tk.Radiobutton(row_ctrl, text="⚡ Geral", variable=self.var_profile, value="geral", font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#13151B", selectcolor="#1E2129", command=self.iniciar_upscale_async)
         rb_p_geral.pack(side=tk.LEFT, padx=1)
-        rb_p_logos = tk.Radiobutton(row_ctrl, text="🎨 Logos & Vetores", variable=self.var_profile, value="logos", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        rb_p_logos = tk.Radiobutton(row_ctrl, text="🎨 Logos & Vetores", variable=self.var_profile, value="logos", font=("Segoe UI", 8, "bold"), fg="#34D399", bg="#13151B", selectcolor="#1E2129", command=self.iniciar_upscale_async)
         rb_p_logos.pack(side=tk.LEFT, padx=1)
-        rb_p_fotos = tk.Radiobutton(row_ctrl, text="📷 Fotos & Pessoas", variable=self.var_profile, value="fotos", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#0F172A", selectcolor="#1E293B", command=self.iniciar_upscale_async)
+        rb_p_fotos = tk.Radiobutton(row_ctrl, text="📷 Fotos & Pessoas", variable=self.var_profile, value="fotos", font=("Segoe UI", 8, "bold"), fg="#F59E0B", bg="#13151B", selectcolor="#1E2129", command=self.iniciar_upscale_async)
         rb_p_fotos.pack(side=tk.LEFT, padx=(1, 14))
 
         self.var_sharpen = tk.BooleanVar(value=True)
@@ -497,9 +497,9 @@ class UpscalerAIApp:
             variable=self.var_sharpen,
             font=("Segoe UI", 8, "bold"),
             fg="#10B981",
-            bg="#0F172A",
-            selectcolor="#1E293B",
-            activebackground="#0F172A",
+            bg="#13151B",
+            selectcolor="#1E2129",
+            activebackground="#13151B",
             activeforeground="#10B981",
             command=self.iniciar_upscale_async
         )
@@ -514,14 +514,14 @@ class UpscalerAIApp:
             main_frame,
             text="Pronto. Carregue uma imagem ou capture do CorelDRAW para reconstruir em alta resolução.",
             font=("Segoe UI", 8),
-            fg="#94A3B8",
-            bg="#0B0F19",
+            fg="#A1A1AA",
+            bg="#0B0D11",
             anchor="center"
         )
         self.lbl_status.pack(fill=tk.X, pady=(0, 6))
 
         # 5. Rodapé de Ações
-        bottom_box = tk.Frame(main_frame, bg="#0B0F19")
+        bottom_box = tk.Frame(main_frame, bg="#0B0D11")
         bottom_box.pack(fill=tk.X)
 
         self.btn_enviar_corel = tk.Button(
@@ -559,8 +559,8 @@ class UpscalerAIApp:
             bottom_box,
             text="📐 Vetorizador IA",
             font=("Segoe UI", 8, "bold"),
-            bg="#312E81",
-            fg="#C7D2FE",
+            bg="#1E2129",
+            fg="#A78BFA",
             activebackground="#3730A3",
             activeforeground="#FFFFFF",
             bd=0,
@@ -575,9 +575,9 @@ class UpscalerAIApp:
             bottom_box,
             text="💾 Salvar PNG",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -591,9 +591,9 @@ class UpscalerAIApp:
             bottom_box,
             text="📋 Copiar",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",

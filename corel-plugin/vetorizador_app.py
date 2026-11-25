@@ -783,7 +783,7 @@ class VetorizadorApp:
         self.root.geometry("580x850")
         self.root.resizable(False, False)
         self.root.attributes('-topmost', True)
-        self.root.configure(bg="#0B0F19")
+        self.root.configure(bg="#0B0D11")
 
         icon_path = r"E:\estamparia-manager\build\icon.ico"
         if os.path.exists(icon_path):
@@ -814,31 +814,31 @@ class VetorizadorApp:
     def setup_styles(self):
         self.style = ttk.Style()
         self.style.theme_use('clam')
-        self.style.configure(".", background="#0B0F19", foreground="#FFFFFF")
-        self.style.configure("TLabel", background="#0B0F19", foreground="#E2E8F0", font=("Segoe UI", 9))
-        self.style.configure("Header.TLabel", background="#0B0F19", foreground="#818CF8", font=("Segoe UI", 12, "bold"))
-        self.style.configure("Sub.TLabel", background="#0B0F19", foreground="#94A3B8", font=("Segoe UI", 8))
-        self.style.configure("TCheckbutton", background="#0F172A", foreground="#E2E8F0", font=("Segoe UI", 8))
+        self.style.configure(".", background="#0B0D11", foreground="#FFFFFF")
+        self.style.configure("TLabel", background="#0B0D11", foreground="#F4F4F5", font=("Segoe UI", 9))
+        self.style.configure("Header.TLabel", background="#0B0D11", foreground="#818CF8", font=("Segoe UI", 12, "bold"))
+        self.style.configure("Sub.TLabel", background="#0B0D11", foreground="#A1A1AA", font=("Segoe UI", 8))
+        self.style.configure("TCheckbutton", background="#13151B", foreground="#F4F4F5", font=("Segoe UI", 8))
 
     def build_ui(self):
-        main_frame = tk.Frame(self.root, bg="#0B0F19", padx=16, pady=12)
+        main_frame = tk.Frame(self.root, bg="#0B0D11", padx=16, pady=12)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
         # 1. Cabeçalho
-        lbl_head = tk.Label(main_frame, text="Vetorizador de Imagens (Ultra Precisão)", font=("Segoe UI", 13, "bold"), fg="#818CF8", bg="#0B0F19")
+        lbl_head = tk.Label(main_frame, text="Vetorizador de Imagens (Ultra Precisão)", font=("Segoe UI", 13, "bold"), fg="#818CF8", bg="#0B0D11")
         lbl_head.pack(anchor="w")
-        lbl_sub = tk.Label(main_frame, text="Super-Resolução Lanczos + K-Means + Dual-Spline (Sem halos ou bordas cinzas)", font=("Segoe UI", 8), fg="#94A3B8", bg="#0B0F19")
+        lbl_sub = tk.Label(main_frame, text="Super-Resolução Lanczos + K-Means + Dual-Spline (Sem halos ou bordas cinzas)", font=("Segoe UI", 8), fg="#A1A1AA", bg="#0B0D11")
         lbl_sub.pack(anchor="w", pady=(0, 6))
 
         # Contexto de Pedidos de Estamparia
         if self.pedidos_carregados:
-            pnl_contexto = tk.Frame(main_frame, bg="#131B2E", bd=1, relief="solid", padx=8, pady=6)
+            pnl_contexto = tk.Frame(main_frame, bg="#181B22", bd=1, relief="solid", padx=8, pady=6)
             pnl_contexto.pack(fill=tk.X, pady=(0, 8))
 
-            row_top = tk.Frame(pnl_contexto, bg="#131B2E")
+            row_top = tk.Frame(pnl_contexto, bg="#181B22")
             row_top.pack(fill=tk.X)
 
-            tk.Label(row_top, text="📋 Pedido:", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#131B2E").pack(side=tk.LEFT)
+            tk.Label(row_top, text="📋 Pedido:", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#181B22").pack(side=tk.LEFT)
 
             ped_options = ["Nenhum (Modo Avulso)"] + [
                 f"#{p.get('numeroPedido', '0000')} - {p.get('clienteNome', 'Cliente')} ({p.get('corTecido', 'Padrão')}) - {p.get('descricaoEstampa', '')[:20]}"
@@ -853,9 +853,9 @@ class VetorizadorApp:
                 row_top,
                 text="📁 Salvar na Pasta",
                 font=("Segoe UI", 8, "bold"),
-                bg="#1E293B",
+                bg="#1E2129",
                 fg="#38BDF8",
-                activebackground="#334155",
+                activebackground="#2D313D",
                 activeforeground="#FFFFFF",
                 bd=0,
                 cursor="hand2",
@@ -865,20 +865,20 @@ class VetorizadorApp:
             )
             self.btn_salvar_pasta.pack(side=tk.RIGHT)
 
-            self.lbl_pedido_badge = tk.Label(pnl_contexto, text="", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#131B2E", anchor="w")
+            self.lbl_pedido_badge = tk.Label(pnl_contexto, text="", font=("Segoe UI", 8, "bold"), fg="#A78BFA", bg="#181B22", anchor="w")
             self.lbl_pedido_badge.pack(fill=tk.X, pady=(3, 0))
 
         # 2. Caixa de Origem (Captura CorelDRAW / Arquivo)
-        pnl_origem = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=10, pady=8)
+        pnl_origem = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=10, pady=8)
         pnl_origem.pack(fill=tk.X, pady=(0, 10))
 
         btn_capturar = tk.Button(
             pnl_origem, 
             text="📷  [CorelDRAW] Capturar Bitmap Selecionado", 
             font=("Segoe UI", 10, "bold"), 
-            bg="#1E293B", 
+            bg="#1E2129", 
             fg="#FFFFFF", 
-            activebackground="#334155", 
+            activebackground="#2D313D", 
             activeforeground="#FFFFFF",
             bd=0, 
             cursor="hand2", 
@@ -891,9 +891,9 @@ class VetorizadorApp:
             pnl_origem, 
             text="📁  [Arquivo] Escolher Imagem no Computador...", 
             font=("Segoe UI", 9, "bold"), 
-            bg="#182138", 
-            fg="#CBD5E1", 
-            activebackground="#26344E", 
+            bg="#1E2129", 
+            fg="#D4D4D8", 
+            activebackground="#2D313D", 
             activeforeground="#FFFFFF",
             bd=0, 
             cursor="hand2", 
@@ -903,26 +903,26 @@ class VetorizadorApp:
         btn_arquivo.pack(fill=tk.X)
 
         # 3. Preview da Imagem
-        pnl_preview = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=8, pady=8)
+        pnl_preview = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=8, pady=8)
         pnl_preview.pack(fill=tk.X, pady=(0, 10))
 
-        self.lbl_canvas = tk.Label(pnl_preview, bg="#020617", bd=1, relief="solid", width=12, height=5)
+        self.lbl_canvas = tk.Label(pnl_preview, bg="#0B0D11", bd=1, relief="solid", width=12, height=5)
         self.lbl_canvas.pack(side=tk.LEFT, padx=(0, 10))
 
-        info_box = tk.Frame(pnl_preview, bg="#0F172A")
+        info_box = tk.Frame(pnl_preview, bg="#13151B")
         info_box.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        self.lbl_img_nome = tk.Label(info_box, text="Nenhuma imagem carregada ainda.", font=("Segoe UI", 9, "bold"), fg="#818CF8", bg="#0F172A", anchor="w")
+        self.lbl_img_nome = tk.Label(info_box, text="Nenhuma imagem carregada ainda.", font=("Segoe UI", 9, "bold"), fg="#818CF8", bg="#13151B", anchor="w")
         self.lbl_img_nome.pack(fill=tk.X)
 
-        self.lbl_img_desc = tk.Label(info_box, text="Selecione o bitmap no CorelDRAW e clique em Capturar, ou abra um arquivo PNG/JPG do seu computador.", font=("Segoe UI", 8), fg="#94A3B8", bg="#0F172A", justify="left", wraplength=360)
+        self.lbl_img_desc = tk.Label(info_box, text="Selecione o bitmap no CorelDRAW e clique em Capturar, ou abra um arquivo PNG/JPG do seu computador.", font=("Segoe UI", 8), fg="#A1A1AA", bg="#13151B", justify="left", wraplength=360)
         self.lbl_img_desc.pack(fill=tk.X, pady=(4, 0))
 
         # 4. Presets
-        lbl_pres = tk.Label(main_frame, text="Preset de Produção:", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0B0F19")
+        lbl_pres = tk.Label(main_frame, text="Preset de Produção:", font=("Segoe UI", 8, "bold"), fg="#D4D4D8", bg="#0B0D11")
         lbl_pres.pack(anchor="w", pady=(0, 4))
 
-        preset_box = tk.Frame(main_frame, bg="#0B0F19")
+        preset_box = tk.Frame(main_frame, bg="#0B0D11")
         preset_box.pack(fill=tk.X, pady=(0, 10))
 
         self.preset_var = tk.StringVar(value="logo")
@@ -951,13 +951,13 @@ class VetorizadorApp:
         self.update_preset_buttons()
 
         # 5. Painel de Controles Avançados
-        pnl_ctrl = tk.Frame(main_frame, bg="#0F172A", bd=1, relief="solid", padx=12, pady=10)
+        pnl_ctrl = tk.Frame(main_frame, bg="#13151B", bd=1, relief="solid", padx=12, pady=10)
         pnl_ctrl.pack(fill=tk.X, pady=(0, 10))
 
         # Linha: Paleta de cores
-        row_pal = tk.Frame(pnl_ctrl, bg="#0F172A")
+        row_pal = tk.Frame(pnl_ctrl, bg="#13151B")
         row_pal.pack(fill=tk.X, pady=(0, 4))
-        tk.Label(row_pal, text="Paleta de Cores (Quantização Inteligente):", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#0F172A").pack(side=tk.LEFT)
+        tk.Label(row_pal, text="Paleta de Cores (Quantização Inteligente):", font=("Segoe UI", 8, "bold"), fg="#818CF8", bg="#13151B").pack(side=tk.LEFT)
         
         self.cb_colors = ttk.Combobox(row_pal, state="readonly", width=24, font=("Segoe UI", 9))
         self.cb_colors['values'] = (
@@ -975,55 +975,55 @@ class VetorizadorApp:
         self.cb_colors.current(0)
         self.cb_colors.pack(side=tk.RIGHT)
 
-        tk.Label(pnl_ctrl, text="Elimina 100% dos anéis de anti-aliasing e halos de cor ao redor das letras e logos.", font=("Segoe UI", 7), fg="#94A3B8", bg="#0F172A").pack(anchor="w", pady=(0, 8))
+        tk.Label(pnl_ctrl, text="Elimina 100% dos anéis de anti-aliasing e halos de cor ao redor das letras e logos.", font=("Segoe UI", 7), fg="#A1A1AA", bg="#13151B").pack(anchor="w", pady=(0, 8))
 
         # Divisor
-        tk.Frame(pnl_ctrl, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 8))
+        tk.Frame(pnl_ctrl, bg="#2D313D", height=1).pack(fill=tk.X, pady=(0, 8))
 
         # Linha: Cantos Vivos
-        row_c = tk.Frame(pnl_ctrl, bg="#0F172A")
+        row_c = tk.Frame(pnl_ctrl, bg="#13151B")
         row_c.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(row_c, text="Rigidez de Cantos Vivos (20 a 90 graus):", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT)
-        self.sp_corner = tk.Spinbox(row_c, from_=20, to=90, width=8, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
+        tk.Label(row_c, text="Rigidez de Cantos Vivos (20 a 90 graus):", font=("Segoe UI", 8, "bold"), fg="#D4D4D8", bg="#13151B").pack(side=tk.LEFT)
+        self.sp_corner = tk.Spinbox(row_c, from_=20, to=90, width=8, font=("Segoe UI", 9, "bold"), bg="#181B22", fg="#FFFFFF", bd=1, relief="solid")
         self.sp_corner.delete(0, "end")
         self.sp_corner.insert(0, "38")
         self.sp_corner.pack(side=tk.RIGHT)
 
         # Linha: Anti-Ruído
-        row_s = tk.Frame(pnl_ctrl, bg="#0F172A")
+        row_s = tk.Frame(pnl_ctrl, bg="#13151B")
         row_s.pack(fill=tk.X, pady=(0, 8))
-        tk.Label(row_s, text="Filtro Anti-Ruído (elimina micropontos e poeira):", font=("Segoe UI", 8, "bold"), fg="#CBD5E1", bg="#0F172A").pack(side=tk.LEFT)
-        self.sp_speckle = tk.Spinbox(row_s, from_=0, to=64, width=8, font=("Segoe UI", 9, "bold"), bg="#141B2D", fg="#FFFFFF", bd=1, relief="solid")
+        tk.Label(row_s, text="Filtro Anti-Ruído (elimina micropontos e poeira):", font=("Segoe UI", 8, "bold"), fg="#D4D4D8", bg="#13151B").pack(side=tk.LEFT)
+        self.sp_speckle = tk.Spinbox(row_s, from_=0, to=64, width=8, font=("Segoe UI", 9, "bold"), bg="#181B22", fg="#FFFFFF", bd=1, relief="solid")
         self.sp_speckle.delete(0, "end")
         self.sp_speckle.insert(0, "6")
         self.sp_speckle.pack(side=tk.RIGHT)
 
         # Divisor
-        tk.Frame(pnl_ctrl, bg="#334155", height=1).pack(fill=tk.X, pady=(0, 8))
+        tk.Frame(pnl_ctrl, bg="#2D313D", height=1).pack(fill=tk.X, pady=(0, 8))
 
         # Checkboxes
         self.var_remove_bg = tk.BooleanVar(value=True)
-        cb_bg = tk.Checkbutton(pnl_ctrl, text="Remover Fundo Branco / Bounding Box (Deixar desenho transparente)", variable=self.var_remove_bg, font=("Segoe UI", 8), fg="#F59E0B", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#F59E0B")
+        cb_bg = tk.Checkbutton(pnl_ctrl, text="Remover Fundo Branco / Bounding Box (Deixar desenho transparente)", variable=self.var_remove_bg, font=("Segoe UI", 8), fg="#F59E0B", bg="#13151B", selectcolor="#1E2129", activebackground="#13151B", activeforeground="#F59E0B")
         cb_bg.pack(anchor="w", pady=1)
 
         self.var_ai_upscale = tk.BooleanVar(value=True)
-        cb_ai = tk.Checkbutton(pnl_ctrl, text="⚡ Super-Resolução Neural IA Real-ESRGAN (Reconstrói traços e elimina ruído)", variable=self.var_ai_upscale, font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#38BDF8")
+        cb_ai = tk.Checkbutton(pnl_ctrl, text="⚡ Super-Resolução Neural IA Real-ESRGAN (Reconstrói traços e elimina ruído)", variable=self.var_ai_upscale, font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#13151B", selectcolor="#1E2129", activebackground="#13151B", activeforeground="#38BDF8")
         cb_ai.pack(anchor="w", pady=1)
 
         self.var_upscale = tk.BooleanVar(value=True)
-        cb_up = tk.Checkbutton(pnl_ctrl, text="Super-Resolução Lanczos de fallback (elimina serrilhado em imagens pequenas)", variable=self.var_upscale, font=("Segoe UI", 8), fg="#34D399", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#34D399")
+        cb_up = tk.Checkbutton(pnl_ctrl, text="Super-Resolução Lanczos de fallback (elimina serrilhado em imagens pequenas)", variable=self.var_upscale, font=("Segoe UI", 8), fg="#34D399", bg="#13151B", selectcolor="#1E2129", activebackground="#13151B", activeforeground="#34D399")
         cb_up.pack(anchor="w", pady=1)
 
         self.var_stacked = tk.BooleanVar(value=True)
-        cb_stk = tk.Checkbutton(pnl_ctrl, text="Camadas Sobrepostas (zero frestas brancas na junção de cores no DTF)", variable=self.var_stacked, font=("Segoe UI", 8), fg="#67E8F9", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#67E8F9")
+        cb_stk = tk.Checkbutton(pnl_ctrl, text="Camadas Sobrepostas (zero frestas brancas na junção de cores no DTF)", variable=self.var_stacked, font=("Segoe UI", 8), fg="#67E8F9", bg="#13151B", selectcolor="#1E2129", activebackground="#13151B", activeforeground="#67E8F9")
         cb_stk.pack(anchor="w", pady=1)
 
         self.var_harmonize = tk.BooleanVar(value=True)
-        cb_har = tk.Checkbutton(pnl_ctrl, text="Harmonização Pura de Cores (unifica tons próximos em cores sólidas exatas)", variable=self.var_harmonize, font=("Segoe UI", 8), fg="#C084FC", bg="#0F172A", selectcolor="#1E293B", activebackground="#0F172A", activeforeground="#C084FC")
+        cb_har = tk.Checkbutton(pnl_ctrl, text="Harmonização Pura de Cores (unifica tons próximos em cores sólidas exatas)", variable=self.var_harmonize, font=("Segoe UI", 8), fg="#C084FC", bg="#13151B", selectcolor="#1E2129", activebackground="#13151B", activeforeground="#C084FC")
         cb_har.pack(anchor="w", pady=1)
 
         # 6. Status e Progresso
-        self.lbl_status = tk.Label(main_frame, text="Pronto. Carregue uma imagem para vetorizar.", font=("Segoe UI", 8), fg="#94A3B8", bg="#0B0F19", anchor="center")
+        self.lbl_status = tk.Label(main_frame, text="Pronto. Carregue uma imagem para vetorizar.", font=("Segoe UI", 8), fg="#A1A1AA", bg="#0B0D11", anchor="center")
         self.lbl_status.pack(fill=tk.X, pady=(2, 6))
 
         # 7. Botão Principal
@@ -1033,7 +1033,7 @@ class VetorizadorApp:
             font=("Segoe UI", 11, "bold"), 
             bg="#4F46E5", 
             fg="#FFFFFF", 
-            activebackground="#4338CA", 
+            activebackground="#2D313D", 
             activeforeground="#FFFFFF",
             bd=0, 
             cursor="hand2", 
@@ -1043,16 +1043,16 @@ class VetorizadorApp:
         self.btn_vetorizar.pack(fill=tk.X)
 
         # Linha de Ações Adicionais
-        row_extra = tk.Frame(main_frame, bg="#0B0F19")
+        row_extra = tk.Frame(main_frame, bg="#0B0D11")
         row_extra.pack(fill=tk.X, pady=(6, 0))
 
         self.btn_salvar_svg = tk.Button(
             row_extra,
             text="💾 Exportar SVG...",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
-            fg="#E2E8F0",
-            activebackground="#334155",
+            bg="#1E2129",
+            fg="#F4F4F5",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -1066,9 +1066,9 @@ class VetorizadorApp:
             row_extra,
             text="📁 Salvar SVG na Pasta do Pedido",
             font=("Segoe UI", 8, "bold"),
-            bg="#1E293B",
+            bg="#1E2129",
             fg="#38BDF8",
-            activebackground="#334155",
+            activebackground="#2D313D",
             activeforeground="#FFFFFF",
             bd=0,
             cursor="hand2",
@@ -1222,7 +1222,7 @@ class VetorizadorApp:
             if pid == curr:
                 btn.configure(bg="#4F46E5", fg="#FFFFFF")
             else:
-                btn.configure(bg="#1E293B", fg="#CBD5E1")
+                btn.configure(bg="#1E2129", fg="#D4D4D8")
 
     def carregar_imagem_no_preview(self, path):
         try:
