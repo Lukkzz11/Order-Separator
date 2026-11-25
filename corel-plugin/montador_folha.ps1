@@ -18,6 +18,28 @@ $form.TopMost = $true
 $form.BackColor = [System.Drawing.Color]::FromArgb(11, 13, 17) # Dark Blue/Black
 $form.ForeColor = [System.Drawing.Color]::White
 
+# Ativa a barra de título escura nativa do Windows 10/11
+try {
+  $dwmCode = @"
+using System;
+using System.Runtime.InteropServices;
+public class DwmHelper {
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+}
+"@
+  if (-not ([System.Management.Automation.PSTypeName]'DwmHelper').Type) {
+    Add-Type -TypeDefinition $dwmCode -ErrorAction SilentlyContinue
+  }
+  $form.Add_HandleCreated({
+    try {
+      $val = 1
+      [DwmHelper]::DwmSetWindowAttribute($form.Handle, 20, [ref]$val, 4)
+      [DwmHelper]::DwmSetWindowAttribute($form.Handle, 19, [ref]$val, 4)
+    } catch {}
+  })
+} catch {}
+
 $iconPath = "E:\estamparia-manager\build\icon.ico"
 if (Test-Path $iconPath) {
   $form.Icon = New-Object System.Drawing.Icon($iconPath)
@@ -31,18 +53,32 @@ $fontStats  = New-Object System.Drawing.Font("Segoe UI", 8.5, [System.Drawing.Fo
 $fontBtn    = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
 $fontSmall  = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Regular)
 
-# --- CABECALHO ---
+# --- CABECALHO NO PADRAO ORDER SEPARATOR ---
+$lblBadge = New-Object System.Windows.Forms.Label
+$lblBadge.Text = "OS"
+$lblBadge.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+$lblBadge.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Amber
+$lblBadge.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$lblBadge.TextAlign = "MiddleCenter"
+$lblBadge.Location = New-Object System.Drawing.Point(16, 12)
+$lblBadge.Size = New-Object System.Drawing.Size(28, 22)
+$form.Controls.Add($lblBadge)
+
 $lblHeader = New-Object System.Windows.Forms.Label
-$lblHeader.Text = "Montador de Folha / Bobina"
+$lblHeader.Text = "Montador de Folha"
 $lblHeader.Font = $fontTitle
-$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo
-$lblHeader.Location = New-Object System.Drawing.Point(16, 10)
-$lblHeader.Size = New-Object System.Drawing.Size(205, 24)
+$lblHeader.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Amber
+$lblHeader.Location = New-Object System.Drawing.Point(50, 10)
+$lblHeader.Size = New-Object System.Drawing.Size(170, 24)
 $form.Controls.Add($lblHeader)
 
 $lblSub = New-Object System.Windows.Forms.Label
 $lblSub.Text = "Encaixe inteligente com economia"
 $lblSub.Font = $fontStats
+$lblSub.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
+$lblSub.Location = New-Object System.Drawing.Point(50, 34)
+$lblSub.Size = New-Object System.Drawing.Size(170, 18)
+$form.Controls.Add($lblSub)
 $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(161, 161, 170)
 $lblSub.Location = New-Object System.Drawing.Point(16, 34)
 $lblSub.Size = New-Object System.Drawing.Size(205, 18)
@@ -429,8 +465,14 @@ $pnlArtes = New-Object System.Windows.Forms.Panel
 $pnlArtes.Location = New-Object System.Drawing.Point(20, 424)
 $pnlArtes.Size = New-Object System.Drawing.Size(465, 115)
 $pnlArtes.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
-$pnlArtes.BorderStyle = "FixedSingle"
+$pnlArtes.BorderStyle = "None"
 $pnlArtes.AutoScroll = $true
+$pnlArtes.Add_Paint({
+  param($s, $e)
+  $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(39, 39, 42), 1)
+  $e.Graphics.DrawRectangle($pen, 0, 0, $s.Width - 1, $s.Height - 1)
+  $pen.Dispose()
+})
 $form.Controls.Add($pnlArtes)
 
 # Painel de Resumo / Estimativa de Economia
@@ -438,7 +480,13 @@ $pnlResumo = New-Object System.Windows.Forms.Panel
 $pnlResumo.Location = New-Object System.Drawing.Point(20, 545)
 $pnlResumo.Size = New-Object System.Drawing.Size(465, 100)
 $pnlResumo.BackColor = [System.Drawing.Color]::FromArgb(19, 21, 27)
-$pnlResumo.BorderStyle = "FixedSingle"
+$pnlResumo.BorderStyle = "None"
+$pnlResumo.Add_Paint({
+  param($s, $e)
+  $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(39, 39, 42), 1)
+  $e.Graphics.DrawRectangle($pen, 0, 0, $s.Width - 1, $s.Height - 1)
+  $pen.Dispose()
+})
 $form.Controls.Add($pnlResumo)
 
 $lblStatusSelecao = New-Object System.Windows.Forms.Label
@@ -1088,13 +1136,202 @@ $cboPedidos.Add_SelectedIndexChanged({
   }
 })
 
+# --- CONEXAO ROBUSTA COM O CORELDRAW ATIVO ---
+if (-not ([System.Management.Automation.PSTypeName]'CorelRotHelper').Type) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+
+public class CorelRotHelper {
+    [DllImport("ole32.dll")]
+    private static extern int GetRunningObjectTable(int reserved, out IRunningObjectTable prot);
+
+    [DllImport("ole32.dll")]
+    private static extern int CreateBindCtx(int reserved, out IBindCtx ppbc);
+
+    public static List<object> GetRunningObjects() {
+        var list = new List<object>();
+        IRunningObjectTable rot;
+        IBindCtx ctx;
+        if (GetRunningObjectTable(0, out rot) != 0) return list;
+        if (CreateBindCtx(0, out ctx) != 0) return list;
+        IEnumMoniker em;
+        rot.EnumRunning(out em);
+        if (em == null) return list;
+        IMoniker[] m = new IMoniker[1];
+        IntPtr fetched = Marshal.AllocHGlobal(4);
+        try {
+            while (true) {
+                int hr = em.Next(1, m, fetched);
+                int count = Marshal.ReadInt32(fetched);
+                if (hr != 0 && count == 0) break;
+                try {
+                    object obj = null;
+                    if (rot.GetObject(m[0], out obj) == 0 && obj != null) {
+                        list.Add(obj);
+                    }
+                } catch {}
+                if (hr != 0) break;
+            }
+        } finally {
+            Marshal.FreeHGlobal(fetched);
+        }
+        return list;
+    }
+}
+'@
+}
+
+function Get-CorelApp {
+  $progIds = @(
+    "CorelDRAW.Application",
+    "CorelDRAW.Application.24",
+    "CorelDRAW.Application.25",
+    "CorelDRAW.Application.26",
+    "CorelDRAW.Application.23",
+    "CorelDRAW.Application.22",
+    "CorelDRAW.Application.21"
+  )
+
+  $candidatos = @()
+
+  # 1. Busca todas as instancias na Running Object Table (ROT)
+  try {
+    $rotObjs = [CorelRotHelper]::GetRunningObjects()
+    foreach ($obj in $rotObjs) {
+      if ($null -eq $obj) { continue }
+      try {
+        $appCandidate = $null
+        $objName = ""
+        try { $objName = [string]$obj.Name } catch {}
+
+        if ($objName -eq "CorelDRAW" -or $objName -like "CorelDRAW*") {
+          $appCandidate = $obj
+        } else {
+          try {
+            $parentApp = $obj.Application
+            if ($parentApp -and ([string]$parentApp.Name -eq "CorelDRAW" -or [string]$parentApp.Name -like "CorelDRAW*")) {
+              $appCandidate = $parentApp
+            }
+          } catch {}
+        }
+
+        if ($null -ne $appCandidate) {
+          $candidatos += $appCandidate
+        }
+      } catch {}
+    }
+  } catch {}
+
+  # 2. Complementa com Marshal.GetActiveObject caso a ROT nao tenha retornado
+  foreach ($pidStr in $progIds) {
+    try {
+      $active = [System.Runtime.InteropServices.Marshal]::GetActiveObject($pidStr)
+      if ($null -ne $active) {
+        $candidatos += $active
+      }
+    } catch {}
+  }
+
+  # 3. Pontua candidatos dando prioridade maxima a instancia com documento e selecao ativos
+  $melhorApp = $null
+  $melhorScore = -1
+  foreach ($app in $candidatos) {
+    try {
+      $score = 0
+      $hasDoc = $false
+      try {
+        $testDoc = $app.ActiveDocument
+        if ($null -ne $testDoc) {
+          $score += 100
+          $hasDoc = $true
+          try {
+            $null = $testDoc.Unit
+            $score += 200
+          } catch {}
+        }
+      } catch {}
+      if ($hasDoc) {
+        try {
+          $selTest = $app.ActiveSelection
+          if ($selTest -and $selTest.Shapes -and $selTest.Shapes.Count -gt 0) {
+            $score += 50
+          }
+        } catch {}
+      }
+      try {
+        if ($app.Documents -and $app.Documents.Count -gt 0) {
+          $score += 20
+        }
+      } catch {}
+      try {
+        if ($app.Visible) {
+          $score += 10
+        }
+      } catch {}
+
+      if ($score -gt $melhorScore) {
+        $melhorScore = $score
+        $melhorApp = $app
+      }
+    } catch {}
+  }
+
+  if ($null -ne $melhorApp) {
+    return $melhorApp
+  }
+
+  # 4. Fallback: tenta New-Object -ComObject se nenhuma instancia ativa foi encontrada
+  foreach ($pidStr in $progIds) {
+    try {
+      $newApp = New-Object -ComObject $pidStr
+      if ($null -ne $newApp) {
+        return $newApp
+      }
+    } catch {}
+  }
+
+  throw "Nao foi possivel conectar ao CorelDRAW. Verifique se o CorelDRAW esta instalado e aberto."
+}
+
+function Assert-CorelActiveDocument {
+  param($corel, [string]$mensagemPadrao)
+  $doc = $null
+  try { $doc = $corel.ActiveDocument } catch {}
+  if ($doc) { return $doc }
+
+  $visivelAberto = $false
+  try {
+    $procs = Get-Process -Name "CorelDRW" -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle.Trim() -ne "" }
+    if ($procs) { $visivelAberto = $true }
+  } catch {}
+
+  $docsCount = 0
+  $isVisible = $false
+  try { $docsCount = [int]$corel.Documents.Count } catch {}
+  try { $isVisible = [bool]$corel.Visible } catch {}
+
+  if ($visivelAberto -and (-not $isVisible -or $docsCount -eq 0)) {
+    [System.Windows.Forms.MessageBox]::Show(
+      "O CorelDRAW esta aberto, mas o Windows conectou a uma instancia oculta em segundo plano (ou o CorelDRAW esta rodando como Administrador).`n`nPara corrigir:`n1. Feche processos ocultos do CorelDRW.exe no Gerenciador de Tarefas (ou reinicie o CorelDRAW);`n2. Se o CorelDRAW estiver como Administrador, execute o Order Separator como Administrador tambem.",
+      "CorelDRAW - Instancia Oculta/Permissao",
+      "OK",
+      "Warning"
+    )
+  } else {
+    [System.Windows.Forms.MessageBox]::Show($mensagemPadrao, "CorelDRAW", "OK", "Warning")
+  }
+  return $null
+}
+
 # --- EVENTO DO BOTAO 1: LER SELECAO DO CORELDRAW ---
 $btnDetectar.Add_Click({
   try {
-    $corel = New-Object -ComObject "CorelDRAW.Application.24"
-    $doc = $corel.ActiveDocument
+    $corel = Get-CorelApp
+    $doc = Assert-CorelActiveDocument -corel $corel -mensagemPadrao "Abra um documento com a arte no CorelDRAW primeiro!"
     if (-not $doc) {
-      [System.Windows.Forms.MessageBox]::Show("Abra um documento com a arte no CorelDRAW primeiro!", "CorelDRAW", "OK", "Warning")
       return
     }
 
@@ -1107,7 +1344,7 @@ $btnDetectar.Add_Click({
     }
 
     $sel = $corel.ActiveSelection
-    if ($sel.Shapes.Count -eq 0) {
+    if (-not $sel -or -not $sel.Shapes -or $sel.Shapes.Count -eq 0) {
       [System.Windows.Forms.MessageBox]::Show("Selecione a(s) arte(s) no CorelDRAW antes de detectar!", "Nenhuma selecao", "OK", "Information")
       return
     }
@@ -1170,10 +1407,9 @@ $btnDetectar.Add_Click({
 # --- EVENTO DO BOTAO 2: MONTAR FOLHA OTIMIZADA ---
 $btnMontar.Add_Click({
   try {
-    $corel = New-Object -ComObject "CorelDRAW.Application.24"
-    $doc = $corel.ActiveDocument
+    $corel = Get-CorelApp
+    $doc = Assert-CorelActiveDocument -corel $corel -mensagemPadrao "Abra o CorelDRAW com as artes abertas!"
     if (-not $doc) {
-      [System.Windows.Forms.MessageBox]::Show("Abra o CorelDRAW com as artes abertas!", "Aviso", "OK", "Warning")
       return
     }
 
