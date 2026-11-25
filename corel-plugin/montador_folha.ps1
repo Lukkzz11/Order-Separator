@@ -1,4 +1,4 @@
-Add-Type -AssemblyName System.Windows.Forms
+﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
@@ -54,13 +54,11 @@ $btnAbrirUpscaler.Text = "Upscaler IA"
 $btnAbrirUpscaler.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirUpscaler.Location = New-Object System.Drawing.Point(225, 12)
 $btnAbrirUpscaler.Size = New-Object System.Drawing.Size(98, 36)
-$btnAbrirUpscaler.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
-.FlatAppearance.BorderSize = 1
-.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
-.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248) # Sky Blue
-$btnAbrirUpscaler.ForeColor = [System.Drawing.Color]::White
+$btnAbrirUpscaler.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$btnAbrirUpscaler.ForeColor = [System.Drawing.Color]::FromArgb(56, 189, 248) # Sky Blue
 $btnAbrirUpscaler.FlatStyle = "Flat"
-$btnAbrirUpscaler.FlatAppearance.BorderSize = 0
+$btnAbrirUpscaler.FlatAppearance.BorderSize = 1
+$btnAbrirUpscaler.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
 $btnAbrirUpscaler.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnAbrirUpscaler.Add_Click({
   $pyScript = Join-Path $PSScriptRoot "upscaler_ai_app.py"
@@ -76,13 +74,11 @@ $btnAbrirRemovedor.Text = "Removedor IA"
 $btnAbrirRemovedor.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirRemovedor.Location = New-Object System.Drawing.Point(328, 12)
 $btnAbrirRemovedor.Size = New-Object System.Drawing.Size(102, 36)
-$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
-.FlatAppearance.BorderSize = 1
-.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
-.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
-$btnAbrirRemovedor.ForeColor = [System.Drawing.Color]::White
+$btnAbrirRemovedor.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$btnAbrirRemovedor.ForeColor = [System.Drawing.Color]::FromArgb(52, 211, 153) # Emerald
 $btnAbrirRemovedor.FlatStyle = "Flat"
-$btnAbrirRemovedor.FlatAppearance.BorderSize = 0
+$btnAbrirRemovedor.FlatAppearance.BorderSize = 1
+$btnAbrirRemovedor.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
 $btnAbrirRemovedor.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnAbrirRemovedor.Add_Click({
   $pyScript = Join-Path $PSScriptRoot "removedor_fundo_app.py"
@@ -98,13 +94,11 @@ $btnAbrirVetorizador.Text = "Vetorizador IA"
 $btnAbrirVetorizador.Font = New-Object System.Drawing.Font("Segoe UI", 8.2, [System.Drawing.FontStyle]::Bold)
 $btnAbrirVetorizador.Location = New-Object System.Drawing.Point(435, 12)
 $btnAbrirVetorizador.Size = New-Object System.Drawing.Size(102, 36)
-$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
-.FlatAppearance.BorderSize = 1
-.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
-.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo
-$btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::White
+$btnAbrirVetorizador.BackColor = [System.Drawing.Color]::FromArgb(24, 27, 34)
+$btnAbrirVetorizador.ForeColor = [System.Drawing.Color]::FromArgb(129, 140, 248) # Indigo
 $btnAbrirVetorizador.FlatStyle = "Flat"
-$btnAbrirVetorizador.FlatAppearance.BorderSize = 0
+$btnAbrirVetorizador.FlatAppearance.BorderSize = 1
+$btnAbrirVetorizador.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
 $btnAbrirVetorizador.Cursor = [System.Windows.Forms.Cursors]::Hand
 $btnAbrirVetorizador.Add_Click({
   $pyScript = Join-Path $PSScriptRoot "vetorizador_app.py"
@@ -483,10 +477,7 @@ $pnlResumo.Controls.Add($lblMetragemInfo)
 $btnMontar = New-Object System.Windows.Forms.Button
 $btnMontar.Text = "2. MONTAR FOLHA OTIMIZADA (GANG SHEET)"
 $btnMontar.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
-$btnMontar.BackColor = [System.Drawing.Color]::FromArgb(30, 33, 41)
-.FlatAppearance.BorderSize = 1
-.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(39, 39, 42)
-.ForeColor = [System.Drawing.Color]::FromArgb(245, 158, 11) # Indigo 600
+$btnMontar.BackColor = [System.Drawing.Color]::FromArgb(217, 119, 6) # Amber 600
 $btnMontar.ForeColor = [System.Drawing.Color]::White
 $btnMontar.Location = New-Object System.Drawing.Point(20, 652)
 $btnMontar.Size = New-Object System.Drawing.Size(465, 48)
